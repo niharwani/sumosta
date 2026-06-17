@@ -1,0 +1,283 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import HoneycombLoader from '@/components/shared/HoneycombLoader';
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+
+function authHeaders() {
+  const token = localStorage.getItem('sumosta_access_token');
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+const schema = z.object({
+  name: z.string().min(2),
+  sku: z.string().min(2),
+  category_id: z.string().min(1, 'Select a category'),
+  price: z.coerce.number().min(1),
+  compare_at_price: z.coerce.number().optional(),
+  cost_price: z.coerce.number().optional(),
+  short_description: z.string().optional(),
+  description: z.string().optional(),
+  stock_quantity: z.coerce.number().min(0),
+  low_stock_threshold: z.coerce.number().min(0).default(10),
+  weight_grams: z.coerce.number().optional(),
+  meta_title: z.string().optional(),
+  meta_description: z.string().optional(),
+  tags: z.string().optional(),
+  is_active: z.boolean().default(true),
+  is_featured: z.boolean().default(false),
+});
+
+type FormData = z.infer<typeof schema>;
+
+const INDIAN_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Delhi','Jammu and Kashmir','Ladakh','Puducherry'];
+
+export default function NewProductPage() {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [variants, setVariants] = useState<{ name: string; sku: string; price_adjustment: number; stock: number }[]>([]);
+
+  const { data: catData } = useQuery({
+    queryKey: ['admin-categories'],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/categories`, { headers: authHeaders() });
+      return res.json();
+    },
+  });
+
+  const categories = catData?.data ?? [];
+
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema as any),
+    defaultValues: { is_active: true, is_featured: false, stock_quantity: 0, low_stock_threshold: 10 },
+  });
+
+  const addVariant = () => setVariants([...variants, { name: '', sku: '', price_adjustment: 0, stock: 0 }]);
+  const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
+  const updateVariant = (i: number, field: string, value: string | number) =>
+    setVariants(variants.map((v, idx) => idx === i ? { ...v, [field]: value } : v));
+
+  const onSubmit = async (data: FormData) => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(`${API}/api/admin/products`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ ...data, variants }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to create product');
+      router.push('/admin/products');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputClass = 'w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-satoshi text-gray-700 focus:outline-none focus:border-honey-400 transition-colors';
+  const labelClass = 'block font-satoshi text-gray-700 text-sm font-medium mb-1.5';
+  const errorClass = 'font-satoshi text-red-500 text-xs mt-1';
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/admin/products" className="text-gray-400 hover:text-gray-600 transition-colors">
+          <ArrowLeft size={18} />
+        </Link>
+        <h1 className="font-satoshi text-gray-800 font-semibold">New Product</h1>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Basic Info */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+          <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider">Basic Info</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Product Name *</label>
+              <input {...register('name')} className={inputClass} placeholder="Western Ghats Raw Honey" />
+              {errors.name && <p className={errorClass}>{errors.name.message}</p>}
+            </div>
+            <div>
+              <label className={labelClass}>SKU *</label>
+              <input {...register('sku')} className={inputClass} placeholder="WG-RAW-500" />
+              {errors.sku && <p className={errorClass}>{errors.sku.message}</p>}
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Category *</label>
+            <select {...register('category_id')} className={inputClass}>
+              <option value="">Select a category</option>
+              {categories.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {errors.category_id && <p className={errorClass}>{errors.category_id.message}</p>}
+          </div>
+          <div>
+            <label className={labelClass}>Short Description</label>
+            <textarea {...register('short_description')} className={`${inputClass} resize-none`} rows={2} placeholder="Brief product summary" />
+          </div>
+          <div>
+            <label className={labelClass}>Full Description</label>
+            <textarea {...register('description')} className={`${inputClass} resize-none`} rows={5} placeholder="Full product description (markdown supported)" />
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+          <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider">Pricing</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Price (₹) *</label>
+              <input type="number" {...register('price')} className={inputClass} placeholder="599" />
+              {errors.price && <p className={errorClass}>{errors.price.message}</p>}
+            </div>
+            <div>
+              <label className={labelClass}>Compare-at Price (₹)</label>
+              <input type="number" {...register('compare_at_price')} className={inputClass} placeholder="799" />
+            </div>
+            <div>
+              <label className={labelClass}>Cost Price (₹)</label>
+              <input type="number" {...register('cost_price')} className={inputClass} placeholder="250" />
+            </div>
+          </div>
+        </div>
+
+        {/* Inventory */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+          <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider">Inventory</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Stock Quantity *</label>
+              <input type="number" {...register('stock_quantity')} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Low Stock Threshold</label>
+              <input type="number" {...register('low_stock_threshold')} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Weight (grams)</label>
+              <input type="number" {...register('weight_grams')} className={inputClass} placeholder="500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Variants */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider">Variants</h2>
+            <button type="button" onClick={addVariant} className="flex items-center gap-1.5 text-xs font-satoshi font-medium text-honey-600 hover:text-honey-700">
+              <Plus size={13} /> Add Variant
+            </button>
+          </div>
+          {variants.length === 0 && (
+            <p className="font-satoshi text-gray-400 text-sm">No variants — single product. Add variants for size/flavor options.</p>
+          )}
+          {variants.map((v, i) => (
+            <div key={i} className="grid grid-cols-4 gap-3 items-end border border-gray-100 rounded-lg p-3">
+              <div>
+                <label className={labelClass}>Variant Name</label>
+                <input
+                  value={v.name}
+                  onChange={(e) => updateVariant(i, 'name', e.target.value)}
+                  className={inputClass}
+                  placeholder="500g"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>SKU</label>
+                <input
+                  value={v.sku}
+                  onChange={(e) => updateVariant(i, 'sku', e.target.value)}
+                  className={inputClass}
+                  placeholder="WG-500G"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Price Adj. (₹)</label>
+                <input
+                  type="number"
+                  value={v.price_adjustment}
+                  onChange={(e) => updateVariant(i, 'price_adjustment', Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className={labelClass}>Stock</label>
+                  <input
+                    type="number"
+                    value={v.stock}
+                    onChange={(e) => updateVariant(i, 'stock', Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </div>
+                <button type="button" onClick={() => removeVariant(i)} className="pb-2.5 text-gray-400 hover:text-red-500">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* SEO */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+          <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider">SEO</h2>
+          <div>
+            <label className={labelClass}>Meta Title</label>
+            <input {...register('meta_title')} className={inputClass} placeholder="Western Ghats Raw Honey — SUMOSTA" />
+          </div>
+          <div>
+            <label className={labelClass}>Meta Description</label>
+            <textarea {...register('meta_description')} className={`${inputClass} resize-none`} rows={2} />
+          </div>
+          <div>
+            <label className={labelClass}>Tags (comma-separated)</label>
+            <input {...register('tags')} className={inputClass} placeholder="raw honey, organic, western ghats" />
+          </div>
+        </div>
+
+        {/* Status */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider mb-4">Status</h2>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" {...register('is_active')} className="accent-honey-400 w-4 h-4" />
+              <span className="font-satoshi text-gray-700 text-sm">Active (visible to customers)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" {...register('is_featured')} className="accent-honey-400 w-4 h-4" />
+              <span className="font-satoshi text-gray-700 text-sm">Featured (show on homepage)</span>
+            </label>
+          </div>
+        </div>
+
+        {error && <p className="font-satoshi text-red-500 text-sm">{error}</p>}
+
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 bg-honey-400 hover:bg-honey-500 disabled:opacity-50 text-midnight font-satoshi font-semibold text-sm px-6 py-2.5 rounded-lg transition-colors"
+          >
+            {submitting ? <HoneycombLoader size="sm" /> : null}
+            {submitting ? 'Creating...' : 'Create Product'}
+          </button>
+          <Link href="/admin/products" className="font-satoshi text-gray-500 hover:text-gray-700 text-sm px-4 py-2.5">
+            Cancel
+          </Link>
+        </div>
+      </form>
+    </div>
+  );
+}

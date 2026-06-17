@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* === PRIMARY — Honey Spectrum === */
+  --honey-50:       #FFF9F0;
+  --honey-100:      #FFF0D6;
+  --honey-200:      #FFE0A8;
+  --honey-300:      #FFCC66;
+  --honey-400:      #F5A623;
+  --honey-500:      #D4891A;
+  --honey-600:      #A66A10;
+  --honey-700:      #7A4D0B;
+
+  /* === NEUTRAL — Warm Cream to Charcoal === */
+  --cream:          #FFFDF8;
+  --cream-warm:     #FDF6EC;
+  --sand:           #F0E6D3;
+  --earth-light:    #C4B39A;
+  --earth:          #8B7355;
+  --bark:           #5C4A32;
+  --charcoal:       #2C2417;
+  --midnight:       #1A150E;
+
+  /* === ACCENT — Botanical === */
+  --sage:           #7C9A6E;
+  --sage-light:     #E8F0E4;
+  --terracotta:     #C4573A;
+  --terracotta-light: #FDE8E3;
+  --beeswax:        #F7E89E;
+
+  /* === FUNCTIONAL === */
+  --overlay:        rgba(26, 21, 14, 0.6);
+  --glass:          rgba(255, 253, 248, 0.8);
+  --shadow-sm:      0 1px 3px rgba(44, 36, 23, 0.06);
+  --shadow-md:      0 4px 12px rgba(44, 36, 23, 0.08);
+  --shadow-lg:      0 12px 40px rgba(44, 36, 23, 0.12);
+  --shadow-honey:   0 8px 30px rgba(245, 166, 35, 0.2);
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--charcoal);
+  font-family: var(--font-satoshi), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Grain texture overlay for hero/feature sections */
+.grain-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  opacity: 0.4;
+  z-index: 1;
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+
+.font-clash   { font-family: var(--font-clash), sans-serif; }
+.font-satoshi { font-family: var(--font-satoshi), sans-serif; }
+.font-bespoke { font-family: var(--font-bespoke), serif; }
+
+/* ============================================================
+   HONEYCOMB SVG PATTERN BACKGROUND
+   ============================================================ */
+
+.honeycomb-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100' viewBox='0 0 56 100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zM28 100L0 84V66l28 16 28-16v18L28 100z' fill='none' stroke='%23F5A623' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 56px 100px;
+  opacity: 0.03;
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sand);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--earth-light);
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+
+::selection {
+  background-color: var(--honey-200);
+  color: var(--charcoal);
+}
+
+/* ============================================================
+   FOCUS STYLES
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--honey-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   ANIMATION KEYFRAMES
+   ============================================================ */
+
+@keyframes marquee {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-16px); }
+}
+
+@keyframes beeFly {
+  0%   { transform: translateX(-100px) translateY(20px); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translateX(120vw) translateY(-10px); opacity: 0; }
+}
+
+@keyframes honeyDrip {
+  0%   { transform: scaleY(0); transform-origin: top; }
+  100% { transform: scaleY(1); transform-origin: top; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fadeInUp {
+  0%   { opacity: 0; transform: translateY(40px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounceSubtle {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.4); }
+  50%       { box-shadow: 0 0 0 10px rgba(245, 166, 35, 0); }
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+.animate-marquee       { animation: marquee 30s linear infinite; }
+.animate-float         { animation: float 4s ease-in-out infinite; }
+.animate-bee-fly       { animation: beeFly 3s cubic-bezier(0.25, 0.1, 0.25, 1.0) forwards; }
+.animate-bounce-subtle { animation: bounceSubtle 2s ease-in-out infinite; }
+.animate-pulse-gold    { animation: pulseGold 2s ease-in-out infinite; }
+
+.pause-on-hover:hover .animate-marquee { animation-play-state: paused; }
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--sand) 25%, var(--cream-warm) 50%, var(--sand) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Golden border glow */
+.border-honey-glow {
+  border: 1px solid var(--honey-300);
+  box-shadow: var(--shadow-honey);
+}
+
+/* Reduced motion overrides */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   LENIS SMOOTH SCROLL
+   ============================================================ */
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}

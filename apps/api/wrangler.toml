@@ -1,0 +1,45 @@
+name = "sumosta-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+BASE_URL = "https://sumosta.com"
+PHONEPE_ENV = "sandbox"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sumosta-db"
+database_id = "7a171634-4f06-42dd-b498-9170f4f4e09f"
+
+# R2 — uncomment after enabling R2 in Cloudflare dashboard
+# [[r2_buckets]]
+# binding = "R2"
+# bucket_name = "sumosta-assets"
+
+[[kv_namespaces]]
+binding = "KV_SESSIONS"
+id = "67beb9fb9c4e4dd9a3cd57a20c2a8f24"
+
+[[kv_namespaces]]
+binding = "KV_CACHE"
+id = "1419cfd9d0b248589435d8362ed11374"
+
+# Analytics Engine — uncomment after enabling in Cloudflare dashboard
+# [[analytics_engine_datasets]]
+# binding = "ANALYTICS"
+# dataset = "sumosta_events"
+
+[triggers]
+crons = ["0 18 * * *"]
+
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# PHONEPE_MERCHANT_ID
+# PHONEPE_SALT_KEY
+# PHONEPE_SALT_INDEX
+# JWT_SECRET
+# REFRESH_TOKEN_SECRET
+# RESEND_API_KEY
+
+[dev]
+port = 8787

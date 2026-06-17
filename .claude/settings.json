@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat next.config.js)",
+      "Bash(cat next.config.mjs)",
+      "Bash(cat next.config.ts)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

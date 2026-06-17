@@ -1,9 +1,4 @@
 name = "sumosta-web"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
-main = ".open-next/worker.js"
-assets = { directory = ".open-next/assets", binding = "ASSETS" }
-
-[vars]
-NEXT_PUBLIC_API_URL = "https://sumosta-api.sumosta-dev.workers.dev"
-NEXT_PUBLIC_SITE_URL = "https://sumosta-web.workers.dev"
+pages_build_output_dir = ".vercel/output/static"

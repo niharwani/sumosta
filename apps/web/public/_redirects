@@ -1,0 +1,5 @@
+/product/* /product/_placeholder/ 200
+/order-confirmation/* /order-confirmation/_placeholder/ 200
+/account/orders/:id /account/orders/_placeholder/ 200
+/admin/orders/:id /admin/orders/_placeholder/ 200
+/admin/customers/:id /admin/customers/_placeholder/ 200

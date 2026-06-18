@@ -12,10 +12,9 @@ binding = "DB"
 database_name = "sumosta-db"
 database_id = "7a171634-4f06-42dd-b498-9170f4f4e09f"
 
-# R2 — uncomment after enabling R2 in Cloudflare dashboard
-# [[r2_buckets]]
-# binding = "R2"
-# bucket_name = "sumosta-assets"
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "sumosta-assets"
 
 [[kv_namespaces]]
 binding = "KV_SESSIONS"

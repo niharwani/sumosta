@@ -64,7 +64,8 @@ app.post('/login', zValidator('json', loginSchema), async (c) => {
     return c.json({ success: false, error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' }, 401);
   }
 
-  const accessToken  = await signJwt({ sub: user.id, email: user.email, role: user.role }, c.env.JWT_SECRET, '15m');
+  const isAdmin = user.role === 'admin' || user.role === 'superadmin';
+  const accessToken  = await signJwt({ sub: user.id, email: user.email, role: user.role }, c.env.JWT_SECRET, isAdmin ? '8h' : '15m');
   const refreshToken = generateRefreshToken();
 
   await c.env.KV_SESSIONS.put(`refresh:${user.id}:${refreshToken}`, user.id, {
@@ -83,8 +84,19 @@ app.post('/login', zValidator('json', loginSchema), async (c) => {
 
 // ─── POST /api/auth/refresh ─────────────────────────────────
 app.post('/refresh', async (c) => {
-  const body = await c.req.json<{ refreshToken: string; userId: string }>();
-  const { refreshToken, userId } = body;
+  const body = await c.req.json<{ refreshToken: string; userId?: string }>();
+  const { refreshToken } = body;
+
+  // userId is optional — scan KV by prefix if not provided
+  let userId = body.userId;
+  if (!userId) {
+    const listed = await c.env.KV_SESSIONS.list({ prefix: `refresh:` });
+    const match = listed.keys.find((k) => k.name.endsWith(`:${refreshToken}`));
+    if (!match) {
+      return c.json({ success: false, error: 'Invalid refresh token', code: 'INVALID_TOKEN' }, 401);
+    }
+    userId = match.name.split(':')[1];
+  }
 
   const storedId = await c.env.KV_SESSIONS.get(`refresh:${userId}:${refreshToken}`);
   if (!storedId || storedId !== userId) {
@@ -99,10 +111,10 @@ app.post('/refresh', async (c) => {
     return c.json({ success: false, error: 'User not found', code: 'USER_NOT_FOUND' }, 404);
   }
 
-  const accessToken  = await signJwt({ sub: user.id, email: user.email, role: user.role }, c.env.JWT_SECRET, '15m');
-  const newRefresh   = generateRefreshToken();
+  const isAdmin = user.role === 'admin' || user.role === 'superadmin';
+  const accessToken = await signJwt({ sub: user.id, email: user.email, role: user.role }, c.env.JWT_SECRET, isAdmin ? '8h' : '15m');
+  const newRefresh  = generateRefreshToken();
 
-  // Rotate refresh token
   await c.env.KV_SESSIONS.delete(`refresh:${userId}:${refreshToken}`);
   await c.env.KV_SESSIONS.put(`refresh:${userId}:${newRefresh}`, userId, {
     expirationTtl: REFRESH_TOKEN_TTL,

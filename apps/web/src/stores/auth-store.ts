@@ -29,6 +29,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     if (typeof window !== 'undefined') {
       localStorage.setItem(ACCESS_KEY, accessToken);
       localStorage.setItem(REFRESH_KEY, refreshToken);
+      localStorage.setItem('sumosta_user_id', user.id);
     }
     set({ user, accessToken, refreshToken });
   },
@@ -37,6 +38,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     if (typeof window !== 'undefined') {
       localStorage.removeItem(ACCESS_KEY);
       localStorage.removeItem(REFRESH_KEY);
+      localStorage.removeItem('sumosta_user_id');
     }
     set({ user: null, accessToken: null, refreshToken: null });
   },

@@ -3,3 +3,4 @@
 /account/orders/:id /account/orders/_placeholder/ 200
 /admin/orders/:id /admin/orders/_placeholder/ 200
 /admin/customers/:id /admin/customers/_placeholder/ 200
+/admin/products/:id/edit /admin/products/_placeholder/edit/ 200

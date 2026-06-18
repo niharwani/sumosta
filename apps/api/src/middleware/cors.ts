@@ -7,7 +7,9 @@ export const corsMiddleware = cors({
       'https://www.sumosta.com',
       'http://localhost:3000',
     ];
-    return allowed.includes(origin) ? origin : 'https://sumosta.com';
+    if (allowed.includes(origin)) return origin;
+    if (origin?.endsWith('.sumosta-web.pages.dev')) return origin;
+    return 'https://sumosta.com';
   },
   allowMethods:  ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders:  ['Content-Type', 'Authorization', 'X-Session-ID'],

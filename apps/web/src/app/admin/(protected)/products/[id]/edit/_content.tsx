@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
@@ -37,10 +37,11 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const INDIAN_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Delhi','Jammu and Kashmir','Ladakh','Puducherry'];
-
-export default function NewProductPage() {
+export default function EditProductContent() {
   const router = useRouter();
+  const params = useParams();
+  const id = params['id'] as string;
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [variants, setVariants] = useState<{ name: string; sku: string; price_adjustment: number; stock: number }[]>([]);
@@ -53,12 +54,60 @@ export default function NewProductPage() {
     },
   });
 
-  const categories = catData?.data ?? [];
+  const { data: productData, isLoading: productLoading } = useQuery({
+    queryKey: ['admin-product', id],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/admin/products/${id}`, { headers: authHeaders() });
+      return res.json();
+    },
+    enabled: !!id && id !== '_placeholder',
+  });
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const categories = catData?.data ?? [];
+  const product = productData?.data;
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema as any),
     defaultValues: { is_active: true, is_featured: false, stock_quantity: 0, low_stock_threshold: 10 },
   });
+
+  // Pre-populate form once product data loads
+  useEffect(() => {
+    if (!product) return;
+    const tagsStr = Array.isArray(product.tags)
+      ? product.tags.join(', ')
+      : typeof product.tags === 'string'
+        ? (() => { try { return JSON.parse(product.tags).join(', '); } catch { return product.tags; } })()
+        : '';
+
+    reset({
+      name:               product.name ?? '',
+      sku:                product.sku ?? '',
+      category_id:        product.category_id ?? '',
+      price:              product.price ?? 0,
+      compare_at_price:   product.compare_at_price ?? undefined,
+      cost_price:         product.cost_price ?? undefined,
+      short_description:  product.short_description ?? '',
+      description:        product.description ?? '',
+      stock_quantity:     product.stock ?? 0,
+      low_stock_threshold: product.low_stock_threshold ?? 10,
+      weight_grams:       product.weight ?? undefined,
+      meta_title:         product.meta_title ?? '',
+      meta_description:   product.meta_description ?? '',
+      tags:               tagsStr,
+      is_active:          product.is_active === 1 || product.is_active === true,
+      is_featured:        product.is_featured === 1 || product.is_featured === true,
+    });
+
+    if (Array.isArray(product.variants)) {
+      setVariants(product.variants.map((v: any) => ({
+        name:             v.name ?? '',
+        sku:              v.sku ?? '',
+        price_adjustment: v.price_adjustment ?? 0,
+        stock:            v.stock ?? 0,
+      })));
+    }
+  }, [product, reset]);
 
   const addVariant = () => setVariants([...variants, { name: '', sku: '', price_adjustment: 0, stock: 0 }]);
   const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
@@ -98,13 +147,13 @@ export default function NewProductPage() {
         variants,
       };
 
-      const res = await fetch(`${API}/api/admin/products`, {
-        method: 'POST',
+      const res = await fetch(`${API}/api/admin/products/${id}`, {
+        method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to create product');
+      if (!res.ok) throw new Error(json.error || 'Failed to save product');
       router.push('/admin/products');
     } catch (e: any) {
       setError(e.message);
@@ -117,13 +166,28 @@ export default function NewProductPage() {
   const labelClass = 'block font-satoshi text-gray-700 text-sm font-medium mb-1.5';
   const errorClass = 'font-satoshi text-red-500 text-xs mt-1';
 
+  if (productLoading) {
+    return <div className="flex justify-center py-20"><HoneycombLoader size="lg" /></div>;
+  }
+
+  if (!product && id !== '_placeholder') {
+    return (
+      <div className="text-center py-20">
+        <p className="font-satoshi text-gray-400">Product not found</p>
+        <Link href="/admin/products" className="font-satoshi text-honey-500 hover:underline mt-2 inline-block">
+          ← Back to Products
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/admin/products" className="text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft size={18} />
         </Link>
-        <h1 className="font-satoshi text-gray-800 font-semibold">New Product</h1>
+        <h1 className="font-satoshi text-gray-800 font-semibold">Edit Product</h1>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -300,7 +364,7 @@ export default function NewProductPage() {
             className="flex items-center gap-2 bg-honey-400 hover:bg-honey-500 disabled:opacity-50 text-midnight font-satoshi font-semibold text-sm px-6 py-2.5 rounded-lg transition-colors"
           >
             {submitting ? <HoneycombLoader size="sm" /> : null}
-            {submitting ? 'Creating...' : 'Create Product'}
+            {submitting ? 'Saving...' : 'Save Changes'}
           </button>
           <Link href="/admin/products" className="font-satoshi text-gray-500 hover:text-gray-700 text-sm px-4 py-2.5">
             Cancel

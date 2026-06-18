@@ -109,6 +109,40 @@ app.post('/', zValidator('json', productSchema), async (c) => {
   return c.json({ success: true, data: { id, slug } }, 201);
 });
 
+// ─── GET /api/admin/products/:id ─────────────────────────────
+app.get('/:id', async (c) => {
+  const id = c.req.param('id');
+
+  const product = await c.env.DB.prepare(`
+    SELECT p.*,
+           c.name as category_name,
+           pi.url as primary_image
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
+    WHERE p.id = ?
+  `).bind(id).first<Record<string, unknown>>();
+
+  if (!product) {
+    return c.json({ success: false, error: 'Product not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  const variantsResult = await c.env.DB.prepare(`
+    SELECT id, product_id, name, sku, price_adjustment, stock
+    FROM product_variants
+    WHERE product_id = ?
+    ORDER BY id ASC
+  `).bind(id).all();
+
+  return c.json({
+    success: true,
+    data: {
+      ...product,
+      variants: variantsResult.results,
+    },
+  });
+});
+
 // ─── PATCH /api/admin/products/:id — partial update (e.g., toggle active) ───
 app.patch('/:id', async (c) => {
   const id   = c.req.param('id');

@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:prod": "NEXT_PUBLIC_API_URL=https://sumosta-api.sumosta-dev.workers.dev NEXT_PUBLIC_SITE_URL=https://sumosta.com next build",
+    "deploy": "pnpm build:prod && wrangler pages deploy out --project-name sumosta-web --commit-dirty=true",
     "build:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
     "deploy:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion && wrangler deploy",
     "start": "next start",

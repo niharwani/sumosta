@@ -15,28 +15,12 @@ export const metadata: Metadata = {
     "Raw, unprocessed honey from India's wildest apiaries. Western Ghats, Sundarbans, and Himalayan single-origin honey.",
 };
 
-async function getFeaturedProducts() {
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-    const res = await fetch(`${apiUrl}/api/products?sort=featured&limit=8`, {
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.data?.products ?? [];
-  } catch {
-    return [];
-  }
-}
-
-export default async function HomePage() {
-  const featuredProducts = await getFeaturedProducts();
-
+export default function HomePage() {
   return (
     <>
       <HeroSection />
       <MarqueeBanner />
-      <ProductShowcase products={featuredProducts} />
+      <ProductShowcase />
       <GoldenDivider />
       <BrandStoryStrip />
       <CategoryGrid />

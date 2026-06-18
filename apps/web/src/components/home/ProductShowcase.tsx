@@ -1,26 +1,33 @@
 'use client';
-import { useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import ProductCard from '@/components/product/ProductCard';
-import type { Product } from 'shared';
 
-interface ProductShowcaseProps {
-  products: Product[];
-}
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
-export default function ProductShowcase({ products }: ProductShowcaseProps) {
+export default function ProductShowcase() {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     slidesToScroll: 1,
     dragFree: true,
   });
 
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['products', 'featured'],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/products?sort=featured&limit=8`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data?.products ?? json.products ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   return (
     <section className="py-20 lg:py-32 bg-cream overflow-hidden">
       <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12">
-        {/* Header */}
         <div className="flex items-end justify-between mb-10">
           <div>
             <RevealOnScroll variant="fadeUp">
@@ -52,16 +59,57 @@ export default function ProductShowcase({ products }: ProductShowcaseProps) {
         </div>
       </div>
 
-      {/* Carousel */}
-      <div ref={emblaRef} className="overflow-hidden pl-6 md:pl-8 lg:pl-12">
-        <div className="flex gap-5">
-          {products.map((product, i) => (
-            <div key={product.id} className="min-w-[280px] md:min-w-[320px]">
-              <ProductCard product={product} index={i} />
+      {/* Skeleton loading */}
+      {isLoading && (
+        <div className="flex gap-5 pl-6 md:pl-8 lg:pl-12 overflow-hidden">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="min-w-[280px] md:min-w-[320px] shrink-0">
+              <div className="aspect-[3/4] rounded-lg skeleton mb-3" />
+              <div className="h-3 skeleton rounded mb-2 w-3/4" />
+              <div className="h-3 skeleton rounded w-1/2" />
             </div>
           ))}
         </div>
-      </div>
+      )}
+
+      {/* Carousel */}
+      {!isLoading && products.length > 0 && (
+        <div ref={emblaRef} className="overflow-hidden pl-6 md:pl-8 lg:pl-12">
+          <div className="flex gap-5">
+            {products.map((product: any, i: number) => (
+              <div key={product.id} className="min-w-[280px] md:min-w-[320px] shrink-0">
+                <ProductCard product={product} index={i} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state — shown when API has no products yet */}
+      {!isLoading && products.length === 0 && (
+        <div className="pl-6 md:pl-8 lg:pl-12 pr-6">
+          <div className="flex gap-5 overflow-hidden">
+            {['Western Ghats Raw Honey', 'Himalayan Wild Honey', 'Honey Sticks Pack', 'Cinnamon Honey Spread'].map((name, i) => (
+              <div key={i} className="min-w-[280px] md:min-w-[320px] shrink-0">
+                <div
+                  className="aspect-[3/4] rounded-lg mb-3 flex items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, #FFF0D6 0%, #FFE0A8 50%, #FFCC66 100%)` }}
+                >
+                  <span className="font-clash font-bold text-honey-600/30 text-6xl select-none">
+                    {['🍯', '🌿', '🍬', '✨'][i]}
+                  </span>
+                </div>
+                <p className="font-satoshi text-earth-light text-xs uppercase tracking-wider mb-1">Raw Honey</p>
+                <h3 className="font-satoshi text-charcoal font-medium text-sm mb-1">{name}</h3>
+                <span className="font-satoshi text-honey-500 font-semibold text-sm">from ₹499</span>
+              </div>
+            ))}
+          </div>
+          <p className="font-satoshi text-earth-light text-xs mt-4">
+            Products load from the live API — seed the database to see real products here.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

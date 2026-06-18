@@ -1,11 +1,9 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import MagneticButton from '@/components/shared/MagneticButton';
+import HeroJar from '@/components/home/HeroJar';
 
 export default function HeroSection() {
   const titleRef = useRef<HTMLDivElement>(null);
@@ -27,7 +25,7 @@ export default function HeroSection() {
     });
   }, []);
 
-  const splitText = (text: string, baseDelay: number) =>
+  const splitText = (text: string) =>
     text.split('').map((ch, i) => (
       <span key={`${text}-${i}`} className="hero-char inline-block" style={{ opacity: 0 }}>
         {ch === ' ' ? ' ' : ch}
@@ -37,39 +35,49 @@ export default function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-cream via-honey-50 to-honey-100">
       {/* Honeycomb background pattern */}
-      <div className="absolute inset-0 honeycomb-bg opacity-[0.03] pointer-events-none" />
+      <div className="absolute inset-0 honeycomb-bg pointer-events-none" style={{ opacity: 0.035 }} />
 
-      <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12 w-full grid lg:grid-cols-[3fr_2fr] gap-12 items-center py-24 lg:py-0">
-        {/* Left: Text */}
+      <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12 w-full grid lg:grid-cols-2 gap-8 items-center py-28 lg:py-0">
+
+        {/* ── Left: Text ── */}
         <div>
           <motion.p
-            className="font-satoshi text-honey-500 text-sm uppercase tracking-[0.2em] mb-6"
-            initial={{ opacity: 0, y: 20 }}
+            className="font-satoshi text-honey-500 text-xs uppercase tracking-[0.22em] mb-6"
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
           >
             Single-Origin &bull; Wild Sourced &bull; Unprocessed
           </motion.p>
 
-          <div ref={titleRef} className="mb-6">
-            <div className="font-bespoke italic text-honey-400 leading-none" style={{ fontSize: 'clamp(3rem, 7vw, 6rem)' }}>
-              {splitText("Nature's", 0)}
+          <div ref={titleRef} className="mb-7 leading-none">
+            <div
+              className="font-bespoke italic text-honey-400"
+              style={{ fontSize: 'clamp(2.8rem, 6.5vw, 5.5rem)' }}
+            >
+              {splitText("Nature's")}
             </div>
-            <div className="font-clash font-bold text-charcoal leading-none" style={{ fontSize: 'clamp(3.5rem, 8vw, 7rem)' }}>
-              {splitText('Golden', 0)}
+            <div
+              className="font-clash font-bold text-charcoal"
+              style={{ fontSize: 'clamp(3.5rem, 8vw, 7rem)' }}
+            >
+              {splitText('Golden')}
             </div>
-            <div className="font-clash font-bold text-charcoal leading-none" style={{ fontSize: 'clamp(3.5rem, 8vw, 7rem)' }}>
-              {splitText('Promise', 0)}
+            <div
+              className="font-clash font-bold text-charcoal"
+              style={{ fontSize: 'clamp(3.5rem, 8vw, 7rem)' }}
+            >
+              {splitText('Promise')}
             </div>
           </div>
 
           <motion.p
-            className="font-satoshi text-earth text-base md:text-lg leading-relaxed max-w-xl mb-10"
+            className="font-satoshi text-earth text-base md:text-lg leading-relaxed max-w-lg mb-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 1.2 }}
           >
-            Raw, unprocessed honey sourced from India&rsquo;s wildest apiaries. From hive to home, nothing added, nothing taken.
+            Raw, unprocessed honey sourced from India&apos;s wildest apiaries. From hive to home, nothing added, nothing taken.
           </motion.p>
 
           <motion.div
@@ -80,7 +88,6 @@ export default function HeroSection() {
           >
             <Link
               href="/shop"
-              data-cursor-text="SHOP"
               className="bg-honey-400 text-midnight font-satoshi font-semibold px-8 py-4 rounded-md hover:bg-honey-500 transition-colors shadow-honey"
             >
               Shop Collection
@@ -95,28 +102,26 @@ export default function HeroSection() {
           </motion.div>
         </div>
 
-        {/* Right: Product image */}
+        {/* ── Right: Illustrated honey jar ── */}
         <motion.div
           className="relative flex items-center justify-center"
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.88 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 1.1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Golden glow */}
-          <div className="absolute inset-0 bg-honey-200 rounded-full blur-3xl opacity-40 scale-75" />
+          {/* Soft radial backdrop */}
+          <div
+            className="absolute rounded-full blur-3xl bg-honey-200 opacity-50"
+            style={{ width: '70%', height: '60%', top: '20%', left: '15%' }}
+          />
 
+          {/* Floating jar */}
           <motion.div
-            className="relative w-72 h-96 md:w-80 md:h-[480px]"
-            animate={{ y: [0, -16, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            className="relative w-56 h-80 sm:w-64 sm:h-96 md:w-72 md:h-[440px]"
+            animate={{ y: [0, -14, 0] }}
+            transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Image
-              src="/images/products/western-ghats-honey.jpg"
-              alt="SUMOSTA Western Ghats Raw Honey"
-              fill
-              priority
-              className="object-contain drop-shadow-2xl"
-            />
+            <HeroJar />
           </motion.div>
         </motion.div>
       </div>

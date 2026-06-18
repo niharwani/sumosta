@@ -11,7 +11,8 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       <Navbar />
       <MobileMenu />
       <CartDrawer />
-      <main className="pt-16">{children}</main>
+      {/* pt accounts for fixed announcement bar (h-10 = 2.5rem) + fixed navbar (h-16 = 4rem) */}
+      <main className="pt-[6.5rem]">{children}</main>
       <Footer />
     </>
   );

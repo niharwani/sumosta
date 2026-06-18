@@ -4,6 +4,7 @@ interface UIState {
   isMobileMenuOpen: boolean;
   isSearchOpen: boolean;
   activeModal: string | null;
+  announcementVisible: boolean;
 }
 
 interface UIActions {
@@ -14,12 +15,14 @@ interface UIActions {
   closeSearch: () => void;
   openModal: (name: string) => void;
   closeModal: () => void;
+  setAnnouncementVisible: (v: boolean) => void;
 }
 
 export const useUIStore = create<UIState & UIActions>((set) => ({
   isMobileMenuOpen: false,
   isSearchOpen: false,
   activeModal: null,
+  announcementVisible: true,
 
   openMobileMenu: () => set({ isMobileMenuOpen: true }),
   closeMobileMenu: () => set({ isMobileMenuOpen: false }),
@@ -30,4 +33,6 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
 
   openModal: (name) => set({ activeModal: name }),
   closeModal: () => set({ activeModal: null }),
+
+  setAnnouncementVisible: (v) => set({ announcementVisible: v }),
 }));

@@ -1,37 +1,38 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUIStore } from '@/stores/ui-store';
 
 const DISMISS_KEY = 'sumosta_bar_dismissed';
 
 export default function AnnouncementBar() {
-  const [visible, setVisible] = useState(false);
+  const { announcementVisible, setAnnouncementVisible } = useUIStore();
 
   useEffect(() => {
     const dismissed = sessionStorage.getItem(DISMISS_KEY);
-    if (!dismissed) setVisible(true);
-  }, []);
+    setAnnouncementVisible(!dismissed);
+  }, [setAnnouncementVisible]);
 
   const dismiss = () => {
     sessionStorage.setItem(DISMISS_KEY, '1');
-    setVisible(false);
+    setAnnouncementVisible(false);
   };
 
   return (
     <AnimatePresence>
-      {visible && (
+      {announcementVisible && (
         <motion.div
           initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
+          animate={{ height: '2.5rem', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-honey-400 text-midnight overflow-hidden"
+          className="fixed top-0 inset-x-0 z-[60] bg-honey-400 text-midnight overflow-hidden"
         >
-          <div className="max-w-content mx-auto px-6 py-2.5 flex items-center justify-between gap-4">
+          <div className="max-w-content mx-auto px-6 h-10 flex items-center justify-between gap-4">
             <p className="text-xs font-satoshi font-medium text-center flex-1">
-              🍯 Free shipping on orders over ₹500 &nbsp;·&nbsp; Use code{' '}
-              <span className="font-bold underline">WELCOME10</span> for 10% off your first order
+              🍯 Free shipping on orders over ₹500 &nbsp;&middot;&nbsp; Use code{' '}
+              <span className="font-bold">WELCOME10</span> for 10% off your first order
             </p>
             <button
               onClick={dismiss}

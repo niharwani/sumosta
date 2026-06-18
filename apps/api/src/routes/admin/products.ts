@@ -114,12 +114,9 @@ app.get('/:id', async (c) => {
   const id = c.req.param('id');
 
   const product = await c.env.DB.prepare(`
-    SELECT p.*,
-           c.name as category_name,
-           pi.url as primary_image
+    SELECT p.*, c.name as category_name
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
-    LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
     WHERE p.id = ?
   `).bind(id).first<Record<string, unknown>>();
 
@@ -127,17 +124,22 @@ app.get('/:id', async (c) => {
     return c.json({ success: false, error: 'Product not found', code: 'NOT_FOUND' }, 404);
   }
 
-  const variantsResult = await c.env.DB.prepare(`
-    SELECT id, product_id, name, sku, price_adjustment, stock
-    FROM product_variants
-    WHERE product_id = ?
-    ORDER BY id ASC
-  `).bind(id).all();
+  const [variantsResult, imagesResult] = await Promise.all([
+    c.env.DB.prepare(`
+      SELECT id, product_id, name, sku, price_adjustment, stock
+      FROM product_variants WHERE product_id = ? ORDER BY id ASC
+    `).bind(id).all(),
+    c.env.DB.prepare(`
+      SELECT id, url, alt_text, is_primary, sort_order
+      FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, sort_order ASC
+    `).bind(id).all(),
+  ]);
 
   return c.json({
     success: true,
     data: {
       ...product,
+      images:   imagesResult.results,
       variants: variantsResult.results,
     },
   });
@@ -325,6 +327,22 @@ app.delete('/:id/images/:imageId', async (c) => {
     return c.json({ success: false, error: 'Image not found', code: 'NOT_FOUND' }, 404);
   }
 
+  await bustProductCache(c.env.KV_CACHE, product.slug);
+
+  return c.json({ success: true, data: null });
+});
+
+// ─── PATCH /api/admin/products/:id/images/:imageId/primary ───
+app.patch('/:id/images/:imageId/primary', async (c) => {
+  const productId = c.req.param('id');
+  const imageId   = c.req.param('imageId');
+
+  const product = await c.env.DB.prepare('SELECT id, slug FROM products WHERE id = ?')
+    .bind(productId).first<{ id: string; slug: string }>();
+  if (!product) return c.json({ success: false, error: 'Product not found', code: 'NOT_FOUND' }, 404);
+
+  await c.env.DB.prepare('UPDATE product_images SET is_primary = 0 WHERE product_id = ?').bind(productId).run();
+  await c.env.DB.prepare('UPDATE product_images SET is_primary = 1 WHERE id = ? AND product_id = ?').bind(imageId, productId).run();
   await bustProductCache(c.env.KV_CACHE, product.slug);
 
   return c.json({ success: true, data: null });

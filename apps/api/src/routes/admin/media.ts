@@ -8,6 +8,44 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('*', adminMiddleware as any);
 
+// ─── POST /api/admin/media/upload ────────────────────────────
+// Receive a file (multipart/form-data), store in R2, return public URL
+app.post('/upload', async (c) => {
+  if (!c.env.R2) {
+    return c.json({ success: false, error: 'Storage not configured', code: 'NOT_AVAILABLE' }, 503);
+  }
+
+  const formData = await c.req.formData();
+  const file = formData.get('file') as File | null;
+  const folder = (formData.get('folder') as string | null) ?? 'products';
+
+  if (!file || !(file instanceof File)) {
+    return c.json({ success: false, error: 'No file provided', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+  if (file.size > MAX_SIZE) {
+    return c.json({ success: false, error: 'File too large (max 20 MB)', code: 'FILE_TOO_LARGE' }, 413);
+  }
+
+  const allowed = ['image/jpeg','image/png','image/webp','image/gif','image/avif','video/mp4','video/webm','video/quicktime'];
+  if (!allowed.includes(file.type)) {
+    return c.json({ success: false, error: 'Unsupported file type', code: 'UNSUPPORTED_TYPE' }, 415);
+  }
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const key = `${folder}/${Date.now()}-${safeName}`;
+
+  await c.env.R2.put(key, await file.arrayBuffer(), {
+    httpMetadata: { contentType: file.type },
+    customMetadata: { originalName: file.name },
+  });
+
+  const publicUrl = `${new URL(c.env.BASE_URL).origin}/api/media/${key}`;
+
+  return c.json({ success: true, data: { key, publicUrl, contentType: file.type, size: file.size } }, 201);
+});
+
 const uploadUrlSchema = z.object({
   filename:    z.string().min(1),
   contentType: z.string().min(1),

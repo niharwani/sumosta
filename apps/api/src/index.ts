@@ -79,6 +79,20 @@ app.route('/api/newsletter', newsletterRoute);
 app.route('/api/addresses',  addressesRoute);
 
 // ============================================================
+// PUBLIC MEDIA SERVING (R2 → browser)
+// ============================================================
+app.get('/api/media/:key{.+}', async (c) => {
+  if (!c.env.R2) return c.json({ error: 'Not available' }, 503);
+  const key = c.req.param('key');
+  const obj = await c.env.R2.get(key);
+  if (!obj) return c.json({ error: 'Not found' }, 404);
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  return new Response(obj.body, { headers });
+});
+
+// ============================================================
 // ADMIN ROUTES
 // ============================================================
 app.route('/api/admin',                    adminDashboardRoute);

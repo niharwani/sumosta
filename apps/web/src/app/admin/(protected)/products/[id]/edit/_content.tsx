@@ -373,11 +373,11 @@ export default function EditProductContent() {
   const labelClass = 'block font-satoshi text-gray-700 text-sm font-medium mb-1.5';
   const errorClass = 'font-satoshi text-red-500 text-xs mt-1';
 
-  if (productLoading) {
+  if (id === '_placeholder') {
     return <div className="flex justify-center py-20"><HoneycombLoader size="lg" /></div>;
   }
 
-  if (!product && id !== '_placeholder') {
+  if (!productLoading && !product) {
     return (
       <div className="text-center py-20">
         <p className="font-satoshi text-gray-400 mb-2">Product not found.</p>
@@ -400,7 +400,7 @@ export default function EditProductContent() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Media */}
-        {product && (
+        {id && id !== '_placeholder' && (
           <MediaSection
             productId={id}
             images={images}

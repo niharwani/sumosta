@@ -14,7 +14,7 @@ VALUES (
     'SUMOSTA Admin',
     'admin@sumosta.com',
     '9999999999',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhy2',
+    '$2a$10$0sdgxVLHTIc5OPDzCz0Yo.4IcUCamIGh3Cl1DxHxw6zFfWmqsPS1C',
     'superadmin'
 );
 

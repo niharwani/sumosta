@@ -126,7 +126,7 @@ app.get('/:id', async (c) => {
 
   const [variantsResult, imagesResult] = await Promise.all([
     c.env.DB.prepare(`
-      SELECT id, product_id, name, sku, price_adjustment, stock
+      SELECT id, product_id, name, sku, price_adjust, stock
       FROM product_variants WHERE product_id = ? ORDER BY id ASC
     `).bind(id).all(),
     c.env.DB.prepare(`
@@ -186,9 +186,9 @@ app.patch('/:id', async (c) => {
 });
 
 // ─── PUT /api/admin/products/:id ─────────────────────────────
-app.put('/:id', zValidator('json', productSchema.partial()), async (c) => {
+app.put('/:id', async (c) => {
   const id   = c.req.param('id');
-  const body = c.req.valid('json');
+  const body = await c.req.json<Record<string, unknown>>();
 
   const existing = await c.env.DB.prepare(
     'SELECT id, slug FROM products WHERE id = ?',

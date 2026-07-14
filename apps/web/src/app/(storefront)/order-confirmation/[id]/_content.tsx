@@ -3,12 +3,17 @@ import { useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useCartStore } from '@/stores/cart-store';
 
 export default function OrderConfirmationPage() {
   const { id } = useParams<{ id: string }>();
   const checkRef = useRef<SVGPathElement>(null);
+  const clearCart = useCartStore((s) => s.clearCart);
 
   useEffect(() => {
+    // Clear shopping cart on checkout success
+    clearCart();
+
     if (!checkRef.current) return;
     import('animejs').then(({ default: anime }) => {
       anime({
@@ -19,7 +24,7 @@ export default function OrderConfirmationPage() {
         delay: 300,
       });
     });
-  }, []);
+  }, [clearCart]);
 
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-6 text-center py-20">

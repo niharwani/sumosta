@@ -25,7 +25,6 @@ export default function RelatedProducts({ products }: { products: RelatedProduct
               )}
             </div>
             <p className="font-satoshi text-charcoal text-sm font-medium line-clamp-2 mb-1">{product.name}</p>
-            <p className="font-satoshi text-honey-500 text-sm font-semibold">{formatPrice(product.price)}</p>
           </Link>
         ))}
       </div>

@@ -29,14 +29,20 @@ const CONTACT_INFO = [
   },
   {
     icon: Phone,
-    label: 'Phone',
-    value: '+91 98765 43210',
-    href: 'tel:+919876543210',
+    label: 'Phone / WhatsApp',
+    value: '+91 91378 81791',
+    href: 'tel:+919137881791',
   },
   {
     icon: MapPin,
-    label: 'Address',
-    value: 'Mumbai, Maharashtra, India',
+    label: 'Registered Office',
+    value: '603, Om Residency, Murar Road, Mulund West, Mumbai, Maharashtra, India - 400080',
+    href: null,
+  },
+  {
+    icon: MapPin,
+    label: 'Office & Storage',
+    value: 'Office no. 6, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai - 400009, India',
     href: null,
   },
 ];
@@ -87,8 +93,8 @@ export default function ContactPage() {
         <h1 className="font-clash text-charcoal font-bold" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)' }}>
           Say Hello
         </h1>
-        <p className="font-satoshi text-earth mt-4 max-w-md mx-auto">
-          Questions about our honey, wholesale enquiries, or just want to share your love for bees — we'd love to hear from you.
+        <p className="font-satoshi text-earth mt-4 max-w-xl mx-auto leading-relaxed">
+          From raw, un-processed forest honeys, ultra-premium rare stingless bee honey to corporate gifting or B2B tie-ups – our team is here to help.
         </p>
       </motion.div>
 

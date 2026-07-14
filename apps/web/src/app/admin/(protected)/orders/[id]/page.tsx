@@ -1,3 +1,7 @@
+import dynamic from 'next/dynamic';
+
+const Content = dynamic(() => import('./_content'), { ssr: false });
+
 export function generateStaticParams() { return [{ id: '_placeholder' }]; }
-import Content from './_content';
+
 export default function Page() { return <Content />; }

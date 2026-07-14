@@ -1,6 +1,6 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
@@ -25,8 +25,13 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function AdminOrderDetailPage() {
-  const { id } = useParams();
+  const [id, setId] = useState('_placeholder');
   const qc = useQueryClient();
+
+  useEffect(() => {
+    const match = window.location.pathname.match(/\/admin\/orders\/([^/]+)/);
+    if (match?.[1]) setId(match[1]);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-order', id],
@@ -34,6 +39,7 @@ export default function AdminOrderDetailPage() {
       const res = await fetch(`${API}/api/admin/orders/${id}`, { headers: authHeaders() });
       return res.json();
     },
+    enabled: !!id && id !== '_placeholder',
   });
 
   const updateMutation = useMutation({

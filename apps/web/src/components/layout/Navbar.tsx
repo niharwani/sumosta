@@ -2,21 +2,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingBag, Search, User, Menu } from 'lucide-react';
+import { Search, Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { NAV_LINKS } from '@/lib/constants';
-import { useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
-import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
-  const itemCount = useCartStore((s) => s.itemCount);
-  const openCart = useCartStore((s) => s.openCart);
   const { openMobileMenu, announcementVisible } = useUIStore();
-  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -25,8 +20,12 @@ export default function Navbar() {
   }, []);
 
   const isActive = (href: string) => {
-    if (href === '/shop') return pathname === '/shop' || pathname.startsWith('/product/');
-    return pathname === href || pathname.startsWith(href + '/');
+    const normPath = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+    const normHref = href.endsWith('/') ? href.slice(0, -1) : href;
+    if (normHref === '/shop') {
+      return normPath.startsWith('/shop') || normPath.startsWith('/product');
+    }
+    return normPath === normHref;
   };
 
   return (
@@ -80,31 +79,7 @@ export default function Navbar() {
             <Search size={20} />
           </Link>
 
-          <Link
-            href={isAuthenticated ? '/account/orders' : '/auth/login'}
-            aria-label="Account"
-            className="text-bark hover:text-charcoal transition-colors hidden sm:block"
-          >
-            <User size={20} />
-          </Link>
 
-          <button
-            aria-label={`Cart (${itemCount} items)`}
-            onClick={openCart}
-            className="relative text-bark hover:text-charcoal transition-colors"
-          >
-            <ShoppingBag size={20} />
-            {itemCount > 0 && (
-              <motion.span
-                key={itemCount}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-1.5 -right-1.5 bg-honey-400 text-midnight text-[9px] font-bold font-satoshi min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5"
-              >
-                {itemCount > 99 ? '99+' : itemCount}
-              </motion.span>
-            )}
-          </button>
 
           <button
             aria-label="Open menu"

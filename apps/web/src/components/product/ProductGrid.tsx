@@ -20,6 +20,7 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
   const [sort, setSort]         = useState(initialSort);
   const [page, setPage]         = useState(1);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [subTab, setSubTab]     = useState<'single' | 'trial'>('single');
 
   const { data, isFetching } = useQuery({
     queryKey: ['products', category, sort, page],
@@ -33,15 +34,41 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
   });
 
   useEffect(() => {
-    if (!data) return;
+    if (!data) {
+      setAllProducts([]);
+      return;
+    }
     setAllProducts((prev) => (page === 1 ? data.products : [...prev, ...data.products]));
   }, [data, page]);
+
+  // Sync state when URL category parameter changes
+  useEffect(() => {
+    setCategory(initialCategory ?? '');
+  }, [initialCategory]);
+
+  // Reset subtab when category changes
+  useEffect(() => {
+    if (category !== 'raw-honey') {
+      setSubTab('single');
+    }
+  }, [category]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-    setAllProducts([]);
   }, [category, sort]);
+
+  const filteredProducts = allProducts.filter((p) => {
+    if (category === 'raw-honey') {
+      if (subTab === 'single') {
+        return p.id !== 'prod_trial_box_60g';
+      }
+      if (subTab === 'trial') {
+        return p.id === 'prod_trial_box_60g';
+      }
+    }
+    return true;
+  });
 
   const hasMore = data ? page < data.totalPages : false;
 
@@ -90,12 +117,36 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
         </select>
       </div>
 
+      {/* Sub-tabs under Raw Honey */}
+      {category === 'raw-honey' && (
+        <div className="flex gap-6 mb-8 border-b border-sand pb-3 -mt-4">
+          <button
+            onClick={() => setSubTab('single')}
+            className={cn(
+              "font-satoshi text-sm pb-1.5 border-b-2 transition-all font-medium",
+              subTab === 'single' ? "border-honey-500 text-charcoal font-semibold" : "border-transparent text-bark hover:text-charcoal"
+            )}
+          >
+            Single Origin Jars
+          </button>
+          <button
+            onClick={() => setSubTab('trial')}
+            className={cn(
+              "font-satoshi text-sm pb-1.5 border-b-2 transition-all font-medium",
+              subTab === 'trial' ? "border-honey-500 text-charcoal font-semibold" : "border-transparent text-bark hover:text-charcoal"
+            )}
+          >
+            5 Elements Trial Box
+          </button>
+        </div>
+      )}
+
       {/* Grid */}
-      {isFetching && page === 1 ? (
+      {isFetching && filteredProducts.length === 0 ? (
         <div className="flex justify-center py-20">
           <HoneycombLoader size="lg" />
         </div>
-      ) : allProducts.length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <div className="flex flex-col items-center py-20 gap-4 text-center">
           <span className="text-6xl">🫙</span>
           <p className="font-clash text-charcoal text-2xl">No products found</p>
@@ -110,14 +161,14 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
         <>
           <AnimatePresence mode="wait">
             <motion.div
-              key={`${category}-${sort}`}
+              key={`${category}-${sort}-${subTab}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-6"
             >
-              {allProducts.map((product, i) => (
+              {filteredProducts.map((product, i) => (
                 <ProductCard key={product.id} product={product} index={i % 12} />
               ))}
             </motion.div>

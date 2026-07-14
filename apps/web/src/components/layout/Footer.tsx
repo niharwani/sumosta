@@ -18,7 +18,7 @@ export default function Footer() {
               Raw, unprocessed honey sourced from India&rsquo;s wildest apiaries. From hive to home, nothing added, nothing taken.
             </p>
             <div className="flex gap-4">
-              <a href="https://instagram.com/sumosta" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-earth-light hover:text-honey-300 transition-colors">
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-earth-light hover:text-honey-300 transition-colors">
                 <Instagram size={18} />
               </a>
               <a href="https://twitter.com/sumosta" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="text-earth-light hover:text-honey-300 transition-colors">
@@ -73,13 +73,21 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* Address and Compliance details */}
+        <div className="border-t border-earth/20 pt-6 pb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="font-satoshi text-[11px] text-earth-light text-left leading-relaxed max-w-lg">
+            <span className="font-medium text-cream">Brand Owner & Packer: Yatris NutriFoods Pvt Ltd</span>
+          </div>
+          <div className="font-satoshi text-[10px] text-earth-light md:text-right text-left leading-relaxed max-w-xl">
+            <strong>Registered Address:</strong> 603, Om Residency, Murar Road, Mulund West, Mumbai, Maharashtra, India - 400080<br />
+            <strong>Business Address:</strong> Office no. 6, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai - 400009, India
+          </div>
+        </div>
+
         {/* Bottom bar */}
-        <div className="border-t border-earth/20 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="border-t border-earth/20 pt-6 text-center sm:text-left">
           <p className="font-satoshi text-earth-light text-xs">
             &copy; {new Date().getFullYear()} SUMOSTA. All rights reserved.
-          </p>
-          <p className="font-satoshi text-earth-light text-xs">
-            UPI &bull; Visa &bull; Mastercard &bull; RuPay
           </p>
         </div>
       </div>

@@ -69,27 +69,172 @@ async function request<T>(
 // ============================================================
 // PRODUCTS
 // ============================================================
+import { STATIC_PRODUCTS, STATIC_CATEGORIES, MOCK_REVIEWS, STATIC_COMBOS, type BatchCertificate } from './content';
+import type { Product, Category } from 'shared';
+
+// Formatted combos as virtual products to support shop page category filters
+const COMBO_PRODUCTS_MAPPED: (Product & {
+  comingSoon?: boolean;
+  sourcingStory?: string;
+  nutritionalBenefits?: string[];
+  batchCertificate?: BatchCertificate;
+})[] = STATIC_COMBOS.map((c) => ({
+  id: c.id,
+  name: c.name,
+  slug: c.slug,
+  sku: c.id,
+  categoryId: 'gift-boxes',
+  category: {
+    id: 'gift-boxes',
+    name: 'Gift Boxes & Combos',
+    slug: 'gift-boxes',
+    description: 'SUMOSTA curated forest honey combinations and gifting sets.',
+    imageUrl: null,
+    sortOrder: 5,
+  },
+  shortDescription: c.description,
+  description: c.description,
+  price: c.price,
+  compareAtPrice: c.compareAtPrice,
+  costPrice: null,
+  stock: 50,
+  lowStockThreshold: 2,
+  weight: 1500,
+  tags: ['combo', 'gifting', 'giftbox', 'organic'],
+  isFeatured: true,
+  isActive: true,
+  metaTitle: c.name,
+  metaDescription: c.description,
+  images: [
+    {
+      id: `img_${c.id}`,
+      url: c.image,
+      altText: c.name,
+      sortOrder: 1,
+      isPrimary: true,
+    },
+  ],
+  variants: c.variants ?? [],
+  averageRating: 4.8,
+  reviewCount: 15,
+  createdAt: '2026-06-01T00:00:00Z',
+  updatedAt: '2026-06-01T00:00:00Z',
+  comingSoon: false,
+  batchCertificate: undefined,
+  sourcingStory: 'A beautifully packaged curation of our finest wild forest honeys. Perfect for gifting wellness to loved ones.',
+  nutritionalBenefits: [
+    'Verifiably pure wild honey assortments.',
+    'Packaged in organic premium gift settings.',
+    'Provides diverse nutritional profiles in one set.'
+  ],
+}));
+
 export const productsApi = {
-  list: (params?: {
+  list: async (params?: {
     category?: string;
     sort?: string;
     search?: string;
     page?: number;
     limit?: number;
-  }) => request<{ products: any[]; total: number; page: number; totalPages: number }>(
-    '/api/products',
-    { params: params as any },
-  ),
+  }) => {
+    // Simulate API delay
+    await new Promise((r) => setTimeout(r, 100));
 
-  get: (slug: string) => request<any>(`/api/products/${slug}`),
+    // Combine standard products and virtual combo products
+    let list = [...STATIC_PRODUCTS, ...COMBO_PRODUCTS_MAPPED];
+
+    // Filter by Category
+    if (params?.category) {
+      const cat = params.category;
+      if (cat === 'raw-honey') {
+        list = list.filter((p) => p.category?.slug === 'raw-honey');
+      } else if (cat === 'honey-sticks') {
+        // Map Honey Sticks to Proprietary Superfoods infusion category
+        list = list.filter((p) => p.category?.slug === 'superfoods');
+      } else if (cat === 'honey-spreads') {
+        // Map Honey Spreads to Spreads category
+        list = list.filter((p) => p.category?.slug === 'spreads');
+      } else if (cat === 'gift-boxes') {
+        list = list.filter((p) => p.categoryId === 'gift-boxes');
+      } else {
+        list = list.filter((p) => p.category?.slug === cat || p.categoryId === cat);
+      }
+    }
+
+    // Filter by Search
+    if (params?.search) {
+      const q = params.search.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.shortDescription.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q)),
+      );
+    }
+
+    // Sort
+    const sort = params?.sort ?? 'featured';
+    if (sort === 'price_asc') {
+      list.sort((a, b) => a.price - b.price);
+    } else if (sort === 'price_desc') {
+      list.sort((a, b) => b.price - a.price);
+    } else if (sort === 'newest') {
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else {
+      // featured - show active/featured first
+      list.sort((a, b) => {
+        if (a.isFeatured && !b.isFeatured) return -1;
+        if (!a.isFeatured && b.isFeatured) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    // Pagination
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 12;
+    const total = list.length;
+    const totalPages = Math.ceil(total / limit);
+    const paginated = list.slice((page - 1) * limit, page * limit);
+
+    return {
+      products: paginated,
+      total,
+      page,
+      totalPages,
+    };
+  },
+
+  get: async (slug: string) => {
+    await new Promise((r) => setTimeout(r, 50));
+    const all = [...STATIC_PRODUCTS, ...COMBO_PRODUCTS_MAPPED];
+    const product = all.find((p) => p.slug === slug || p.id === slug);
+    if (!product) {
+      throw new ApiError('NOT_FOUND', 'Product not found', 404);
+    }
+    // Attach reviews
+    const reviews = MOCK_REVIEWS[product.id] ?? [];
+    return {
+      ...product,
+      reviews,
+      relatedProducts: all.filter((p) => p.id !== product.id && p.categoryId === product.categoryId).slice(0, 4)
+    };
+  },
 };
 
 // ============================================================
 // CATEGORIES
 // ============================================================
 export const categoriesApi = {
-  list: () => request<any[]>('/api/categories'),
-  get:  (slug: string) => request<any>(`/api/categories/${slug}`),
+  list: async () => {
+    await new Promise((r) => setTimeout(r, 50));
+    return Object.values(STATIC_CATEGORIES);
+  },
+  get: async (slug: string) => {
+    await new Promise((r) => setTimeout(r, 50));
+    const cat = STATIC_CATEGORIES[slug] || Object.values(STATIC_CATEGORIES).find(c => c.id === slug);
+    if (!cat) throw new ApiError('NOT_FOUND', 'Category not found', 404);
+    return cat;
+  },
 };
 
 // ============================================================
@@ -141,20 +286,24 @@ export const cartApi = {
     }),
 };
 
-// ============================================================
-// CHECKOUT
-// ============================================================
 export const checkoutApi = {
-  create: (data: {
+  create: async (data: {
     email: string;
     phone: string;
     shippingAddress: any;
     couponCode?: string;
-  }) =>
-    request<{ orderId: string; paymentUrl: string; merchantTransactionId: string }>(
-      '/api/checkout',
-      { method: 'POST', body: data },
-    ),
+  }) => {
+    // Simulate payment gateway connection
+    await new Promise((r) => setTimeout(r, 1500));
+    
+    // Generate a mock order reference
+    const orderId = 'SMS-' + Math.floor(100000 + Math.random() * 900000);
+    return {
+      orderId,
+      paymentUrl: `/order-confirmation/${orderId}/?email=${encodeURIComponent(data.email)}`,
+      merchantTransactionId: 'TXN-' + Math.floor(10000000 + Math.random() * 90000000),
+    };
+  },
 };
 
 // ============================================================
@@ -177,15 +326,48 @@ export const reviewsApi = {
     request<any>('/api/reviews', { method: 'POST', body: data }),
 };
 
-// ============================================================
-// COUPONS
-// ============================================================
 export const couponsApi = {
-  validate: (code: string, cartTotal: number) =>
-    request<{ valid: boolean; discount?: number; coupon?: any; error?: string }>(
-      '/api/coupons/validate',
-      { method: 'POST', body: { code, cartTotal } },
-    ),
+  validate: async (code: string, cartTotal: number) => {
+    await new Promise((r) => setTimeout(r, 150));
+    const c = code.toUpperCase();
+    
+    if (c === 'SUMOSTA10') {
+      if (cartTotal < 499) {
+        return { valid: false, error: 'Minimum order amount for SUMOSTA10 is ₹499' };
+      }
+      const discount = Math.round(cartTotal * 0.1);
+      return {
+        valid: true,
+        discount,
+        coupon: { id: 'coup_10', code: 'SUMOSTA10', type: 'percentage' as const, value: 10, minOrderAmount: 499, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
+      };
+    }
+    
+    if (c === 'GOLDEN20') {
+      if (cartTotal < 999) {
+        return { valid: false, error: 'Minimum order amount for GOLDEN20 is ₹999' };
+      }
+      const discount = Math.round(cartTotal * 0.2);
+      return {
+        valid: true,
+        discount,
+        coupon: { id: 'coup_20', code: 'GOLDEN20', type: 'percentage' as const, value: 20, minOrderAmount: 999, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
+      };
+    }
+
+    if (c === 'FREE49') {
+      if (cartTotal < 299) {
+        return { valid: false, error: 'Minimum order amount for FREE49 is ₹299' };
+      }
+      return {
+        valid: true,
+        discount: 49,
+        coupon: { id: 'coup_49', code: 'FREE49', type: 'fixed' as const, value: 49, minOrderAmount: 299, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
+      };
+    }
+    
+    return { valid: false, error: 'Invalid coupon code. Try SUMOSTA10 or GOLDEN20!' };
+  },
 };
 
 // ============================================================

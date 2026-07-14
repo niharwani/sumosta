@@ -6,23 +6,23 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'SUMOSTA — Nature\'s Golden Promise',
+    default: 'SUMOSTA — Indulgence that cares',
     template: '%s | SUMOSTA',
   },
   description:
-    "Raw, unprocessed honey sourced from India's wildest apiaries. Western Ghats, Sundarbans, and Himalayan single-origin honey. From hive to home, nothing added, nothing taken.",
+    "Raw, unprocessed honey sourced from India's wildest apiaries. Western Ghats, Saranda, Abujhmarh, Kandhamal, and Himalayan single-origin honey. From hive to home, nothing added, nothing taken.",
   keywords: ['raw honey', 'organic honey', 'single origin honey', 'India honey', 'Western Ghats honey'],
   metadataBase: new URL('https://sumosta.com'),
   openGraph: {
     type:        'website',
     siteName:    'SUMOSTA',
-    title:       "SUMOSTA — Nature's Golden Promise",
+    title:       "SUMOSTA — Indulgence that cares",
     description: "Raw, unprocessed honey sourced from India's wildest apiaries.",
     images:      [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'SUMOSTA Honey' }],
   },
   twitter: {
     card:  'summary_large_image',
-    title: "SUMOSTA — Nature's Golden Promise",
+    title: "SUMOSTA — Indulgence that cares",
   },
   manifest: '/site.webmanifest',
   icons: {

@@ -56,7 +56,7 @@ function computeDerived(items: CartItem[], coupon: Coupon | null): CartDerived {
   }
 
   const afterDiscount = Math.max(0, subtotal - discount);
-  const shipping = afterDiscount >= 500 ? 0 : 99;
+  const shipping = afterDiscount >= 499 ? 0 : 99;
   const total = afterDiscount + shipping;
 
   return { subtotal, discount, shipping, total, itemCount };

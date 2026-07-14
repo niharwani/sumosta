@@ -1,84 +1,64 @@
 import { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Privacy Policy' };
+export const metadata: Metadata = { title: 'Privacy Policy | SUMOSTA' };
 
 export default function PrivacyPage() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20">
+    <div className="max-w-4xl mx-auto px-6 py-20 bg-cream">
       <h1 className="font-clash text-charcoal font-bold text-4xl mb-2">Privacy Policy</h1>
-      <p className="font-satoshi text-earth text-sm mb-10">Last updated: December 2024</p>
+      <p className="font-satoshi text-earth-light text-sm mb-10">Last updated: July 2026</p>
 
-      <div className="prose-sumosta space-y-8 font-satoshi text-bark leading-relaxed">
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">1. Information We Collect</h2>
-          <p>
-            When you use SUMOSTA, we collect information you provide directly to us, including your name, email address, phone number, and shipping address when you create an account or place an order. We also collect payment information (processed securely through PhonePe — we never store card details) and your order history.
-          </p>
-          <p className="mt-3">
-            We automatically collect certain information when you visit our website, including your IP address, browser type, pages viewed, and referring URLs. This helps us improve our site and detect fraud.
-          </p>
-        </section>
+      <div className="space-y-8 font-satoshi text-bark leading-relaxed text-justify">
+        <p className="text-sm">
+          SUMOSTA is committed to protecting your privacy. This Privacy Policy outlines how we collect, use, disclose, and safeguard your personal information when you visit our website <span className="font-semibold text-charcoal">www.sumosta.com</span> and purchase our products.
+        </p>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">2. How We Use Your Information</h2>
-          <ul className="list-disc list-inside space-y-2 text-earth">
-            <li>Process and fulfill your orders</li>
-            <li>Send order confirmations and shipping updates via email and SMS</li>
-            <li>Respond to your customer service requests</li>
-            <li>Send you marketing emails (only with your consent, unsubscribe anytime)</li>
-            <li>Improve our products, website, and customer experience</li>
-            <li>Detect and prevent fraud and unauthorized access</li>
-            <li>Comply with legal obligations</li>
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">1. Information We Collect</h2>
+          <p className="text-sm">We collect information directly from you when you interact with our website. This includes:</p>
+          <ul className="list-disc list-inside space-y-2 text-sm pl-2">
+            <li>
+              <span className="font-bold text-charcoal">Personal Identity Data:</span> Name, email address, phone number, shipping address, and billing address.
+            </li>
+            <li>
+              <span className="font-bold text-charcoal">Payment Data:</span> Transaction details processed securely through our RBI-authorized third-party payment gateways (e.g., Razorpay, PayU). <span className="italic">We never store your credit card numbers, CVVs, or net banking passwords on our servers.</span>
+            </li>
+            <li>
+              <span className="font-bold text-charcoal">Technical Data:</span> IP address, browser type, device details, and website browsing behavior collected through cookies to enhance your shopping experience.
+            </li>
           </ul>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">3. Information Sharing</h2>
-          <p>
-            We do not sell, rent, or trade your personal information with third parties for their marketing purposes. We share your information only with:
-          </p>
-          <ul className="list-disc list-inside space-y-2 text-earth mt-3">
-            <li><strong>Shipping partners</strong> — to deliver your orders</li>
-            <li><strong>PhonePe</strong> — to process payments securely</li>
-            <li><strong>Resend</strong> — to send transactional emails</li>
-            <li><strong>Cloudflare</strong> — our infrastructure provider</li>
-            <li><strong>Law enforcement</strong> — if required by law</li>
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">2. How We Use Your Information</h2>
+          <p className="text-sm">We use your data strictly to fulfill our commitment to you:</p>
+          <ul className="list-disc list-inside space-y-2 text-sm pl-2">
+            <li>To process, pack, track, and deliver your orders.</li>
+            <li>To send transactional updates (order confirmation, shipping tracking).</li>
+            <li>To share curated wellness insights, upcoming launches (like our spreads and lattes), and exclusive offers (only if you opt-in).</li>
+            <li>To combat fraudulent transactions and ensure website safety.</li>
           </ul>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">4. Data Security</h2>
-          <p>
-            We use industry-standard encryption (TLS/HTTPS) for all data in transit. Passwords are hashed using bcrypt. We never store payment card numbers. Access to customer data is restricted to authorized personnel only.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">5. Your Rights</h2>
-          <p>You have the right to:</p>
-          <ul className="list-disc list-inside space-y-2 text-earth mt-3">
-            <li>Access the personal information we hold about you</li>
-            <li>Correct inaccurate information</li>
-            <li>Request deletion of your account and associated data</li>
-            <li>Opt out of marketing communications</li>
-            <li>Lodge a complaint with the relevant data protection authority</li>
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">3. Data Protection & Sharing</h2>
+          <ul className="list-disc list-inside space-y-2 text-sm pl-2">
+            <li><span className="font-bold text-charcoal">We never</span> sell, rent, or trade your personal data to third-party marketing companies.</li>
+            <li>Your data is shared exclusively with trusted service providers necessary to operate our brand: courier and logistics partners (to deliver your honey) and secure payment processors.</li>
           </ul>
-          <p className="mt-3">
-            To exercise any of these rights, email us at <a href="mailto:privacy@sumosta.com" className="text-honey-500 hover:underline">privacy@sumosta.com</a>.
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">4. Cookies</h2>
+          <p className="text-sm">
+            We use cookies to remember the items in your shopping cart, analyze web traffic, and personalize your experience. You can choose to disable cookies through your browser settings, though it may limit some features of our online store.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">6. Cookies</h2>
-          <p>
-            We use essential cookies to keep you logged in and remember your cart. We use analytics cookies to understand how visitors use our site (you can opt out). We do not use third-party advertising cookies.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">7. Contact</h2>
-          <p>
-            For privacy questions, contact us at <a href="mailto:privacy@sumosta.com" className="text-honey-500 hover:underline">privacy@sumosta.com</a> or write to us at our registered address in Mumbai, Maharashtra, India.
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">5. Your Rights</h2>
+          <p className="text-sm">
+            You have the right to access, update, or request the deletion of your personal data stored with us at any time. Please contact our Grievance Officer at <a href="mailto:hello@sumosta.com" className="text-honey-500 hover:underline font-bold">hello@sumosta.com</a> for any privacy-related requests.
           </p>
         </section>
       </div>

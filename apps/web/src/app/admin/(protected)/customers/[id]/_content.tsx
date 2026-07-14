@@ -1,6 +1,6 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
@@ -19,7 +19,12 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function AdminCustomerDetailPage() {
-  const { id } = useParams();
+  const [id, setId] = useState('_placeholder');
+
+  useEffect(() => {
+    const match = window.location.pathname.match(/\/admin\/customers\/([^/]+)/);
+    if (match?.[1]) setId(match[1]);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-customer', id],
@@ -30,6 +35,7 @@ export default function AdminCustomerDetailPage() {
       });
       return res.json();
     },
+    enabled: !!id && id !== '_placeholder',
   });
 
   const customer = data?.data;

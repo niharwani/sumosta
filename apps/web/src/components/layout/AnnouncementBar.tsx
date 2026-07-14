@@ -31,8 +31,7 @@ export default function AnnouncementBar() {
         >
           <div className="max-w-content mx-auto px-6 h-10 flex items-center justify-between gap-4">
             <p className="text-xs font-satoshi font-medium text-center flex-1">
-              🍯 Free shipping on orders over ₹500 &nbsp;&middot;&nbsp; Use code{' '}
-              <span className="font-bold">WELCOME10</span> for 10% off your first order
+              🍯 Sourcing single-origin, raw, unheated forest honey from India's untamed landscapes.
             </p>
             <button
               onClick={dismiss}

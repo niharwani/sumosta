@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <rect width="100%" height="100%" fill="#FDF6EC" />
+  <g transform="translate(50, 40)">
+    <!-- Box Shadow -->
+    <rect x="15" y="85" width="270" height="140" rx="8" fill="#2C2417" opacity="0.1" />
+    
+    <!-- Main Box Body -->
+    <rect x="20" y="80" width="260" height="130" rx="6" fill="#FDF6EC" stroke="#2C2417" stroke-width="2" />
+    
+    <!-- Box Lid -->
+    <rect x="15" y="60" width="270" height="25" rx="3" fill="#FDF6EC" stroke="#2C2417" stroke-width="2" />
+    
+    <!-- Ribbon Vert -->
+    <rect x="140" y="60" width="20" height="150" fill="#F5A623" />
+    <!-- Ribbon Horiz -->
+    <rect x="20" y="130" width="260" height="15" fill="#F5A623" />
+    
+    <!-- Ribbon Bow -->
+    <ellipse cx="130" cy="50" rx="20" ry="10" fill="none" stroke="#F5A623" stroke-width="5" />
+    <ellipse cx="170" cy="50" rx="20" ry="10" fill="none" stroke="#F5A623" stroke-width="5" />
+    <circle cx="150" cy="55" r="8" fill="#F5A623" />
+    
+    <!-- Label -->
+    <rect x="70" y="150" width="160" height="50" rx="4" fill="#FFFDF8" stroke="#F5A623" stroke-width="1" />
+    <text x="150" y="172" font-family="Georgia, serif" font-weight="bold" font-size="14" fill="#2C2417" text-anchor="middle">SUMOSTA</text>
+    <text x="150" y="188" font-family="sans-serif" font-size="7" font-weight="bold" fill="#8B7355" text-anchor="middle">FOREST ESSENTIALS COMBO</text>
+  </g>
+</svg>

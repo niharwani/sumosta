@@ -9,7 +9,7 @@ const TESTIMONIALS = [
   { name: 'Rohan Mehta', location: 'Mumbai', rating: 5, text: 'Got the Connoisseur gift box for my parents and they loved every single variety. The honeycomb especially blew them away. Premium quality, beautiful packaging.' },
   { name: 'Ananya Krishnan', location: 'Chennai', rating: 5, text: 'The Turmeric Golden Honey spread is my morning ritual now. Stirred into warm milk, it\'s the most soothing thing. Reordering my 3rd jar.' },
   { name: 'Dev Patel', location: 'Hyderabad', rating: 5, text: 'Ordered the honey sticks for office use. Super convenient, and the quality is so much better than anything at the supermarket. The assorted pack is great.' },
-  { name: 'Meera Nair', location: 'Kochi', rating: 5, text: 'Finally a honey brand that takes sourcing seriously. I love that each batch has an apiary location. The Sundarbans Mangrove honey has a depth of flavour I didn\'t know honey could have.' },
+  { name: 'Meera Nair', location: 'Kochi', rating: 5, text: 'Finally a honey brand that takes sourcing seriously. I love that each batch has an apiary location. The Wild Forest honey has a depth of flavour I didn\'t know honey could have.' },
 ];
 
 export default function TestimonialCarousel() {

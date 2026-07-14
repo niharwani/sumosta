@@ -1,106 +1,90 @@
 import { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Shipping Policy' };
+export const metadata: Metadata = { title: 'Shipping & Delivery Policy | SUMOSTA' };
 
 export default function ShippingPage() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20">
-      <h1 className="font-clash text-charcoal font-bold text-4xl mb-2">Shipping Policy</h1>
-      <p className="font-satoshi text-earth text-sm mb-10">Last updated: December 2024</p>
+    <div className="max-w-4xl mx-auto px-6 py-20 bg-cream">
+      <h1 className="font-clash text-charcoal font-bold text-4xl mb-2">Shipping & Delivery Policy</h1>
+      <p className="font-satoshi text-earth-light text-sm mb-10">Last updated: July 2026</p>
 
-      <div className="space-y-8 font-satoshi text-bark leading-relaxed">
-        <section className="bg-honey-50 border border-honey-100 rounded-xl p-5">
-          <p className="font-satoshi text-honey-700 font-semibold">
-            🍯 Free shipping on all orders above ₹500 within India.
+      <div className="space-y-8 font-satoshi text-bark leading-relaxed text-justify">
+        <section className="bg-honey-50 border border-sand p-6 rounded-2xl">
+          <p className="font-satoshi text-honey-700 font-semibold text-center text-sm md:text-base">
+            🍯 Thank you for choosing SUMOSTA. We are committed to delivering our products straight from nature to your dining table as safely and swiftly as possible.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Shipping Charges</h2>
-          <div className="border border-sand rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-cream-warm">
-                <tr>
-                  <th className="text-left px-5 py-3 font-satoshi text-earth text-sm font-semibold">Order Value</th>
-                  <th className="text-left px-5 py-3 font-satoshi text-earth text-sm font-semibold">Shipping Charge</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sand">
-                <tr>
-                  <td className="px-5 py-3 font-satoshi text-bark text-sm">Below ₹500</td>
-                  <td className="px-5 py-3 font-satoshi text-bark text-sm">₹99</td>
-                </tr>
-                <tr>
-                  <td className="px-5 py-3 font-satoshi text-bark text-sm">₹500 and above</td>
-                  <td className="px-5 py-3 font-satoshi text-sage font-semibold text-sm">FREE</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Processing & Timeline</h2>
+          <ul className="list-disc list-inside space-y-2 text-sm pl-2">
+            <li>
+              <span className="font-bold text-charcoal">Order Processing:</span> All orders are processed within 24 to 48 business hours (excluding Sundays and National Holidays) after receiving your order confirmation. If for some reason the dispatch is delayed beyond the stipulated 48 hours, our customers will be informed about the reason for the delay and given an expected dispatch date.
+            </li>
+            <li>
+              <span className="font-bold text-charcoal">Transit Times:</span>
+              <ul className="list-circle pl-6 mt-2 space-y-1">
+                <li><span className="font-semibold text-charcoal">Metro Cities:</span> 3 to 5 business days.</li>
+                <li><span className="font-semibold text-charcoal">Rest of India:</span> 5 to 7 business days.</li>
+                <li><span className="italic">Note:</span> Remote regions or regions experiencing unexpected weather disruptions may take up to 10 business days.</li>
+              </ul>
+            </li>
+          </ul>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Delivery Timelines</h2>
-          <div className="border border-sand rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-cream-warm">
-                <tr>
-                  <th className="text-left px-5 py-3 font-satoshi text-earth text-sm font-semibold">Location</th>
-                  <th className="text-left px-5 py-3 font-satoshi text-earth text-sm font-semibold">Estimated Delivery</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sand">
-                {[
-                  ['Metro cities (Mumbai, Delhi, Bengaluru, Hyderabad, Chennai, Kolkata)', '2–4 business days'],
-                  ['Tier 2 cities', '3–5 business days'],
-                  ['Tier 3 cities and towns', '5–7 business days'],
-                  ['Remote / difficult-to-access areas', '7–10 business days'],
-                ].map(([loc, time]) => (
-                  <tr key={loc}>
-                    <td className="px-5 py-3 font-satoshi text-bark text-sm">{loc}</td>
-                    <td className="px-5 py-3 font-satoshi text-bark text-sm">{time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="font-satoshi text-earth text-sm mt-3">
-            Delivery times are estimates and may vary during peak seasons, festivals, or due to factors beyond our control.
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Shipping Charges</h2>
+          <ul className="list-disc list-inside space-y-2 text-sm pl-2">
+            <li>
+              <span className="font-bold text-charcoal">Standard Shipping:</span> We offer free shipping on all orders above <span className="font-bold text-honey-600">₹499</span>.
+            </li>
+            <li>
+              <span className="font-bold text-charcoal">Orders below the threshold:</span> A flat shipping fee of <span className="font-bold text-charcoal">₹49</span> will be applied at checkout.
+            </li>
+            <li>
+              <span className="font-bold text-charcoal">Cash on Delivery (COD):</span> COD is available for select pin codes. An additional COD handling fee of <span className="font-bold text-charcoal">₹49</span> shall apply to COD orders.
+            </li>
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Cash On Delivery</h2>
+          <p className="text-sm">
+            While COD is an available payment option, SUMOSTA reserves the right to decline the dispatch of COD orders if the authenticity of the order is in doubt. This measure is put in place to ensure genuine and transparent transactions.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Order Processing</h2>
-          <p>
-            Orders are processed within 1–2 business days of payment confirmation. You'll receive a confirmation email with your order number immediately after purchase, and a shipping email with tracking details once your order is dispatched.
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Tracking Your Order</h2>
+          <p className="text-sm">
+            Once your order has shipped, you will receive an automated email and/or SMS containing your tracking number and a link to track your package live.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Order Tracking</h2>
-          <p>
-            Track your order at <a href="/track" className="text-honey-500 hover:underline">sumosta.com/track</a> using your order number and registered email or phone. You'll also receive SMS and email updates at key milestones.
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Damaged in Transit</h2>
+          <p className="text-sm">
+            We use heavy-duty, eco-conscious packaging to protect our glass jars. However, if your package arrives visibly damaged, leaking, or broken, please take a photo or video immediately and contact us at <a href="mailto:hello@sumosta.com" className="text-honey-500 hover:underline font-bold">hello@sumosta.com</a> within <span className="font-bold text-charcoal">48 hours of delivery</span> so we can issue a complimentary replacement.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Shipping Partners</h2>
-          <p>
-            We ship with trusted logistics partners including BlueDart, Delhivery, and Xpressbees. The shipping partner is selected based on your location to ensure the fastest and safest delivery.
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Delivery Delays</h2>
+          <p className="text-sm">
+            While we commit to a prompt dispatch, the delivery duration largely depends on the efficiency of the courier service. SUMOSTA is not liable for any delays instigated by courier companies. For real-time updates, customers can utilize the tracking number provided to them.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Damaged in Transit</h2>
-          <p>
-            If your order arrives damaged, please photograph the package and products immediately and contact us within 48 hours at <a href="mailto:support@sumosta.com" className="text-honey-500 hover:underline">support@sumosta.com</a>. We'll arrange a replacement or refund promptly.
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Policy Modifications</h2>
+          <p className="text-sm">
+            SUMOSTA reserves the right to alter this Shipping Policy as and when required without prior notification. To stay updated on our shipping guidelines, we recommend that customers periodically check this Shipping Policy.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Currently Shipping To</h2>
-          <p>
-            We currently ship to all serviceable pin codes within India. We do not ship internationally at this time. Enter your pin code at checkout to confirm serviceability.
+        <section className="bg-cream-warm border border-sand p-6 rounded-2xl mt-8">
+          <p className="text-xs text-bark text-center leading-relaxed">
+            For further inquiries or clarifications about our shipping procedures, our customer service team is always available. We are here to ensure your shopping experience is as smooth as honey.
           </p>
         </section>
       </div>

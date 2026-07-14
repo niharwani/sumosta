@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <rect width="100%" height="100%" fill="#FDF6EC" />
+  <g transform="translate(50, 40)">
+    <!-- Box Shadow -->
+    <rect x="10" y="85" width="280" height="140" rx="8" fill="#2C2417" opacity="0.1" />
+    
+    <!-- Main Box Body -->
+    <rect x="15" y="80" width="270" height="130" rx="6" fill="#F9F2E7" stroke="#2C2417" stroke-width="2" />
+    
+    <!-- Box Lid -->
+    <rect x="10" y="60" width="280" height="25" rx="3" fill="#F3E9DA" stroke="#2C2417" stroke-width="2" />
+    
+    <!-- Ribbon Vert -->
+    <rect x="145" y="60" width="20" height="150" fill="#E2A540" />
+    <!-- Ribbon Horiz -->
+    <rect x="15" y="130" width="270" height="15" fill="#E2A540" />
+    
+    <!-- Ribbon Bow -->
+    <ellipse cx="135" cy="50" rx="20" ry="10" fill="none" stroke="#E2A540" stroke-width="5" />
+    <ellipse cx="175" cy="50" rx="20" ry="10" fill="none" stroke="#E2A540" stroke-width="5" />
+    <circle cx="155" cy="55" r="8" fill="#E2A540" />
+    
+    <!-- Label -->
+    <rect x="70" y="150" width="170" height="50" rx="4" fill="#FFFDF8" stroke="#E2A540" stroke-width="1" />
+    <text x="155" y="172" font-family="Georgia, serif" font-weight="bold" font-size="14" fill="#2C2417" text-anchor="middle">SUMOSTA</text>
+    <text x="155" y="188" font-family="sans-serif" font-size="7" font-weight="bold" fill="#8B7355" text-anchor="middle">5 ELEMENTS TRIAL BOX</text>
+  </g>
+</svg>

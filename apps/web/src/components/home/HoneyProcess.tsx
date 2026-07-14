@@ -6,7 +6,7 @@ const STEPS = [
   {
     num: '01',
     title: 'Sourced Wild',
-    body: 'Our beekeepers locate wild colonies in protected forest reserves — the Western Ghats, Sundarbans, and Himalayan foothills. No commercial apiaries, no imported bees.',
+    body: 'Our beekeepers locate wild colonies in protected forest reserves — the Western Ghats, Saranda, Abujhmarh, Kandhamal, and Himalayan foothills. No commercial apiaries, no imported bees.',
     emoji: '🌿',
   },
   {
@@ -18,7 +18,7 @@ const STEPS = [
   {
     num: '03',
     title: 'Tested for Purity',
-    body: 'Every batch is cold-extracted and sent to FSSAI-certified labs for purity testing. We check for antibiotics, heavy metals, and moisture content before bottling.',
+    body: 'Every batch is cold-extracted and sent to certified NABL labs for purity testing. We check for antibiotics, heavy metals, and moisture content before bottling.',
     emoji: '🔬',
   },
   {

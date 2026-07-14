@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -252,9 +252,13 @@ function MediaSection({ productId, images, onRefresh }: {
 // ─── Main edit form ──────────────────────────────────────────
 export default function EditProductContent() {
   const router = useRouter();
-  const params = useParams();
-  const id = params['id'] as string;
+  const [id, setId] = useState('_placeholder');
   const qc = useQueryClient();
+
+  useEffect(() => {
+    const match = window.location.pathname.match(/\/admin\/products\/([^/]+)\/edit/);
+    if (match?.[1]) setId(match[1]);
+  }, []);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -317,7 +321,7 @@ export default function EditProductContent() {
       setVariants(product.variants.map((v: any) => ({
         name:             v.name ?? '',
         sku:              v.sku ?? '',
-        price_adjustment: v.price_adjustment ?? 0,
+        price_adjustment: v.price_adjust ?? 0,
         stock:            v.stock ?? 0,
       })));
     }

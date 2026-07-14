@@ -1,99 +1,61 @@
 import { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Refund & Returns Policy' };
+export const metadata: Metadata = { title: 'Return & Refund Policy | SUMOSTA' };
 
 export default function RefundPage() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20">
-      <h1 className="font-clash text-charcoal font-bold text-4xl mb-2">Refund & Returns Policy</h1>
-      <p className="font-satoshi text-earth text-sm mb-10">Last updated: December 2024</p>
+    <div className="max-w-4xl mx-auto px-6 py-20 bg-cream">
+      <h1 className="font-clash text-charcoal font-bold text-4xl mb-2">Return & Refund Policy</h1>
+      <p className="font-satoshi text-earth-light text-sm mb-10">Last updated: July 2026</p>
 
-      <div className="space-y-8 font-satoshi text-bark leading-relaxed">
-        <section className="bg-cream-warm border border-sand rounded-xl p-5">
-          <h3 className="font-satoshi text-charcoal font-semibold mb-2">Our Promise</h3>
-          <p className="text-earth">
-            If you're unhappy for any reason, we want to make it right. Reach out within 7 days of delivery and we'll work with you to find the best solution — whether that's a replacement, store credit, or a full refund.
+      <div className="space-y-8 font-satoshi text-bark leading-relaxed text-justify">
+        
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Cancellations and Changes</h2>
+          <p className="text-sm">
+            You can cancel your order at any time before it ships. Once the order is dispatched from our warehouse, cancellations cannot be processed. To cancel, please email us immediately at <a href="mailto:hello@sumosta.com" className="text-honey-500 hover:underline font-bold">hello@sumosta.com</a>.
           </p>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">What We Accept Returns For</h2>
-          <div className="space-y-3">
-            {[
-              { title: 'Damaged in transit', desc: 'If your order arrives physically damaged, we\'ll replace it or issue a full refund.' },
-              { title: 'Wrong item received', desc: 'If we shipped the wrong product, we\'ll send the correct item at no additional cost.' },
-              { title: 'Quality issues', desc: 'If the honey doesn\'t meet our standards — unusual taste, texture, or signs of contamination — contact us immediately.' },
-              { title: 'Missing items', desc: 'If items are missing from your order, we\'ll ship them separately or refund the missing items.' },
-            ].map(({ title, desc }) => (
-              <div key={title} className="flex gap-3 p-4 bg-cream-warm rounded-xl border border-sand">
-                <div className="w-2 h-2 rounded-full bg-honey-400 mt-2 flex-shrink-0" />
-                <div>
-                  <p className="font-satoshi text-bark font-semibold">{title}</p>
-                  <p className="font-satoshi text-earth text-sm mt-0.5">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">What We Cannot Accept Returns For</h2>
-          <ul className="list-disc list-inside space-y-2 text-earth">
-            <li>Change of mind (food products are non-returnable once delivered)</li>
-            <li>Opened or partially consumed products (unless there's a quality issue)</li>
-            <li>Incorrect delivery address provided by the customer</li>
-            <li>Products not returned within 7 days of delivery</li>
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Return & Replacement Eligibility</h2>
+          <ul className="list-disc list-inside space-y-2 text-sm pl-2">
+            <li>
+              <span className="font-bold text-charcoal">Food Safety Mandate:</span> Due to the consumable nature of our products we do not accept returns on opened, unsealed, or used products.
+            </li>
+            <li>
+              <span className="font-bold text-charcoal">When We Replace/Refund:</span> We will gladly issue a free replacement or full refund if you receive:
+              <ol className="list-decimal pl-6 mt-2 space-y-1 font-normal">
+                <li>A damaged or leaking container.</li>
+                <li>An incorrect item or missing SKU.</li>
+                <li>A product past its expiration date upon arrival.</li>
+              </ol>
+            </li>
           </ul>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">How to Initiate a Return or Refund</h2>
-          <ol className="list-decimal list-inside space-y-3 text-earth">
+        <section className="space-y-4">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">How to Raise a Claim</h2>
+          <p className="text-sm">
+            If you encounter any of the issues listed above, please follow these steps within <span className="font-bold text-charcoal">48 hours</span> of receiving your order:
+          </p>
+          <ol className="list-decimal list-inside space-y-2 text-sm pl-2">
+            <li>Send an email to <a href="mailto:hello@sumosta.com" className="text-honey-500 hover:underline font-bold">hello@sumosta.com</a> with your <span className="font-bold">Order ID</span> in the subject line.</li>
+            <li>Attach a clear <span className="font-bold text-charcoal">unboxing video or photographs</span> showing the damage, leakage, or incorrect item.</li>
+            <li>Our quality care team will review your claim within 48 hours. If approved, a fresh replacement will be dispatched, or a full refund will be processed as the case may be.</li>
             <li>
-              <span className="font-satoshi text-bark">Email us at </span>
-              <a href="mailto:support@sumosta.com" className="text-honey-500 hover:underline">support@sumosta.com</a>
-              <span className="font-satoshi text-bark"> within 7 days of delivery</span>
+              In case of returns, please note that returns will need to be sent to the following address:
+              <div className="bg-cream-warm border border-sand p-4 rounded-xl mt-2 font-mono text-xs">
+                Office no.6, 3rd Floor, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai – 400009.
+              </div>
             </li>
-            <li>Include your order number, photos of the issue, and a brief description</li>
-            <li>Our team will respond within 24 hours (business days)</li>
-            <li>If approved, we'll arrange pickup or advise on next steps</li>
-            <li>Refunds are processed within 5–7 business days to your original payment method</li>
           </ol>
         </section>
 
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Refund Timelines</h2>
-          <div className="border border-sand rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-cream-warm">
-                <tr>
-                  <th className="text-left px-5 py-3 font-satoshi text-earth text-sm font-semibold">Payment Method</th>
-                  <th className="text-left px-5 py-3 font-satoshi text-earth text-sm font-semibold">Refund Timeline</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sand">
-                {[
-                  ['UPI', '1–3 business days'],
-                  ['Debit / Credit Card', '5–7 business days'],
-                  ['Net Banking', '3–5 business days'],
-                  ['SUMOSTA Store Credit', 'Immediate'],
-                ].map(([method, time]) => (
-                  <tr key={method}>
-                    <td className="px-5 py-3 font-satoshi text-bark text-sm">{method}</td>
-                    <td className="px-5 py-3 font-satoshi text-bark text-sm">{time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-3">Contact for Returns</h2>
-          <p>
-            Email: <a href="mailto:support@sumosta.com" className="text-honey-500 hover:underline">support@sumosta.com</a>
-            <br />
-            Phone: +91 98765 43210 (Mon–Sat, 10 AM – 6 PM IST)
+        <section className="space-y-3">
+          <h2 className="font-clash text-charcoal font-bold text-xl border-b border-sand pb-2">Refunds (If Applicable)</h2>
+          <p className="text-sm">
+            Approved refunds will be credited back to your original payment method (Credit/Debit Card, Net Banking, UPI) within <span className="font-bold text-charcoal">8 to 10 business days</span>, depending on your bank&apos;s processing cycles. For COD orders, refunds will be issued via bank transfer or UPI link into your verified account.
           </p>
         </section>
       </div>

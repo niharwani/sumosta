@@ -1,3 +1,9 @@
+import dynamic from 'next/dynamic';
+
+const EditProductContent = dynamic(() => import('./_content'), { ssr: false });
+
 export function generateStaticParams() { return [{ id: '_placeholder' }]; }
-import EditProductContent from './_content';
-export default function EditProductPage() { return <EditProductContent />; }
+
+export default function EditProductPage() {
+  return <EditProductContent />;
+}

@@ -61,7 +61,7 @@ export default function MobileMenu() {
                 Sign In / Register
               </Link>
               <a
-                href="https://instagram.com/sumosta"
+                href="https://instagram.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-earth-light font-satoshi text-sm hover:text-cream"

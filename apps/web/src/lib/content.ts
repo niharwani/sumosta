@@ -9,6 +9,8 @@ export interface ComboBundle {
   compareAtPrice: number;
   image: string;
   products: string[];
+  benefitsLabel?: string;
+  benefitsBody?: string | string[];
 }
 
 export interface FAQItem {
@@ -209,9 +211,17 @@ export const STATIC_CATEGORIES: Record<string, Category> = {
     id: 'cat_raw_honey',
     name: 'Raw Forest Honey',
     slug: 'raw-honey',
-    description: 'Pure, raw, unpasteurized forest honeys sourced from protected reserves across India.',
+    description: 'NABL lab tested, NPOP APEDA Organic certified, 100% raw forest honeys sourced from pristine Indian reserves',
     imageUrl: null,
     sortOrder: 1
+  },
+  'gift-boxes': {
+    id: 'cat_gift_boxes',
+    name: 'Gift Boxes & Combos',
+    slug: 'gift-boxes',
+    description: 'Curated collections and premium gift boxes of our finest wild forest honeys.',
+    imageUrl: null,
+    sortOrder: 2
   },
   'superfoods': {
     id: 'cat_superfoods',
@@ -335,6 +345,9 @@ export const STATIC_PRODUCTS: (Product & {
     question: string;
     answer: string;
   }[];
+  ingredients?: string;
+  howToUse?: string[];
+  trustBadges?: string[];
 })[] = [
   {
     id: 'prod_wf_honey_500',
@@ -343,15 +356,28 @@ export const STATIC_PRODUCTS: (Product & {
     sku: 'SM-WF-500',
     categoryId: 'cat_raw_honey',
     category: STATIC_CATEGORIES['raw-honey'],
-    shortDescription: '100% NPOP APEDA Certified Organic wild forest honey. Rich in antioxidants, collected by local gatherers.',
-    description: 'Sourced from the deep, protected reserves of central India, this honey is NPOP APEDA certified organic. Bees forage on clean, pesticide-free wildflowers, resulting in a dark, medicinal honey containing rich concentrations of trace minerals, active enzymes, and natural pollens. It is cold-filtered to retain its healing properties, delivering a robust woody sweetness with notes of wildflowers.',
-    sourcingStory: 'Foraged from remote deciduous forests, the honeycombs are sustainably harvested by native tribal communities. We pay a fair wage, protecting the forest ecosystem and helping local families thrive.',
+    shortDescription: 'NPOP APEDA Certified, NABL Lab tested, 100% raw, Un-processed Honey',
+    description: 'This NPOP-APEDA Organic Certified raw forest honey is unprocessed, unheated, and minimally filtered to preserve its natural pollen, active enzymes, antioxidants, amino acids, and essential nutrients. Apis dorsata bees collect nectar from flowering trees such as Sal, Haldu, Ashid, Jamun, and Khair, along with hundreds of species of wildflowers, medicinal herbs, shrubs, vines, and other native forest plants. Rich in natural goodness, it offers a deep woody aroma, thick texture, dark amber color, and bold authentic taste that reflects the richness of Indian forest flora.',
+    sourcingStory: 'Foraged from remote deciduous forests, the honeycombs are sustainably harvested by Tharu tribe communities. We pay a fair wage, protecting the forest ecosystem and helping local families thrive.',
     nutritionalBenefits: [
-      'NPOP APEDA Organic certified, ensuring zero pesticides or synthetic chemicals.',
-      'Extremely high in polyphenols and antioxidants to bolster immune health.',
-      'Acts as a natural remedy for throat irritation, coughs, and seasonal allergies.',
-      'Rich in active enzymes that aid digestive wellness.'
+      'Rich in natural enzymes & flavonoids that aids efficient nutrient absorption & helps comfort the stomach lining thereby overall gut & digestive wellness',
+      'Serves as a nutrient rich alternative to conventional sweeteners',
+      'Acts as an intense cellular fuel source',
+      'Helps support quality sleep',
+      'Helps support respiratory wellness',
+      'Balanced carbohydrate profile of wild raw forest honey may help provide steadier energy compared to highly refined sugars which can affect mood, focus & productivity',
+      'Acts as a natural humectant useful in skin care applications & routines',
     ],
+    ingredients: '100% Organic, pure, raw, un-processed honey. No additives, No preservatives, No added sugars, No artificial flavors. NABL Lab tested for purity and quality. 100% Organic certification by NPOP APEDA.',
+    howToUse: [
+      'Morning wellness drink: Mix 1 teaspoon of forest honey with warm water and fresh lemon juice. Consume first thing in the morning.',
+      'Breakfast Enhancer: Drizzle over warm oatmeal, Greek yogurt, fruit bowls, or blend directly into breakfast smoothies.',
+      'Herbal Wellness Teas: Pairs beautifully with Tulsi, Ginger, Chamomile, or Green tea. Important: Allow beverages to cool slightly before stirring in honey to protect enzymes.',
+      'Natural Sweetener Substitute: Substitute refined white sugar in coffee, tea, everyday baking recipes, and homemade raw snacks.',
+      'Evening Wellness Routine: Combine a small spoonful with warm milk or calming herbal bedtime infusions to promote evening relaxation.',
+      'Skin care routines: DIY natural face masks of honey & turmeric, honey & aloevera which may help support hydrated & healthy-looking skin.',
+    ],
+    trustBadges: ['NPOP APEDA Organic', 'NABL Lab Tested', 'Ethically Harvested', 'Free Shipping ₹499+'],
     price: 499,
     compareAtPrice: 599,
     costPrice: 220,
@@ -378,37 +404,38 @@ export const STATIC_PRODUCTS: (Product & {
     batchCertificate: MOCK_CERTIFICATES['wild-forest'],
     sourcingHighlights: {
       forestName: 'Central India Deciduous Forests',
-      location: 'Madhya Pradesh & Chhattisgarh, India',
-      harvestedBy: 'Local Tribal Gatherers',
+      location: 'Madhya Pradesh, Uttar Pradesh & Chhattisgarh, India',
+      harvestedBy: 'Tharu Tribe',
       beeSpecies: 'Apis dorsata (Giant Rock Bees)'
     },
-    faqs: [
-      {
-        question: 'What makes SUMOSTA\'s Organic Wild Forest Honey organic?',
-        answer: 'It is harvested from deep, protected forest tracts where wild bees forage exclusively on naturally occurring wildflower flora. It is certified organic under the NPOP APEDA framework, ensuring zero pesticide, chemical, or antibiotic residue.'
-      },
-      {
-        question: 'What is the taste profile of this honey?',
-        answer: 'It features a rich, robust woody sweetness with complex floral notes and a smooth, thick texture.'
-      }
-    ]
+    faqs: []
   },
   {
     id: 'prod_stingless_250',
-    name: 'Stingless Bee Honey',
-    slug: 'stingless-bee-honey',
+    name: 'Rare Dammer Bee Honey',
+    slug: 'rare-dammer-bee-honey',
     sku: 'SM-STB-250',
     categoryId: 'cat_raw_honey',
     category: STATIC_CATEGORIES['raw-honey'],
-    shortDescription: 'Ultra-rare, high-medicinal stingless bee honey. Tangy, dark amber, harvested from the hills of Nagaland.',
-    description: 'Known locally as Melipona honey, this is the holy grail of medicinal honeys. Stingless bees (Dammer bees) are tiny, feeding on smaller medicinal flowers that larger bees cannot reach. The honey has a distinct, sour-tangy flavor due to natural fermentation inside the bee propolis cells. It has 10x the antioxidant density of standard honey and is highly prized for eye, skin, and respiratory healing.',
+    shortDescription: 'Ultra-rare, high-end therapeutic stingless bee honey. Tangy, dark amber, harvested from the hills of Nagaland. Rich in antioxidants, enzymes, anti-microbial compounds & probiotic properties.',
+    description: 'Known locally as Melipona honey, this is the holy grail of medicinal honeys. Stingless bees (Dammer bees) are tiny, feeding on smaller medicinal flowers that larger bees cannot reach. The honey has a distinct, sour-tangy flavor due to natural fermentation inside the bee propolis cells. It has 10x the antioxidant density of standard honey and is highly priced for eye, skin, and respiratory healing. Dammer bees store their honey in pots made of propolis (bee glue) rather than wax. This leads to a slow natural fermentation that gives the honey a unique tartness and increases its organic acid profile. Also these bees are tiny and produce very little honey. A single hive produces less than 500g of honey annually, and harvesting it from deep forest hollows is highly labor-intensive, making it a rare medicinal superfood.',
     sourcingStory: 'Harvested in the pristine, chemical-free mountain forests of Nagaland by indigenous Angami tribe families. Since stingless bees produce less than 500g of honey per hive annually, this batch is extremely limited.',
     nutritionalBenefits: [
-      'High propolis content gives it superior antibacterial and anti-inflammatory power.',
-      'Distinct tangy-sour profile full of beneficial organic acids and enzymes.',
-      'Prized in traditional medicine for wound healing and respiratory relief.',
-      'Contains rare complex sugars with low glycemic index.'
+      'High concentrations of organic propolis helps deliver a powerhouse of cellular defense and natural immunity support',
+      'Exceptionally low glycemic index provides a steady, clean release of metabolic energy, preventing the rapid insulin spikes typically associated with standard sugars & sweeteners',
+      'Possesses a remarkably low pH and unique organic acids which helps retain its structural integrity and provide active, long-lasting respiratory and wellness support',
+      'Naturally acariogenic and does not promote oral acidity or tooth decay, making it a rare wellness treat that actively respects oral microbiome',
+      'Helps nourish beneficial gut flora, soothe mild metabolic inflammation, and helps support optimal nutrient absorption in the digestive tract',
     ],
+    ingredients: '100% raw, un-processed honey. No additives, No preservatives, No added sugars, No artificial flavors. NABL Lab tested for purity and quality. Rich in antioxidants, enzymes, anti-microbial compounds & probiotic properties.',
+    howToUse: [
+      'The Sublingual Wellness Ritual (The Purist\'s Dose): Take half a teaspoon directly under the tongue first thing in the morning. Let it dissolve slowly. Its ultra-fluid consistency allows for rapid absorption of propolis and live enzymes directly into your system. Note: Because of its fluid, pourable texture and sharp, citrusy, tangy flavor profile, it is advisable never to cook with this honey or dilute it heavily. Treat it as a targeted wellness dose or a gourmet accent.',
+      'The Artisanal Espresso & Matcha Cutter: The distinct citric acidity of Dammer Bee Honey acts like a premium lemon twist, cutting through the bitterness of a double shot of dark espresso or brightening the earthy notes of ceremonial Japanese Matcha perfectly.',
+      'The Luxury Epicurean Glaze: Capitalize on its tangy, balsamic-like flavor profile. Drizzle it sparingly over sharp, aged cheeses (like Parmigiano-Reggiano or Pecorino), fresh goat cheese, or over pieces of 85% dark single-origin chocolate for a sophisticated, high-antioxidant dessert pairing.',
+      'Propolis Spot Therapy (Elite Skincare): Due to its incredible anti-inflammatory and non-stick moisture barrier properties, apply a single drop directly to targeted skin blemishes, dry patches, or fine lines overnight. It acts as a natural, active serum that supports cellular regeneration.',
+      'The Pre-Meditation Clarity Draught: Stir a teaspoon into a cup of lukewarm (never hot) blue pea tea or pure lotus infusion before a breathwork or meditation session. The slow-releasing trehalulose keeps your brain fueled and focused without any physical restlessness or jitters.',
+    ],
+    trustBadges: ['NABL Lab Tested', 'Ethically Harvested', 'Limited Batch', 'Ultra-Rare', 'Free Shipping ₹499+'],
     price: 1299,
     compareAtPrice: 1499,
     costPrice: 600,
@@ -418,11 +445,11 @@ export const STATIC_PRODUCTS: (Product & {
     tags: ['rare', 'stingless-bee', 'nagaland', 'medicinal', 'tangy'],
     isFeatured: true,
     isActive: true,
-    metaTitle: 'Stingless Bee Honey from Nagaland | SUMOSTA',
-    metaDescription: 'Discover the medicinal power of rare Stingless Bee Honey sourced from Nagaland. Highly antimicrobial, rich and tangy.',
+    metaTitle: 'Rare Dammer Bee Honey from Nagaland | SUMOSTA',
+    metaDescription: 'Discover the medicinal power of rare Dammer Bee Honey sourced from Nagaland. Highly antimicrobial, rich and tangy.',
     images: [
-      { id: 'img_st_1', url: '/images/products/stingless-1.png', altText: 'Stingless Bee Honey Jar', sortOrder: 1, isPrimary: true },
-      { id: 'img_st_2', url: '/images/products/stingless-2.png', altText: 'Small Stingless Bee Hives', sortOrder: 2, isPrimary: false }
+      { id: 'img_st_1', url: '/images/products/stingless-1.png', altText: 'Rare Dammer Bee Honey Jar', sortOrder: 1, isPrimary: true },
+      { id: 'img_st_2', url: '/images/products/stingless-2.png', altText: 'Small Stingless Dammer Bee Hives', sortOrder: 2, isPrimary: false }
     ],
     variants: [
       { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: 0, stock: 15 },
@@ -439,46 +466,51 @@ export const STATIC_PRODUCTS: (Product & {
       harvestedBy: 'Indigenous Angami Tribe',
       beeSpecies: 'Meliponini (Stingless Dammer Bees)'
     },
-    faqs: [
-      {
-        question: 'Why is Stingless Bee Honey sour-tangy?',
-        answer: 'Stingless bees store their honey in pots made of propolis (bee glue) rather than wax. This leads to a slow natural fermentation that gives the honey a unique tartness and increases its organic acid profile.'
-      },
-      {
-        question: 'Why is this honey so expensive compared to others?',
-        answer: 'Stingless bees are tiny and produce very little honey. A single hive produces less than 500g of honey annually, and harvesting it from deep forest hollows is highly labor-intensive, making it a rare medicinal superfood.'
-      }
-    ]
+    faqs: []
   },
   {
     id: 'prod_tribal_500',
-    name: 'Tribal Forest Honey',
-    slug: 'tribal-forest-honey',
+    name: 'Artisanal Heritage Forest Honey',
+    slug: 'artisanal-heritage-forest-honey',
     sku: 'SM-TF-500',
     categoryId: 'cat_raw_honey',
     category: STATIC_CATEGORIES['raw-honey'],
     shortDescription: 'Wild multi-floral honey sourced from the protected Kandhamal reserve. Sweet, earthy, and 100% natural.',
-    description: 'Sourced from the deep biosphere of Kandhamal in Odisha, this tribal honey is collected from the wild hives of Apis dorsata (giant rock bees). The bees feed on native sal, mahua, and neem trees, imparting a thick, deep-golden body and an earthy, dark-caramel taste. Completely raw, unfiltered, and packed with bioactive compounds.',
+    description: 'Sourced from the deep biosphere of Kandhamal in Odisha, this artisanal heritage honey is collected from the wild hives of Apis dorsata (giant rock bees). The bees feed on native sal, mahua, and neem trees, imparting a thick, deep-golden body and an earthy, dark-caramel taste. Completely raw, unfiltered, and packed with bioactive compounds.',
     sourcingStory: 'Gathered by the Kondh tribe of Odisha using traditional, smoke-free collection methods that do not harm the wild colony. This honey provides an essential livelihood to forest dwellers.',
     nutritionalBenefits: [
-      '100% wild multi-floral blend reflecting the rich herbal flora of Kandhamal.',
-      'Deep, earthy caramel taste rich in minerals like potassium, magnesium, and iron.',
-      'Raw, unheated processing protects delicate pollen and digestive enzymes.',
-      'Sustainably sourced, supporting forest tribal communities.'
+      '100% wild multi-floral blend reflecting the rich herbal flora of Kandhamal',
+      'Deep, earthy caramel taste rich in minerals like potassium, magnesium, and iron',
+      'Raw, unheated processing protects delicate pollen and digestive enzymes',
+      'Sustainably sourced, supporting forest tribal communities',
+      'Pure wild-crafted biodiversity',
+      'Its naturally occurring prebiotics help cultivate a healthy gut environment',
+      'Acts as a natural coating to gently calm seasonal throat irritation and helps reinforce body\'s everyday defense mechanism',
+      'Wholesome, clean metabolic energy for active lifestyles without the standard sugar crash',
     ],
+    ingredients: '100% raw, un-processed honey. No additives, No preservatives, No added sugars, No artificial flavors. NABL Lab tested for purity and quality.',
+    howToUse: [
+      'The Ultimate Golden Immunity Shot: Mix 1 teaspoon of Kandhamal forest honey with warm water, a squeeze of lemon, and a tiny pinch of pure turmeric (a beautiful nod to Kandhamal\'s famous turmeric heritage!). Drink it every morning on an empty stomach to awaken your metabolism.',
+      'Everyday Kitchen Sweetener: Easily replace refined white sugar in your daily routine. Because of its smooth, well-rounded sweetness, it blends seamlessly into your morning tea, daily coffee, freshly pressed juices, and homemade lemonade without overpowering the beverage.',
+      'Traditional Ayurvedic Kadhas: Stir a spoonful into your home-brewed herbal decoctions or kadhas made with ginger, black pepper, and tulsi. Important Temperature Rule: To safeguard the precious live enzymes and raw nutrients, always allow your hot herbal teas or infusions to cool down to a warm, drinkable temperature before stirring in your honey.',
+      'Wellness Breakfast Drizzle: Upgrade your breakfast by drizzling this rich honey over warm parathas, whole-wheat pancakes, overnight oats, or a bowl of fresh seasonal fruits and Greek yogurt.',
+      'Soothing Evening Wind-Down: Add a teaspoon of this smooth honey to a warm glass of ashwagandha-infused milk or a cup of caffeine-free chamomile tea before bed to signal your body it\'s time to rest and recover.',
+      'Heritage Skin Soother: Use it as a gentle, purifying base for traditional DIY face masks. Mix equal parts honey and organic chickpea flour (besan) with a splash of rose water for a deeply cleansing, hydrating ritual that leaves the skin feeling soft and naturally radiant.',
+    ],
+    trustBadges: ['Raw & Unfiltered', 'NABL Lab Tested', 'Ethically Harvested', 'Free Shipping ₹499+'],
     price: 549,
     compareAtPrice: 649,
     costPrice: 240,
     stock: 80,
     lowStockThreshold: 10,
     weight: 500,
-    tags: ['raw', 'tribal', 'kandhamal', 'multi-floral', 'earthy'],
+    tags: ['raw', 'artisanal', 'kandhamal', 'multi-floral', 'earthy'],
     isFeatured: true,
     isActive: true,
-    metaTitle: 'Tribal Forest Honey (Kandhamal Odisha) | SUMOSTA',
-    metaDescription: 'Authentic wild forest honey from Kandhamal forests, Odisha. Hand-harvested by local tribes, raw and pure.',
+    metaTitle: 'Artisanal Heritage Forest Honey (Kandhamal Odisha) | SUMOSTA',
+    metaDescription: 'Authentic wild artisanal heritage forest honey from Kandhamal, Odisha. Hand-harvested, raw and pure.',
     images: [
-      { id: 'img_tb_1', url: '/images/products/tribal-1.png', altText: 'Tribal Forest Honey Jar', sortOrder: 1, isPrimary: true }
+      { id: 'img_tb_1', url: '/images/products/tribal-1.png', altText: 'Artisanal Heritage Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -220, stock: 40 },
@@ -495,46 +527,46 @@ export const STATIC_PRODUCTS: (Product & {
       harvestedBy: 'Kondha Tribe',
       beeSpecies: 'Apis dorsata (Giant Rock Bees)'
     },
-    faqs: [
-      {
-        question: 'Which flora do the bees forage on for Tribal Forest Honey?',
-        answer: 'The giant rock bees forage on diverse wild flora inside the Kandhamal biosphere, including mahua, neem, sal, and wild berries, giving it a unique mineral-rich multi-floral profile.'
-      },
-      {
-        question: 'How is this honey harvested sustainably?',
-        answer: 'It is hand-gathered by the Kondha tribe using traditional, smoke-free climbing methods that extract the honey without destroying the wild hives or harming the bee populations.'
-      }
-    ]
+    faqs: []
   },
   {
     id: 'prod_honeydew_500',
-    name: 'HoneyDew Honey',
-    slug: 'honeydew-honey',
+    name: 'Canopy Dew Forest Honey',
+    slug: 'canopy-dew-forest-honey',
     sku: 'SM-HD-500',
     categoryId: 'cat_raw_honey',
     category: STATIC_CATEGORIES['raw-honey'],
-    shortDescription: 'Rare, dark, mineral-rich HoneyDew honey from the massive Sal forests of Saranda. Deep woody flavor.',
-    description: 'Unlike blossom honey, HoneyDew honey is made by bees collecting sap secretions rather than flower nectar. Sourced from the dense Sal reserve of Saranda, Jharkhand, this honey is extremely dark, almost black. It is less acidic, crystallization-resistant, and possesses a robust woody flavor, rich with malty undertones. It features a superior profile of minerals, antioxidants, and oligosaccharides.',
+    shortDescription: 'Rare, dark, mineral-rich dew honey from the massive Sal forests of Saranda. Deep woody flavor.',
+    description: 'Unlike standard honey, Canopy dew forest honey is made by bees collecting sap secretions rather than flower nectar. Sourced from the dense Sal reserve of Saranda, Jharkhand, this honey is extremely dark, almost black. It is less acidic, crystallization-resistant, and possesses a robust woody flavor, rich with malty undertones. It features a superior profile of minerals, antioxidants, and oligosaccharides.',
     sourcingStory: 'Harvested from the wild depths of the Saranda Forest—the largest Sal forest in Asia. Traditional climbers scale forest canopies at night, collecting this slow-drip forest gold.',
     nutritionalBenefits: [
-      'Rich in prebiotics (oligosaccharides) that actively nourish beneficial gut microflora.',
-      'Contains higher levels of iron, magnesium, and copper than standard honeys.',
-      'Higher electrical conductivity and mineral salts, highly supportive of physical recovery.',
-      'Highly resistant to crystallization, maintaining a smooth liquid state naturally.'
+      'Rich in prebiotics (oligosaccharides) that actively nourish beneficial gut microflora',
+      'Contains higher levels of iron, magnesium, and copper than standard honeys',
+      'Higher electrical conductivity and mineral salts, highly supportive of physical recovery',
+      'Highly resistant to crystallization, maintaining a smooth liquid state naturally',
     ],
+    ingredients: '100% raw, un-processed honey. No additives, No preservatives, No added sugars, No artificial flavors. NABL Lab tested for purity and quality. Rich in antioxidants, minerals & oligosaccharides.',
+    howToUse: [
+      'The Active Recovery Hydration Booster: Stir a teaspoon into a glass of warm water or coconut water immediately following an intense workout, yoga session, or a long run. The rapid bio-availability of its natural tree minerals helps replenish lost electrolytes and revitalize tired muscles far cleaner than synthetic sports drinks.',
+      'The Connoisseur\'s Coffee Companion: Traditional floral honeys often curdle or clash with the volatile acidity of coffee. However, the dark, woody, and caramel-like undertones of dew honey act as a premium natural sweetener that perfectly rounds out the bitter notes of cold brews, dark roasts, and artisan espressos.',
+      'The Epicurean Cheese & Grazing Accent: Elevate your culinary pairings by drizzling this rich honey over robust, mature savory foods. It contrasts beautifully with aged white cheeses (like vintage cheddar or gouda), roasted walnuts, toasted sourdough, or sharp dark chocolate.',
+      'The Gentle Overnight Moisture Trap: Use its high mineral and low-moisture profile as a highly effective topical skin treatment. Mix it with a few drops of rosewater or jojoba oil and apply it as a deeply hydrating overnight face mask to support barrier repair and leave your skin looking plump and glowing.',
+      'Warming Botanical Infusions: Its earthy, complex nature stands up remarkably well to strong, spicy botanicals. Pair it with fresh ginger slices, cinnamon bark, or crushed peppercorns in warm water for a deeply grounding afternoon wellness ritual. Wellness Guardrail: Never mix raw honey into rolling, boiling water. Let your water or tea cool down to a comfortable warm drinking temperature before stirring it in to preserve the alive forest enzymes.',
+    ],
+    trustBadges: ['NABL Lab Tested', 'Ethically Harvested', 'Mineral Rich', 'Free Shipping ₹499+'],
     price: 599,
     compareAtPrice: 699,
     costPrice: 260,
     stock: 45,
     lowStockThreshold: 5,
     weight: 500,
-    tags: ['raw', 'honeydew', 'saranda', 'woody', 'mineral-rich'],
+    tags: ['raw', 'canopy-dew', 'saranda', 'woody', 'mineral-rich'],
     isFeatured: false,
     isActive: true,
-    metaTitle: 'Saranda Forest HoneyDew Honey | SUMOSTA',
-    metaDescription: 'Indulge in rare, dark HoneyDew Honey from the Sal forests of Saranda, Jharkhand. Extremely rich in minerals and prebiotics.',
+    metaTitle: 'Canopy Dew Forest Honey | SUMOSTA',
+    metaDescription: 'Indulge in rare, dark Canopy Dew Forest Honey from the Sal forests of Saranda, Jharkhand. Extremely rich in minerals and prebiotics.',
     images: [
-      { id: 'img_hd_1', url: '/images/products/honeydew-1.png', altText: 'Saranda HoneyDew Honey Jar', sortOrder: 1, isPrimary: true }
+      { id: 'img_hd_1', url: '/images/products/honeydew-1.png', altText: 'Canopy Dew Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -250, stock: 25 },
@@ -551,46 +583,51 @@ export const STATIC_PRODUCTS: (Product & {
       harvestedBy: 'Native Ho & Munda Tribes',
       beeSpecies: 'Apis dorsata (Giant Rock Bees)'
     },
-    faqs: [
-      {
-        question: 'What is HoneyDew Honey and how is it different from blossom honey?',
-        answer: 'Unlike blossom honey made from flower nectar, HoneyDew honey is produced when bees collect mineral-rich sap secretions from ancient trees, particularly Sal and Oak trees, in deep forest canopies.'
-      },
-      {
-        question: 'Why does HoneyDew Honey resist crystallization?',
-        answer: 'It has a naturally high concentration of complex sugars (oligosaccharides) and low glucose-to-fructose ratio, which keeps it in a smooth, dark liquid state for much longer.'
-      }
-    ]
+    faqs: []
   },
   {
     id: 'prod_raktbeej_500',
-    name: 'Raktbeej Honey',
-    slug: 'raktbeej-honey',
+    name: 'Bloodseed Forest Honey',
+    slug: 'bloodseed-forest-honey',
     sku: 'SM-RB-500',
     categoryId: 'cat_raw_honey',
     category: STATIC_CATEGORIES['raw-honey'],
     shortDescription: 'Blood-red, therapeutic wild honey from the mysterious Abujhmarh reserves. High iron & antioxidants.',
-    description: 'Harvested in the isolated, highly biodiverse forests of Abujhmarh in Chhatisgarh, Raktbeej honey has a dark, reddish-amber hue. Bees forage on iron-rich herbal flora and red silk cotton flowers. This honey is prized for its high bio-available iron content, making it an excellent natural blood tonic. Warm, spicy finish with a thick, velvety texture.',
-    sourcingStory: 'Abujhmarh is a highly protected forest block. The honey is collected in small quantities by indigenous tribes who preserve the forest as sacred ground. Fully traceable and completely rare.',
+    description: 'Harvested in the isolated, highly biodiverse forests of Abujhmarh in Chhattisgarh, Bloodseed Forest Honey has a dark, reddish-amber hue. Giant wild bees forage on iron-rich herbal flora and red silk cotton flowers deep within this protected reserve. This honey is prized for its high bio-available iron content, making it an excellent natural blood tonic. It carries a warm, spicy finish with a thick, velvety texture — a truly rare and powerful forest honey.',
+    sourcingStory: 'Abujhmarh is a highly protected forest block. The honey is collected in small quantities by indigenous Madia & Muria Gond tribes who preserve the forest as sacred ground. Fully traceable and completely rare.',
     nutritionalBenefits: [
       'Distinct red-amber color signifying high iron content and organic anthocyanins.',
       'Acts as a natural hematinic, supporting red blood cell generation.',
       'High anti-inflammatory capacity due to native forest herbal pollens.',
-      'Spicy, warming digestive aid.'
+      'Spicy, warming digestive aid.',
+      'High level of anti-oxidants helps body combat daily oxidative stress.',
+      'Vital trace minerals that support everyday cellular health.',
+      'Acts as a soothing demulcent to calm seasonal throat irritation and strengthen natural defenses.'
     ],
+    ingredients: '100% raw, un-processed honey. No additives, No preservatives, No added sugars, No artificial flavors. NABL Lab tested for purity and quality. High in Iron & anti-oxidants.',
+    howToUse: [
+      'Morning Vitality: Take 1 teaspoon on an empty stomach each morning to support iron levels and energize the body naturally.',
+      'Robust Breakfast Pairing: Drizzle over warm oatmeal, whole grain toast, or mixed with warm water and lemon for a grounding start.',
+      'Healing Teas & Kadhas: Stir into warm (not boiling) herbal kadhas, tulsi tea, or ginger-pepper brew to enhance medicinal potency.',
+      'Post-Workout Recovery Shot: Mix 1 teaspoon in warm water with a pinch of black pepper after physical activity to aid muscle recovery and replenish minerals.',
+      'Artisanal Sweetener: Use as a complex, warming sweetener in dark chocolate desserts, spiced smoothies, or immunity-boosting energy balls.',
+      'Bedtime Ritual: Take 1 teaspoon before bed mixed with warm milk to support overnight recovery and deep restful sleep.',
+      'High-Antioxidant Skin Rituals: Apply a thin layer as a face mask for 15 minutes — the natural iron and antioxidants help brighten and nourish skin.'
+    ],
+    trustBadges: ['NABL Lab Tested', 'Ethically Harvested', 'High in Iron & Antioxidants', 'Free Shipping ₹499+'],
     price: 699,
     compareAtPrice: 799,
     costPrice: 320,
     stock: 35,
     lowStockThreshold: 5,
     weight: 500,
-    tags: ['raw', 'raktbeej', 'abujhmarh', 'red-honey', 'therapeutic'],
+    tags: ['raw', 'bloodseed', 'abujhmarh', 'red-honey', 'therapeutic'],
     isFeatured: true,
     isActive: true,
-    metaTitle: 'Raktbeej Wild Red Honey | SUMOSTA',
-    metaDescription: 'Taste the therapeutic Raktbeej Honey from Abujhmarh Forest. Rich in iron, deep red-amber color, harvested wild.',
+    metaTitle: 'Bloodseed Forest Honey | High Iron Wild Honey | SUMOSTA',
+    metaDescription: 'Taste the therapeutic Bloodseed Forest Honey from Abujhmarh Reserve. Rich in iron & antioxidants, deep red-amber color, ethically wild-harvested.',
     images: [
-      { id: 'img_rk_1', url: '/images/products/raktbeej-1.png', altText: 'Raktbeej Red Honey Jar', sortOrder: 1, isPrimary: true }
+      { id: 'img_rk_1', url: '/images/products/raktbeej-1.png', altText: 'Bloodseed Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_rb_250g', name: '250g Glass Jar', sku: 'SM-RB-250', priceAdjust: -300, stock: 25 },
@@ -607,49 +644,35 @@ export const STATIC_PRODUCTS: (Product & {
       harvestedBy: 'Indigenous Madia & Muria Gonds',
       beeSpecies: 'Apis dorsata (Giant Rock Bees) foraging on red silk cotton flowers and iron-rich herbal flora'
     },
-    faqs: [
-      {
-        question: 'What gives Raktbeej Honey its unique dark red-amber hue?',
-        answer: 'The giant wild bees in the Abujhmarh reserve forage on iron-rich forest flora and the bright blossoms of the Red Silk Cotton (Semal) tree, imparting its signature deep red-amber color.'
-      },
-      {
-        question: 'What are the primary health benefits of Raktbeej Honey?',
-        answer: 'Due to the iron-dense nectar and natural anthocyanins, it acts as a powerful natural blood tonic, helping support red blood cell generation, oxygen transport, and overall physical vitality.'
-      },
-      {
-        question: 'Where is Raktbeej Honey sourced from?',
-        answer: 'It is harvested in highly limited quantities from the isolated and ecologically protected Abujhmarh forest blocks in Chhattisgarh by indigenous Gond gatherers.'
-      }
-    ]
+    faqs: []
   },
   {
     id: 'prod_trial_box_60g',
-    name: '5 Elements Trial Box',
-    slug: '5-elements-trial-box',
-    sku: 'SM-TB-5x60',
-    categoryId: 'cat_raw_honey',
-    category: STATIC_CATEGORIES['raw-honey'],
-    shortDescription: 'Experience the ultimate collection of all 5 SUMOSTA forest honeys in mini 60g glass jars.',
-    description: 'Experience the ultimate collection of all 5 SUMOSTA forest honeys in mini 60g glass jars. Features Organic Wild Forest, Stingless Bee, Tribal Forest, HoneyDew, and Raktbeej honeys in a beautiful custom secondary box packaging. The perfect way to find your favorite blend before committing to larger sizes.',
-    sourcingStory: 'Contains a curated selection of all 5 single-origin raw honeys, sourced directly from untouched Indian wilderness blocks in partnership with native tribes.',
+    name: 'The 5 Elements Collection',
+    slug: '5-elements-collection',
+    sku: 'SM-TB-5x70',
+    categoryId: 'cat_gift_boxes',
+    category: STATIC_CATEGORIES['gift-boxes'],
+    shortDescription: 'A luxury nectar flight from India\'s pristine forests.',
+    description: 'Five rare forest honeys. Five distinct terroirs. One extraordinary collection. The 5 Elements Collection brings together all of SUMOSTA\'s single-origin raw honeys in beautiful 70g glass jars — Bloodseed Forest Honey, Artisanal Heritage Forest Honey, Rare Dammer Bee Honey, Canopy Dew Forest Honey, and Organic Wild Forest Honey. Each honey is NABL lab tested, NPOP APEDA Organic certified, and ethically harvested by indigenous tribal communities from pristine Indian reserves. The perfect way to explore India\'s extraordinary forest honey diversity, or a truly memorable premium gift.',
+    sourcingStory: 'Contains a curated selection of all 5 single-origin raw honeys, sourced directly from untouched Indian wilderness blocks in partnership with native tribes across India.',
     nutritionalBenefits: [
-      'Perfect sampler containing all 5 distinct forest honey varieties.',
-      'Small 60g jars, ideal for finding your preferred taste profile.',
-      'Packaged in a premium custom box, excellent for gifting.'
+      'Please refer to respective raw forest honey sections to learn more about individual raw honey product benefits.'
     ],
+    trustBadges: ['Ethically Harvested', 'Premium Gift Packaging', 'All 5 Forest Honeys', 'Free Shipping ₹499+'],
     price: 699,
     compareAtPrice: 899,
     costPrice: 300,
     stock: 50,
     lowStockThreshold: 5,
-    weight: 300,
-    tags: ['raw', 'trial-box', 'gifting', 'sample-pack', '5-elements'],
+    weight: 350,
+    tags: ['gift-box', 'collection', 'gifting', 'sample-pack', '5-elements'],
     isFeatured: true,
     isActive: true,
-    metaTitle: '5 Elements Trial Box (60g Jars) | SUMOSTA',
-    metaDescription: 'Try all 5 premium wild forest honeys from SUMOSTA. Includes Organic Wild Forest, Stingless Bee, Tribal Forest, HoneyDew, and Raktbeej in 60g sample sizes.',
+    metaTitle: 'The 5 Elements Collection | Premium Forest Honey Gift Set | SUMOSTA',
+    metaDescription: 'Experience all 5 SUMOSTA raw forest honeys in a luxury 70g gift set. Bloodseed, Artisanal Heritage, Rare Dammer Bee, Canopy Dew, and Organic Wild Forest — NABL tested, NPOP certified.',
     images: [
-      { id: 'img_tb_box_1', url: '/images/products/combo-trialbox.png', altText: '5 Elements Trial Box', sortOrder: 1, isPrimary: true }
+      { id: 'img_tb_box_1', url: '/images/products/combo-trialbox.png', altText: 'The 5 Elements Collection Gift Box', sortOrder: 1, isPrimary: true }
     ],
     variants: [],
     averageRating: 4.8,
@@ -660,18 +683,9 @@ export const STATIC_PRODUCTS: (Product & {
       forestName: 'Sourced from 5 Indigenous Forests',
       location: 'Pan-India Tribal Reserves',
       harvestedBy: 'Multi-Tribal Gatherers',
-      beeSpecies: 'Apis dorsata & Meliponini'
+      beeSpecies: 'Apis dorsata & Meliponini (Dammer Bee)'
     },
-    faqs: [
-      {
-        question: 'What is included in the 5 Elements Trial Box?',
-        answer: 'The box contains 5 glass jars (60g each), representing our complete range: Organic Wild Forest Honey, Stingless Bee Honey, Tribal Forest Honey, HoneyDew Honey, and Raktbeej Honey.'
-      },
-      {
-        question: 'Is this trial box suitable for gifting?',
-        answer: 'Yes, it is beautifully packaged in a custom secondary carton, making it an excellent premium gift for wellness enthusiasts.'
-      }
-    ]
+    faqs: []
   },
 
   // FUTURE PRODUCTS (Coming Soon)
@@ -825,45 +839,39 @@ export const STATIC_COMBOS: (ComboBundle & {
   variants?: { id: string; name: string; sku: string; priceAdjust: number; stock: number; }[];
 })[] = [
   {
-    id: 'bundle_forest_essentials',
-    name: 'Wild Forest Essentials Combo',
-    slug: 'wild-forest-essentials-combo',
-    description: 'Taste the rich diversity of India’s wildest forest ecosystems. Includes Organic Wild Forest Honey (500g), Tribal Forest Honey (500g), and HoneyDew Honey (500g).',
+    id: 'bundle_heritage_trio',
+    name: 'The Heritage Trio',
+    slug: 'heritage-trio',
+    description: 'Three of India\'s most storied forest honeys, united in one extraordinary set. The Heritage Trio brings together Organic Wild Forest Honey (250g), Artisanal Heritage Forest Honey (250g), and Bloodseed Forest Honey (250g) — each harvested from ancient indigenous forest ecosystems by tribal communities who have practiced sustainable honey gathering for generations. These are not interchangeable products: each carries a distinct terroir, a unique color, a specific medicinal character, and a story rooted in place. Together, they represent the full depth of India\'s wild honey heritage.',
     price: 1399,
     compareAtPrice: 1647,
     image: '/images/products/combo-essentials.png',
-    products: ['prod_wf_honey_500', 'prod_tribal_500', 'prod_honeydew_500'],
+    products: ['prod_wf_honey_500', 'prod_tribal_500', 'prod_raktbeej_500'],
+    benefitsLabel: 'Why this Trio',
+    benefitsBody: [
+      'Organic Wild Forest Honey anchors the trio with its broad-spectrum floral complexity — a balanced, versatile everyday honey rich in enzymes and natural antioxidants from the biodiverse forests of Madhya Pradesh, Uttar Pradesh, and Chhattisgarh.',
+      'Artisanal Heritage Forest Honey brings depth and heritage — a rare, slow-granulating variety harvested by Gond tribal communities using centuries-old bark-hive techniques. Its dark amber, resinous character reflects an ecosystem untouched by modern agriculture.',
+      'Bloodseed Forest Honey completes the trio with therapeutic power — the reddish-amber wild honey from the protected Abujhmarh reserve, prized for its high bio-available iron content, natural anthocyanins, and warm, spicy finish that sets it apart from any commercial honey.',
+      'Together, these three honeys span the spectrum from balanced wellness to deep, mineral-rich forest medicine — making The Heritage Trio the ideal way to explore raw Indian forest honey at its finest.',
+      'All three are NABL lab tested for purity and quality, ethically harvested by indigenous communities, and bottled without heat, filtration, or additives.'
+    ],
     variants: [
-      { id: 'var_fe_250g', name: '250g Combo Set', sku: 'SM-CB-FE-250', priceAdjust: -650, stock: 30 },
-      { id: 'var_fe_500g', name: '500g Combo Set', sku: 'SM-CB-FE-500', priceAdjust: 0, stock: 20 }
+      { id: 'var_ht_250g', name: '250g Combo Set', sku: 'SM-CB-HT-250', priceAdjust: 0, stock: 30 }
     ]
   },
   {
-    id: 'bundle_medicinal_duo',
-    name: 'The Ultimate Healing Duo',
-    slug: 'ultimate-healing-duo',
-    description: 'A highly therapeutic combination of our rare Stingless Bee Honey (250g) and Raktbeej Honey (500g). Designed for immunity, breathing support, and blood tonics.',
+    id: 'bundle_forest_alchemy',
+    name: 'The Forest Alchemy Duo',
+    slug: 'forest-alchemy-duo',
+    description: 'Two of India\'s rarest forest honeys, brought together for those who seek the extraordinary. The Forest Alchemy Duo pairs Rare Dammer Bee Honey (250g) — harvested from stingless Meliponini bees in Kerala\'s ancient rainforests — with Canopy Dew Forest Honey (250g) — a remarkable honeydew variety collected from the forest canopy of Kandhamal\'s pristine sal and teak forests. Both are among the most unusual and sought-after raw honeys in India, prized by healers, chefs, and connoisseurs alike.',
     price: 1799,
     compareAtPrice: 1998,
     image: '/images/products/combo-medicinal.png',
-    products: ['prod_stingless_250', 'prod_raktbeej_500'],
+    products: ['prod_stingless_250', 'prod_honeydew_500'],
+    benefitsLabel: 'Why this Duo',
+    benefitsBody: 'Rare Dammer Bee Honey brings the ancient wisdom of stingless-bee honey — naturally lower in sugar, higher in organic acids, with a distinctive tangy-sweet profile uniquely suited for immune support and oral health. Canopy Dew Forest Honey adds a mineral-rich, complex sweetness derived not from flower nectar but from the concentrated forest canopy secretions gathered by wild bees. Together, they represent two completely different expressions of honey at its most elemental — complementary in character, extraordinary in origin, and unlike anything found in mainstream markets.',
     variants: [
-      { id: 'var_md_250g', name: '250g Combo Set', sku: 'SM-CB-MD-250', priceAdjust: -600, stock: 15 },
-      { id: 'var_md_500g', name: '500g Combo Set', sku: 'SM-CB-MD-500', priceAdjust: 0, stock: 10 }
-    ]
-  },
-  {
-    id: 'bundle_grand_connoisseur',
-    name: 'The SUMOSTA Connoisseur Set',
-    slug: 'sumosta-connoisseur-set',
-    description: 'The complete SUMOSTA forest collection in a premium crafted wooden gift box. Includes one jar each of Wild Forest (500g), Stingless Bee (250g), Tribal Forest (500g), HoneyDew (500g), and Raktbeej (500g).',
-    price: 2999,
-    compareAtPrice: 3545,
-    image: '/images/products/combo-connoisseur.png',
-    products: ['prod_wf_honey_500', 'prod_stingless_250', 'prod_tribal_500', 'prod_honeydew_500', 'prod_raktbeej_500'],
-    variants: [
-      { id: 'var_gc_250g', name: '250g Combo Set', sku: 'SM-CB-GC-250', priceAdjust: -1000, stock: 10 },
-      { id: 'var_gc_500g', name: '500g Combo Set', sku: 'SM-CB-GC-500', priceAdjust: 0, stock: 10 }
+      { id: 'var_fa_250g', name: '250g Combo Set', sku: 'SM-CB-FA-250', priceAdjust: 0, stock: 15 }
     ]
   }
 ];

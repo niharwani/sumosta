@@ -1,122 +1,188 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { X, Instagram, Search, ShoppingBag, User, ArrowRight } from 'lucide-react';
-import { NAV_LINKS } from '@/lib/constants';
+import { usePathname } from 'next/navigation';
+import { ShoppingCart } from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
 import { useCartStore } from '@/stores/cart-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { NAV_LINKS } from '@/lib/constants';
 
 export default function MobileMenu() {
+  const pathname = usePathname();
   const { isMobileMenuOpen, closeMobileMenu } = useUIStore();
   const { itemCount, openCart } = useCartStore();
+  const { user } = useAuthStore();
 
   const handleCartClick = () => {
     closeMobileMenu();
     openCart();
   };
 
+  if (!isMobileMenuOpen) return null;
+
   return (
-    <AnimatePresence>
-      {isMobileMenuOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+    <>
+      {/* Overlay */}
+      <div
+        onClick={closeMobileMenu}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(26,21,14,0.52)',
+          animation: 'sum-mob-fade 0.22s ease both',
+        }}
+      />
+
+      {/* Drawer */}
+      <aside
+        style={{
+          position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 201,
+          width: 'min(340px, 90vw)',
+          background: '#FFFDF8',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '-10px 0 50px rgba(26,21,14,0.14)',
+          animation: 'sum-mob-slide 0.3s cubic-bezier(0.25,0.1,0.25,1) both',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '18px 24px',
+          borderBottom: '1px solid #F0E6D3',
+          flexShrink: 0,
+        }}>
+          <Link
+            href="/"
             onClick={closeMobileMenu}
-          />
-
-          {/* Drawer */}
-          <motion.nav
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-[#0F172A] flex flex-col px-8 py-8 shadow-2xl border-l border-white/10"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              fontFamily: 'var(--font-bricolage), sans-serif',
+              fontWeight: 800, fontSize: '20px',
+              color: '#2C2417', letterSpacing: '0.02em',
+              textDecoration: 'none',
+            }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-8 border-b border-white/10">
-              <Link
-                href="/"
-                className="font-clash font-bold text-[#FFFDF8] text-xl tracking-[0.06em] uppercase"
-                onClick={closeMobileMenu}
-              >
-                Sumosta
-              </Link>
-              <button
-                onClick={closeMobileMenu}
-                className="text-[#8B7355] hover:text-[#F0E6D3] transition-colors p-2"
-                aria-label="Close menu"
-              >
-                <X size={20} />
-              </button>
-            </div>
+            SUMOSTA
+          </Link>
+          <button
+            onClick={closeMobileMenu}
+            aria-label="Close menu"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '28px', color: '#5C4A32', lineHeight: 1,
+              padding: '2px 6px', borderRadius: '4px',
+            }}
+          >
+            ×
+          </button>
+        </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-3 my-6">
+        {/* Nav links */}
+        <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
+          {NAV_LINKS.map((link) => {
+            const active = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+            return (
               <Link
-                href="/search"
+                key={link.href}
+                href={link.href}
                 onClick={closeMobileMenu}
-                className="flex items-center justify-center gap-2 bg-white/5 text-[#C4B39A] font-jakarta text-xs py-3 px-4 rounded border border-white/8 hover:border-honey-700 transition-colors"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '15px 24px',
+                  borderBottom: '1px solid #F0E6D3',
+                  textDecoration: 'none',
+                  fontFamily: 'var(--font-bricolage), sans-serif',
+                  fontWeight: active ? 700 : 500,
+                  fontSize: '21px',
+                  color: active ? '#2C2417' : '#5C4A32',
+                  background: active ? 'rgba(245,166,35,0.05)' : 'transparent',
+                  transition: 'color 0.2s, background 0.2s',
+                }}
               >
-                <Search size={13} className="text-honey-500" />
-                <span>Search</span>
+                {link.label}
+                <span style={{ fontSize: '16px', opacity: active ? 0.8 : 0.3, color: active ? '#D4891A' : '#5C4A32' }}>→</span>
               </Link>
-              <button
-                onClick={handleCartClick}
-                className="flex items-center justify-center gap-2 bg-white/5 text-[#C4B39A] font-jakarta text-xs py-3 px-4 rounded border border-white/8 hover:border-honey-700 transition-colors"
-              >
-                <ShoppingBag size={13} className="text-honey-500" />
-                <span>Cart{itemCount > 0 ? ` (${itemCount})` : ''}</span>
-              </button>
-            </div>
+            );
+          })}
+        </nav>
 
-            {/* Main Links */}
-            <ul className="flex flex-col gap-1 py-4 flex-1">
-              {NAV_LINKS.map((link, idx) => (
-                <motion.li
-                  key={link.href}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.08 + idx * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  <Link
-                    href={link.href}
-                    className="font-clash font-bold text-[#FFFDF8] text-[1.75rem] leading-tight hover:text-honey-400 transition-colors flex items-center justify-between group py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    <span>{link.label}</span>
-                    <ArrowRight size={16} className="text-[#5C4A32] opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </Link>
-                </motion.li>
-              ))}
-            </ul>
+        {/* Quick actions */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #F0E6D3', display: 'flex', flexDirection: 'column', gap: '12px', flexShrink: 0 }}>
+          {/* Cart button */}
+          <button
+            onClick={handleCartClick}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%',
+              background: '#FFF0D6', border: '1px solid #FFCC66',
+              borderRadius: '8px', padding: '13px 18px',
+              cursor: 'pointer', color: '#2C2417',
+              fontFamily: 'var(--font-bricolage), sans-serif',
+              fontWeight: 600, fontSize: '14px',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShoppingCart size={16} strokeWidth={2} />
+              Cart
+            </span>
+            {itemCount > 0 && (
+              <span style={{
+                background: '#F5A623', color: '#1A150E',
+                fontSize: '11px', fontWeight: 700,
+                padding: '2px 8px', borderRadius: '999px',
+              }}>
+                {itemCount} item{itemCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </button>
 
-            {/* Footer / Account */}
-            <div className="flex flex-col gap-3 border-t border-white/10 pt-6 mt-auto">
-              <Link
-                href="/account"
-                className="flex items-center gap-2.5 text-[#8B7355] font-jakarta text-sm hover:text-[#F0E6D3] transition-colors"
-                onClick={closeMobileMenu}
-              >
-                <User size={15} className="text-honey-500" />
-                <span>Sign In / My Account</span>
-              </Link>
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2.5 text-[#8B7355] font-jakarta text-xs hover:text-[#F0E6D3] transition-colors"
-              >
-                <Instagram size={14} className="text-honey-500" />
-                <span>Follow @sumosta</span>
-              </a>
-            </div>
-          </motion.nav>
-        </>
-      )}
-    </AnimatePresence>
+          {/* Account */}
+          {user ? (
+            <Link
+              href="/account/orders"
+              onClick={closeMobileMenu}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '12px 0',
+                textDecoration: 'none', color: '#5C4A32',
+                fontSize: '14px', fontWeight: 500,
+                fontFamily: 'var(--font-manrope), sans-serif',
+              }}
+            >
+              <span style={{
+                width: '32px', height: '32px', borderRadius: '50%',
+                background: 'rgba(212,137,26,0.12)', color: '#D4891A',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--font-bricolage), sans-serif',
+                fontWeight: 700, fontSize: '13px', flexShrink: 0,
+              }}>
+                {user.name?.charAt(0).toUpperCase() ?? 'U'}
+              </span>
+              My Account
+            </Link>
+          ) : (
+            <Link
+              href="/auth/login"
+              onClick={closeMobileMenu}
+              style={{
+                display: 'block', textAlign: 'center',
+                background: '#2C2417', color: '#FFFDF8',
+                fontWeight: 700, fontSize: '14px',
+                padding: '13px 24px', borderRadius: '8px',
+                textDecoration: 'none',
+                fontFamily: 'var(--font-bricolage), sans-serif',
+                letterSpacing: '0.02em',
+              }}
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
+      </aside>
+
+      <style>{`
+        @keyframes sum-mob-fade  { from { opacity: 0; }          to { opacity: 1; } }
+        @keyframes sum-mob-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      `}</style>
+    </>
   );
 }

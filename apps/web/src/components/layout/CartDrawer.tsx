@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ShoppingCart } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { formatPrice } from '@/lib/utils';
 
@@ -73,7 +74,7 @@ export default function CartDrawer() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {items.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', opacity: 0.2 }}>🛍</div>
+              <div style={{ opacity: 0.15, color: '#2C2417' }}><ShoppingCart size={56} strokeWidth={1.2} /></div>
               <p style={{ color: '#8B7355', fontSize: '15px', margin: 0 }}>Your cart is empty</p>
               <Link
                 href="/shop"

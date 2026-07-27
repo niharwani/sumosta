@@ -9,6 +9,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isLoading: boolean;
+  isInitialized: boolean;
 }
 
 interface AuthActions {
@@ -24,6 +25,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   accessToken: null,
   refreshToken: null,
   isLoading: false,
+  isInitialized: false,
 
   login: (user, accessToken, refreshToken) => {
     if (typeof window !== 'undefined') {
@@ -59,7 +61,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const storedAccess = localStorage.getItem(ACCESS_KEY);
     const storedRefresh = localStorage.getItem(REFRESH_KEY);
 
-    if (!storedAccess && !storedRefresh) return;
+    if (!storedAccess && !storedRefresh) {
+      set({ isInitialized: true });
+      return;
+    }
 
     set({ isLoading: true });
 
@@ -92,7 +97,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     } catch {
       // Network failure — keep stored tokens, retry later
     } finally {
-      set({ isLoading: false });
+      set({ isLoading: false, isInitialized: true });
     }
   },
 }));

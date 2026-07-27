@@ -11,10 +11,10 @@ export const SITE_CONFIG = {
 };
 
 export const NAV_LINKS = [
-  { href: '/shop',                  label: 'Shop' },
-  { href: '/shop/raw-honey',        label: 'Raw Honey' },
-  { href: '/evidence-hub',          label: 'Evidence Hub' },
-  { href: '/about',                 label: 'Our Story' },
+  { href: '/',                 label: 'Home' },
+  { href: '/shop',             label: 'Shop' },
+  { href: '/shop/gift-boxes',  label: 'Gift Boxes' },
+  { href: '/about',            label: 'Our Story' },
 ] as const;
 
 export const FOOTER_LINKS = {

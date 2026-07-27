@@ -45,10 +45,29 @@ const STATS = [
   { value: 100, suffix: '%', label: 'Traceable' },
 ];
 
-const TEAM = [
-  { name: 'Arjun Nair', role: 'Co-founder & Head of Sourcing', bio: 'Former wildlife researcher. Has hiked every trail in the Western Ghats twice.', initials: 'AN' },
-  { name: 'Priya Menon', role: 'Co-founder & CEO', bio: 'Food scientist turned entrepreneur. Believes the best product is no product at all — just nature.', initials: 'PM' },
-  { name: 'Rahul Sharma', role: 'Head of Quality', bio: '15 years in food safety. Has rejected more honey than he has approved, and proud of it.', initials: 'RS' },
+const FOUNDERS = [
+  {
+    name: 'Yatin Narechania',
+    title: 'Founder & CEO',
+    badge: 'The Brain of SUMOSTA',
+    image: '/images/brand/yatin.jpg',
+    imageFit: 'cover' as const,
+    imagePosition: 'center 70%',
+    stance: 'Handling the heavy lifting behind Strategy, Product Development, and Finance.',
+    profile: 'If SUMOSTA were a perfectly balanced recipe, Yatin is the master chef holding the measuring spoons. As the strategic brain, he refuses to compromise on lab-tested purity, obsesses over product formulations, and ensures unit economics are as clean as the ingredient labels — a classic Gujarati superpower. He channels the true Sumo mindset by bringing absolute calm, focus, and structural vision to the product roadmap.',
+    fueledBy: 'A morning ritual of raw wild forest honey and big strategic visions.',
+  },
+  {
+    name: 'Rishabh Makharia',
+    title: 'Co-Founder & COO',
+    badge: 'The Soul of SUMOSTA',
+    image: '/images/brand/rishabh.png',
+    imageFit: 'cover' as const,
+    imagePosition: 'center top',
+    stance: 'Dominating the ring in Business Operations, Logistics, and Sales.',
+    profile: 'If Yatin is the blueprint, Rishabh is the engine that drives it forward. As the living soul of the brand, Rishabh turns grand ideas into reality, manages the wild logistics of sourcing from India\'s most remote forests, and makes sure a jar of SUMOSTA lands seamlessly on your dining table. With an inherent Marwari drive for relentless hustle and relationship-building, he\'s the energetic force making sure our "indulgence that cares" reaches every corner of the country.',
+    fueledBy: 'Pure adrenaline, unstoppable sales hustle, and a guilt-free sweet tooth.',
+  },
 ];
 
 export default function AboutPage() {
@@ -180,24 +199,50 @@ export default function AboutPage() {
         </div>
       </div>
 
-      {/* Team */}
+      {/* Founders */}
       <div style={{ background: '#FDF6EC', padding: '96px 24px' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div data-reveal style={{ textAlign: 'center', marginBottom: '56px' }}>
-            <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,4vw,3.2rem)', color: '#2C2417', margin: '0 0 16px' }}>The People Behind the Hive</h2>
-            <p style={{ fontSize: '15px', color: '#8B7355', maxWidth: '520px', margin: '0 auto' }}>A small, passionate team of food scientists, foragers, and storytellers — united by an obsession with purity.</p>
+          <div data-reveal style={{ textAlign: 'center', marginBottom: '64px' }}>
+            <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 16px' }}>Meet the Founders</p>
+            <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,4vw,3.2rem)', color: '#2C2417', margin: '0 0 20px' }}>Meet the Heavyweights Behind the Honey.</h2>
+            <p style={{ fontSize: '16px', color: '#5C4A32', maxWidth: '680px', margin: '0 auto', lineHeight: 1.75 }}>When a Gujarati and a Marwari team up to launch a food brand, two things are absolutely guaranteed: the numbers will always balance, and the food will always taste phenomenal. We stepped into the SUMOSTA ring to prove that you can conquer the modern daily hustle without giving up the joy of eating.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }} className="sum-team-grid">
-            {TEAM.map((m) => (
-              <div key={m.name} data-reveal style={{ textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', borderRadius: '999px', background: '#FFE0A8', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, color: '#A66A10', fontSize: '24px' }}>{m.initials}</span>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }} className="sum-founders-grid">
+            {FOUNDERS.map((f) => (
+              <div key={f.name} data-reveal style={{ background: '#FFFDF8', borderRadius: '20px', border: '1px solid #F0E6D3', padding: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Avatar + name */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div style={{ width: '80px', height: '80px', borderRadius: '999px', overflow: 'hidden', flexShrink: 0, border: '2px solid #F5A623', position: 'relative', background: '#FFE0A8' }}>
+                    <Image src={f.image} fill alt={f.name} sizes="80px" style={{ objectFit: f.imageFit, objectPosition: f.imagePosition }} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontSize: '20px', fontWeight: 800, color: '#2C2417', margin: '0 0 2px' }}>{f.name}</h3>
+                    <p style={{ fontSize: '13px', color: '#D4891A', fontWeight: 700, margin: '0 0 2px' }}>{f.title}</p>
+                    <span style={{ display: 'inline-block', background: '#FFF0D6', color: '#A66A10', fontSize: '11px', fontWeight: 700, padding: '2px 10px', borderRadius: '999px', letterSpacing: '0.05em' }}>{f.badge}</span>
+                  </div>
                 </div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2C2417', margin: '0 0 2px' }}>{m.name}</h3>
-                <p style={{ fontSize: '13px', color: '#D4891A', fontWeight: 600, margin: '0 0 12px' }}>{m.role}</p>
-                <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#8B7355', margin: '0 auto', maxWidth: '280px' }}>{m.bio}</p>
+                {/* Sumo stance */}
+                <div style={{ background: '#FFF9F0', borderRadius: '10px', padding: '14px 18px', borderLeft: '3px solid #F5A623' }}>
+                  <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#D4891A', fontWeight: 700, margin: '0 0 4px' }}>The Sumo Stance</p>
+                  <p style={{ fontSize: '14px', color: '#5C4A32', margin: 0, lineHeight: 1.6 }}>{f.stance}</p>
+                </div>
+                {/* Profile */}
+                <p style={{ fontSize: '15px', color: '#5C4A32', lineHeight: 1.8, margin: 0 }}>{f.profile}</p>
+                {/* Fueled by */}
+                <p style={{ fontSize: '13px', color: '#8B7355', margin: 0 }}>
+                  <span style={{ fontWeight: 700, color: '#2C2417' }}>Fueled By: </span>{f.fueledBy}
+                </p>
               </div>
             ))}
+          </div>
+
+          {/* Footer quote */}
+          <div data-reveal style={{ textAlign: 'center', marginTop: '56px', padding: '40px 24px', background: '#2C2417', borderRadius: '20px' }}>
+            <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: 'clamp(1.1rem,2vw,1.4rem)', color: '#FFFDF8', lineHeight: 1.7, maxWidth: '700px', margin: '0 auto' }}>
+              &ldquo;We don&apos;t just run the company; we are our own biggest customers. We built SUMOSTA because our own sweet teeth demanded an indulgence that actually looks out for our health. Welcome to the ring!&rdquo;
+            </p>
+            <p style={{ fontSize: '13px', color: '#F5A623', margin: '20px 0 0', fontWeight: 600 }}>— Yatin &amp; Rishabh, Co-Founders</p>
           </div>
         </div>
       </div>
@@ -213,7 +258,7 @@ export default function AboutPage() {
 
       <style>{`
         @media (min-width: 768px) {
-          .sum-team-grid { grid-template-columns: repeat(3,1fr) !important; }
+          .sum-founders-grid { grid-template-columns: repeat(2,1fr) !important; }
           .sum-story-row { grid-template-columns: 1fr 1fr !important; gap: 64px !important; }
         }
       `}</style>

@@ -2,17 +2,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { STATIC_PRODUCTS } from '@/lib/content';
 
-const PRODUCTS = [
-  { id: 1, name: 'Western Ghats Raw Honey', category: 'Raw Honey', price: 599, size: '500g' },
-  { id: 2, name: 'Himalayan Wild Honey', category: 'Raw Honey', price: 699, size: '500g' },
-  { id: 3, name: 'Sundarbans Mangrove Honey', category: 'Raw Honey', price: 549, size: '500g' },
-  { id: 4, name: 'Classic Honey Sticks — 10 Pack', category: 'Honey Sticks', price: 199, size: '10 pack' },
-  { id: 5, name: 'Cinnamon Honey Spread', category: 'Honey Spreads', price: 399, size: '250g' },
-  { id: 6, name: 'Turmeric Golden Honey Spread', category: 'Honey Spreads', price: 449, size: '250g' },
-  { id: 7, name: 'Raw Honeycomb Piece', category: 'Honeycomb', price: 799, size: '250g' },
-  { id: 8, name: 'The Essentials Gift Box', category: 'Gift Boxes', price: 1499, size: '3 jars' },
-];
+const PRODUCTS = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon);
 
 const PROCESS_STEPS = [
   { num: '01', title: 'Sourced Wild', body: 'Our beekeepers locate wild colonies in protected forest reserves — the Western Ghats, Sundarbans, and Himalayan foothills.', image: '/images/home/sourced-wild.jpg' },
@@ -180,46 +172,46 @@ export default function HomeContent() {
       <div ref={cursorRef} style={{ position: 'fixed', top: 0, left: 0, width: '10px', height: '10px', background: '#F5A623', borderRadius: '999px', pointerEvents: 'none', zIndex: 9999, transform: 'translate(-100px,-100px)', transition: 'width .25s ease, height .25s ease' }} />
 
       {/* ===== HERO ===== */}
-      <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden', background: 'radial-gradient(120% 100% at 15% 15%,#FFFDF8 0%,#FFF9F0 45%,#FFF0D6 100%)', paddingTop: '108px' }}>
+      <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden', background: 'radial-gradient(120% 100% at 15% 15%,#FFFDF8 0%,#FFF9F0 45%,#FFF0D6 100%)', paddingTop: '88px' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: honeycombSvg, backgroundSize: '56px 100px', opacity: 0.04, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', inset: 0, mixBlendMode: 'overlay', opacity: 0.5, pointerEvents: 'none', backgroundImage: noiseSvg }} />
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 0 160px rgba(26,21,14,0.06)' }} />
 
-        <div className="sum-hero-grid" style={{ maxWidth: '1400px', margin: '0 auto', padding: '64px 24px', width: '100%', display: 'grid', gridTemplateColumns: '1fr', gap: '48px', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+        <div className="sum-hero-grid" style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 20px', width: '100%', display: 'grid', gridTemplateColumns: '1fr', gap: '32px', alignItems: 'center', position: 'relative', zIndex: 1, boxSizing: 'border-box' }}>
 
           {/* Left — headline + CTAs */}
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #FFCC66', borderRadius: '999px', padding: '7px 16px', marginBottom: '24px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #FFCC66', borderRadius: '999px', padding: '6px 14px', marginBottom: '20px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '999px', background: '#F5A623', flexShrink: 0 }} />
-              <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#A66A10', fontWeight: 700 }}>Single-Origin · Wild Sourced · Unprocessed</span>
+              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A66A10', fontWeight: 700 }}>Single-Origin · Wild Sourced · Unprocessed</span>
             </div>
-            <h1 style={{ margin: '0 0 24px', lineHeight: 0.96 }}>
-              <span style={{ display: 'block', fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: 'clamp(2.8rem,6.2vw,5.2rem)', color: '#F5A623' }}>Nature&apos;s</span>
-              <span style={{ display: 'block', fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(3.4rem,7.8vw,6.8rem)', color: '#2C2417', letterSpacing: '-0.01em' }}>Golden Promise</span>
+            <h1 style={{ margin: '0 0 20px', lineHeight: 0.96 }}>
+              <span style={{ display: 'block', fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: 'clamp(2.4rem,6.2vw,5.2rem)', color: '#F5A623' }}>Nature&apos;s</span>
+              <span style={{ display: 'block', fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2.9rem,7.8vw,6.8rem)', color: '#2C2417', letterSpacing: '-0.01em' }}>Golden Promise</span>
             </h1>
-            <p style={{ fontSize: '18px', lineHeight: 1.7, color: '#8B7355', maxWidth: '480px', margin: '0 0 32px' }}>
+            <p className="sum-hero-body" style={{ fontSize: '16px', lineHeight: 1.7, color: '#8B7355', maxWidth: '480px', margin: '0 0 28px' }}>
               Raw, unprocessed honey sourced from India&apos;s wildest apiaries. From hive to home, nothing added, nothing taken.
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '18px', alignItems: 'center', marginBottom: '28px' }}>
-              <Link href="/shop" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '15px', padding: '17px 34px', borderRadius: '8px', boxShadow: '0 12px 34px rgba(245,166,35,0.35)', textDecoration: 'none', fontFamily: 'var(--font-bricolage), sans-serif' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+              <Link href="/shop" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '15px', padding: '15px 28px', borderRadius: '8px', boxShadow: '0 12px 34px rgba(245,166,35,0.35)', textDecoration: 'none', fontFamily: 'var(--font-bricolage), sans-serif' }}>
                 Shop Collection <span>→</span>
               </Link>
-              <Link href="/about" style={{ color: '#5C4A32', fontWeight: 600, fontSize: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+              <Link href="/about" style={{ color: '#5C4A32', fontWeight: 600, fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
                 Our Story <span>→</span>
               </Link>
             </div>
           </div>
 
           {/* Right — image burst composition */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '500px' }}>
+          <div className="sum-hero-visual" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {/* ambient glow + decorative rings */}
-            <div style={{ position: 'absolute', width: '78%', height: '66%', borderRadius: '999px', background: '#FFE0A8', opacity: 0.6, filter: 'blur(70px)' }} />
-            <div className="animate-sum-spin-slow" style={{ position: 'absolute', width: '340px', height: '340px', borderRadius: '999px', border: '1px solid rgba(212,137,26,0.25)' }} />
-            <div style={{ position: 'absolute', width: '280px', height: '280px', borderRadius: '999px', border: '1px dashed rgba(212,137,26,0.18)' }} />
-            <div style={{ position: 'absolute', bottom: '6%', width: '220px', height: '36px', borderRadius: '999px', background: 'radial-gradient(closest-side,rgba(26,21,14,0.22),transparent)' }} />
+            <div style={{ position: 'absolute', width: '78%', height: '66%', borderRadius: '999px', background: '#FFE0A8', opacity: 0.6, filter: 'blur(60px)' }} />
+            <div className="animate-sum-spin-slow sum-hero-ring-1" style={{ position: 'absolute', width: '340px', height: '340px', borderRadius: '999px', border: '1px solid rgba(212,137,26,0.25)' }} />
+            <div className="sum-hero-ring-2" style={{ position: 'absolute', width: '280px', height: '280px', borderRadius: '999px', border: '1px dashed rgba(212,137,26,0.18)' }} />
+            <div style={{ position: 'absolute', bottom: '4%', width: '160px', height: '28px', borderRadius: '999px', background: 'radial-gradient(closest-side,rgba(26,21,14,0.18),transparent)' }} />
 
             {/* Image composition container — 16:9 aspect, cqw/cqh burst offsets relative to this */}
-            <div style={{ position: 'relative', width: '63.75vw', maxWidth: '1200px', aspectRatio: '16/9', containerType: 'size' } as React.CSSProperties}>
+            <div className="sum-hero-comp" style={{ position: 'relative', width: '63.75vw', maxWidth: '1200px', aspectRatio: '16/9', containerType: 'size' } as React.CSSProperties}>
 
               {/* Honey jar — drops in */}
               <div style={{ position: 'absolute', left: '33.24%', top: '18.02%', width: '36.73%', height: '70.99%', zIndex: 2, animation: 'sum-jar-drop 0.9s cubic-bezier(0.22,1,0.36,1) both' }}>
@@ -297,13 +289,13 @@ export default function HomeContent() {
         <div ref={carouselRef} className="sum-noscroll" style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingLeft: 'max(24px, calc((100vw - 1400px) / 2 + 24px))', paddingBottom: '12px', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', scrollPaddingLeft: 'max(24px, calc((100vw - 1400px) / 2 + 24px))' }}>
           {PRODUCTS.map((p) => (
             <div key={p.id} style={{ minWidth: '280px', maxWidth: '280px', scrollSnapAlign: 'start', flexShrink: 0 }}>
-              <Link href="/shop" style={{ textDecoration: 'none' }}>
+              <Link href={`/product/${p.slug}`} style={{ textDecoration: 'none' }}>
                 <div style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '14px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 14px,#FFF9F0 14px,#FFF9F0 28px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '14px' }}>
                   <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '10px', letterSpacing: '0.06em', color: '#8B7355', textTransform: 'uppercase', padding: '0 16px' }}>product photo<br />{p.name}</span>
                 </div>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B39A', margin: '0 0 4px' }}>{p.category}</p>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B39A', margin: '0 0 4px' }}>{p.category?.name ?? ''}</p>
                 <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#2C2417', margin: '0 0 6px' }}>{p.name}</h3>
-                <p style={{ fontSize: '14px', fontWeight: 700, color: '#D4891A', margin: 0 }}>₹{p.price} <span style={{ fontSize: '12px', color: '#C4B39A', fontWeight: 500 }}>/ {p.size}</span></p>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: '#D4891A', margin: 0 }}>₹{p.price}</p>
               </Link>
             </div>
           ))}
@@ -440,11 +432,11 @@ export default function HomeContent() {
           <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 16px', textAlign: 'center' }}>Did You Know</p>
           <h2 data-reveal style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', color: '#2C2417', margin: '0 0 48px', letterSpacing: '-0.01em', textAlign: 'center' }}>The Hive at Work</h2>
 
-          <div className="sum-hive-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px', alignItems: 'start' }}>
+          <div className="sum-hive-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px', alignItems: 'start' }}>
             {/* Fact detail card */}
-            <div style={{ background: '#FDF6EC', borderRadius: '16px', padding: '40px', height: '440px', boxSizing: 'border-box', position: 'sticky', top: '130px', alignSelf: 'start', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div className="sum-hive-card" style={{ background: '#FDF6EC', borderRadius: '16px', padding: '32px', boxSizing: 'border-box', position: 'sticky', top: '130px', alignSelf: 'start', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '12px', color: '#D4891A', letterSpacing: '0.1em' }}>{activeFact.num}</span>
-              <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: 'clamp(1.15rem,2vw,1.5rem)', color: '#2C2417', margin: '10px 0 14px', lineHeight: 1.25 }}>{activeFact.text}</h3>
+              <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: 'clamp(1.1rem,2vw,1.45rem)', color: '#2C2417', margin: '10px 0 14px', lineHeight: 1.25 }}>{activeFact.text}</h3>
               <p style={{ fontSize: '13.5px', lineHeight: 1.6, color: '#5C4A32', margin: '0 0 18px' }}>{activeFact.detail}</p>
               <div style={{ borderTop: '1px solid #F0E6D3', paddingTop: '14px' }}>
                 <p style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#7C9A6E', fontWeight: 700, margin: '0 0 6px' }}>The Evidence</p>
@@ -452,8 +444,8 @@ export default function HomeContent() {
               </div>
             </div>
 
-            {/* Hexagon grid */}
-            <div>
+            {/* Hexagon grid — desktop only */}
+            <div className="sum-hex-canvas">
               <div style={{ position: 'relative', width: '420px', height: '440px', margin: '0 auto' }}>
                 {FACTS.map((f, i) => {
                   const pos = HEX_POSITIONS[i] ?? [0, 0];
@@ -467,6 +459,37 @@ export default function HomeContent() {
                         <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '20px', color: isOpen ? '#1A150E' : '#D4891A', transition: 'color .25s ease' }}>{f.num}</span>
                       </button>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Fact selector — mobile only */}
+            <div className="sum-hex-mobile" style={{ display: 'none' }}>
+              <p style={{ fontSize: '12px', color: '#C4B39A', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 14px', fontWeight: 600 }}>Tap a fact to explore</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {FACTS.map((f, i) => {
+                  const isOpen = openFact === i;
+                  return (
+                    <button
+                      key={f.num}
+                      onClick={() => setOpenFact(i)}
+                      style={{
+                        width: '54px', height: '54px',
+                        borderRadius: '50%',
+                        background: isOpen ? '#F5A623' : '#FFF0D6',
+                        border: `2px solid ${isOpen ? '#D4891A' : '#F0E6D3'}`,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-bricolage), sans-serif',
+                        fontWeight: 700, fontSize: '14px',
+                        color: isOpen ? '#1A150E' : '#D4891A',
+                        transition: 'all .25s ease',
+                        flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      {f.num}
+                    </button>
                   );
                 })}
               </div>
@@ -502,17 +525,40 @@ export default function HomeContent() {
       </section>
 
       <style>{`
+        /* ===== DESKTOP ===== */
         @media (min-width: 1024px) {
-          .sum-hero-grid    { grid-template-columns: 1.1fr 0.9fr !important; }
-          .sum-story-grid   { grid-template-columns: 1fr 1fr !important; min-height: 560px; }
-          .sum-trust-grid   { grid-template-columns: repeat(4,1fr) !important; }
+          .sum-hero-grid       { grid-template-columns: 1.1fr 0.9fr !important; gap: 48px !important; padding: 64px 24px !important; }
+          .sum-hero-visual     { height: 500px !important; }
+          .sum-hero-comp       { width: 63.75vw !important; }
+          .sum-story-grid      { grid-template-columns: 1fr 1fr !important; min-height: 560px; }
+          .sum-trust-grid      { grid-template-columns: repeat(4,1fr) !important; }
           .sum-process-desktop { display: block !important; }
           .sum-process-mobile  { display: none !important; }
-          .sum-founders-grid  { grid-template-columns: 1fr 1fr !important; }
+          .sum-founders-grid   { grid-template-columns: 1fr 1fr !important; }
         }
         @media (min-width: 900px) {
-          .sum-hive-grid { grid-template-columns: 0.85fr 1.15fr !important; }
+          .sum-hive-grid  { grid-template-columns: 0.85fr 1.15fr !important; }
+          .sum-hex-canvas { display: block !important; }
+          .sum-hex-mobile { display: none !important; }
         }
+
+        /* ===== MOBILE ===== */
+        @media (max-width: 1023px) {
+          .sum-hero-visual { height: auto !important; min-height: 240px; padding: 12px 0 28px; }
+          .sum-hero-comp   { width: min(88vw, 500px) !important; }
+          .sum-hero-ring-1 { width: 200px !important; height: 200px !important; }
+          .sum-hero-ring-2 { width: 160px !important; height: 160px !important; }
+          .sum-hero-body   { font-size: 15px !important; }
+        }
+        @media (max-width: 899px) {
+          .sum-hive-card  { position: static !important; }
+          .sum-hex-canvas { display: none !important; }
+          .sum-hex-mobile { display: block !important; }
+        }
+        @media (max-width: 639px) {
+          .sum-hero-comp { width: 92vw !important; }
+        }
+
         .sum-noscroll::-webkit-scrollbar { display: none; }
         @media (hover: none), (pointer: coarse) {
           .sum-cursor-dot { display: none !important; }

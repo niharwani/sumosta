@@ -2,10 +2,11 @@
 import { useState } from 'react';
 import { newsletterApi } from '@/lib/api';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
+import { Sparkles, ArrowRight, Check } from 'lucide-react';
 
 export default function NewsletterSection() {
-  const [email, setEmail]       = useState('');
-  const [status, setStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,50 +22,60 @@ export default function NewsletterSection() {
   };
 
   return (
-    <section className="py-20 lg:py-32 bg-honey-50 relative overflow-hidden">
+    <section className="section-padding bg-gradient-to-b from-cream to-honey-50 relative overflow-hidden">
       <div className="absolute inset-0 honeycomb-bg opacity-[0.04] pointer-events-none" />
 
       <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12 relative text-center">
+        
         <RevealOnScroll variant="scaleIn">
-          <h2 className="font-clash text-charcoal font-bold mb-4" style={{ fontSize: 'clamp(2rem, 4vw, 3.5rem)' }}>
+          <div className="w-12 h-12 rounded-full bg-honey-100 flex items-center justify-center text-honey-600 mx-auto mb-4">
+            <Sparkles size={22} />
+          </div>
+        </RevealOnScroll>
+
+        <RevealOnScroll variant="fadeUp" delay={0.1}>
+          <h2 className="font-clash text-charcoal font-bold text-3xl sm:text-4xl md:text-5xl tracking-tight mb-3">
             Join the Colony
           </h2>
         </RevealOnScroll>
 
-        <RevealOnScroll variant="fadeUp" delay={0.1}>
-          <p className="font-satoshi text-earth text-base md:text-lg max-w-xl mx-auto mb-8">
-            Get first access to new harvests, exclusive recipes, and 10% off your first order.
+        <RevealOnScroll variant="fadeUp" delay={0.2}>
+          <p className="font-satoshi text-bark text-base sm:text-lg max-w-xl mx-auto mb-8 leading-relaxed">
+            Get first access to new forest harvests, lab purity reports, and 10% off your first order.
           </p>
         </RevealOnScroll>
 
-        <RevealOnScroll variant="fadeUp" delay={0.2}>
+        <RevealOnScroll variant="fadeUp" delay={0.3}>
           {status === 'success' ? (
-            <p className="font-satoshi text-sage font-medium text-lg">
-              🐝 Welcome to the colony! Check your inbox.
-            </p>
+            <div className="inline-flex items-center gap-2 bg-sage-light text-sage px-6 py-4 rounded-xl font-satoshi font-semibold text-sm">
+              <Check size={18} />
+              <span>Welcome to the colony! Check your inbox for your discount.</span>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder="Enter your email address"
                 required
-                className="flex-1 px-5 py-3.5 rounded-md border border-sand bg-cream font-satoshi text-charcoal text-sm focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-200 transition-all"
+                className="flex-1 px-5 py-3.5 rounded-xl border border-sand bg-cream font-satoshi text-charcoal text-sm focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-200 transition-all"
               />
               <button
                 type="submit"
                 disabled={status === 'loading'}
-                className="bg-honey-400 text-midnight font-satoshi font-semibold text-sm px-7 py-3.5 rounded-md hover:bg-honey-500 transition-colors disabled:opacity-60 whitespace-nowrap"
+                className="btn-primary py-3.5 px-6 whitespace-nowrap"
               >
-                {status === 'loading' ? '...' : 'Subscribe'}
+                <span>{status === 'loading' ? 'Subscribing...' : 'Subscribe'}</span>
+                <ArrowRight size={16} />
               </button>
             </form>
           )}
           {status === 'error' && (
-            <p className="font-satoshi text-terracotta text-sm mt-3">Something went wrong. Please try again.</p>
+            <p className="font-satoshi text-terracotta text-xs mt-3">Something went wrong. Please try again.</p>
           )}
         </RevealOnScroll>
+
       </div>
     </section>
   );

@@ -12,11 +12,11 @@ function authHeaders() {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+const EMPTY_FORM = { code: '', type: 'percentage', value: '', minOrderAmount: '', maxUsage: '', expiresAt: '' };
+
 export default function AdminCouponsPage() {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    code: '', type: 'percentage', value: '', min_order_amount: '', max_uses: '', expires_at: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [deleting, setDeleting] = useState<string | null>(null);
   const qc = useQueryClient();
 
@@ -28,7 +28,8 @@ export default function AdminCouponsPage() {
     },
   });
 
-  const coupons = data?.data ?? [];
+  // API returns { success, data: { coupons: [...], total, page, ... } }
+  const coupons = data?.data?.coupons ?? [];
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -36,26 +37,33 @@ export default function AdminCouponsPage() {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
-          code: form.code.toUpperCase(),
-          type: form.type,
-          value: Number(form.value),
-          min_order_amount: form.min_order_amount ? Number(form.min_order_amount) : null,
-          max_uses: form.max_uses ? Number(form.max_uses) : null,
-          expires_at: form.expires_at || null,
+          code:           form.code.toUpperCase(),
+          type:           form.type,
+          value:          Number(form.value),
+          minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : null,
+          maxUsage:       form.maxUsage ? Number(form.maxUsage) : null,
+          isFirstOrderOnly: false,
+          isActive:       true,
+          expiresAt:      form.expiresAt ? `${form.expiresAt}T23:59:59.000Z` : null,
         }),
       });
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-coupons'] });
-      setShowForm(false);
-      setForm({ code: '', type: 'percentage', value: '', min_order_amount: '', max_uses: '', expires_at: '' });
+    onSuccess: (data) => {
+      if (data.success) {
+        qc.invalidateQueries({ queryKey: ['admin-coupons'] });
+        setShowForm(false);
+        setForm(EMPTY_FORM);
+      }
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API}/api/admin/coupons/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const res = await fetch(`${API}/api/admin/coupons/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -64,7 +72,8 @@ export default function AdminCouponsPage() {
     },
   });
 
-  const inputClass = 'border border-gray-200 rounded-lg px-3 py-2 text-sm font-satoshi text-gray-700 focus:outline-none focus:border-honey-400 w-full';
+  const inputClass =
+    'border border-gray-200 rounded-lg px-3 py-2 text-sm font-satoshi text-gray-700 focus:outline-none focus:border-honey-400 w-full';
 
   return (
     <div>
@@ -117,8 +126,8 @@ export default function AdminCouponsPage() {
               <label className="block font-satoshi text-gray-600 text-xs mb-1">Min Order Amount (₹)</label>
               <input
                 type="number"
-                value={form.min_order_amount}
-                onChange={(e) => setForm({ ...form, min_order_amount: e.target.value })}
+                value={form.minOrderAmount}
+                onChange={(e) => setForm({ ...form, minOrderAmount: e.target.value })}
                 className={inputClass}
                 placeholder="1000"
               />
@@ -127,8 +136,8 @@ export default function AdminCouponsPage() {
               <label className="block font-satoshi text-gray-600 text-xs mb-1">Max Uses</label>
               <input
                 type="number"
-                value={form.max_uses}
-                onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
+                value={form.maxUsage}
+                onChange={(e) => setForm({ ...form, maxUsage: e.target.value })}
                 className={inputClass}
                 placeholder="100"
               />
@@ -137,12 +146,19 @@ export default function AdminCouponsPage() {
               <label className="block font-satoshi text-gray-600 text-xs mb-1">Expires At</label>
               <input
                 type="date"
-                value={form.expires_at}
-                onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
+                value={form.expiresAt}
+                onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
                 className={inputClass}
               />
             </div>
           </div>
+
+          {createMutation.data && !createMutation.data.success && (
+            <p className="font-satoshi text-red-500 text-xs mt-3">
+              {createMutation.data.error ?? 'Failed to create coupon'}
+            </p>
+          )}
+
           <div className="flex gap-3 mt-4">
             <button
               onClick={() => createMutation.mutate()}
@@ -151,10 +167,7 @@ export default function AdminCouponsPage() {
             >
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </button>
-            <button
-              onClick={() => setShowForm(false)}
-              className="font-satoshi text-gray-500 text-sm px-4 py-2"
-            >
+            <button onClick={() => setShowForm(false)} className="font-satoshi text-gray-500 text-sm px-4 py-2">
               Cancel
             </button>
           </div>
@@ -177,8 +190,9 @@ export default function AdminCouponsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {coupons.map((c: any) => {
-                const expired = c.expires_at && new Date(c.expires_at) < new Date();
-                const exhausted = c.max_uses && c.used_count >= c.max_uses;
+                const expired   = c.expires_at && new Date(c.expires_at) < new Date();
+                // DB columns: max_usage, usage_count
+                const exhausted = c.max_usage && c.usage_count >= c.max_usage;
                 return (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3.5">
@@ -195,7 +209,7 @@ export default function AdminCouponsPage() {
                       {c.min_order_amount ? formatPrice(c.min_order_amount) : '—'}
                     </td>
                     <td className="px-5 py-3.5 font-satoshi text-gray-600 text-sm">
-                      {c.used_count ?? 0} / {c.max_uses ?? '∞'}
+                      {c.usage_count ?? 0} / {c.max_usage ?? '∞'}
                     </td>
                     <td className="px-5 py-3.5 font-satoshi text-gray-400 text-xs">
                       {c.expires_at ? new Date(c.expires_at).toLocaleDateString('en-IN') : '—'}

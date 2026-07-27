@@ -13,7 +13,7 @@ app.post('/event', zValidator('json', analyticsEventSchema), async (c) => {
   // Write to Analytics Engine (primary store)
   for (const event of events) {
     try {
-      c.env.ANALYTICS.writeDataPoint({
+      c.env.ANALYTICS?.writeDataPoint({
         blobs:   [event.eventType, event.pageUrl, event.sessionId, event.referrer ?? ''],
         doubles: [event.timestamp],
         indexes: [event.eventType],

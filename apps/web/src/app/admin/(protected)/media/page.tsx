@@ -109,14 +109,14 @@ export default function AdminMediaPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {files.map((f: any) => (
             <div key={f.key} className="group relative bg-gray-50 rounded-xl overflow-hidden border border-gray-100 aspect-square">
-              <img src={f.url} alt={f.key} className="w-full h-full object-cover" />
+              <img src={f.publicUrl} alt={f.key} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-midnight/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button
-                  onClick={() => copyUrl(f.url)}
+                  onClick={() => copyUrl(f.publicUrl)}
                   className="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
                   title="Copy URL"
                 >
-                  {copied === f.url ? <Check size={14} /> : <Copy size={14} />}
+                  {copied === f.publicUrl ? <Check size={14} /> : <Copy size={14} />}
                 </button>
                 {deleting === f.key ? (
                   <div className="flex gap-1">

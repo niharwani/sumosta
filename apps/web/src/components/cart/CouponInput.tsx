@@ -32,12 +32,12 @@ export default function CouponInput() {
 
   if (coupon) {
     return (
-      <div className="flex items-center justify-between bg-sage-light border border-sage/30 rounded-md px-4 py-3">
+      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
         <div>
-          <p className="font-satoshi text-sage font-semibold text-sm">{coupon.code}</p>
-          <p className="font-satoshi text-sage text-xs">Coupon applied</p>
+          <p className="font-jakarta text-green-700 font-semibold text-sm">{coupon.code}</p>
+          <p className="font-jakarta text-green-600 text-xs">Coupon applied</p>
         </div>
-        <button onClick={() => { removeCoupon(); setStatus('idle'); setMsg(''); }} className="text-sage hover:text-bark transition-colors">
+        <button onClick={() => { removeCoupon(); setStatus('idle'); setMsg(''); }} className="text-green-600 hover:text-green-800 transition-colors">
           <X size={16} />
         </button>
       </div>
@@ -51,19 +51,19 @@ export default function CouponInput() {
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           placeholder="Coupon code"
-          className="flex-1 border border-sand rounded-md px-4 py-2.5 font-satoshi text-sm text-charcoal bg-cream focus:outline-none focus:border-honey-400"
+          className="flex-1 border border-[#E5E7EB] rounded-full px-4 py-2.5 font-jakarta text-sm text-charcoal bg-white focus:outline-none focus:border-[#F97316]"
           onKeyDown={(e) => e.key === 'Enter' && handleApply()}
         />
         <button
           onClick={handleApply}
           disabled={status === 'loading'}
-          className="bg-charcoal text-cream font-satoshi text-sm font-medium px-5 py-2.5 rounded-md hover:bg-bark transition-colors disabled:opacity-60"
+          className="bg-charcoal text-white font-jakarta text-sm font-medium px-5 py-2.5 rounded-full hover:bg-[#1a1a1a] transition-colors disabled:opacity-60"
         >
           {status === 'loading' ? '...' : 'Apply'}
         </button>
       </div>
       {msg && (
-        <p className={`font-satoshi text-xs mt-2 ${status === 'success' ? 'text-sage' : 'text-terracotta'}`}>
+        <p className={`font-jakarta text-xs mt-2 ${status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
           {msg}
         </p>
       )}

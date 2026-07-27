@@ -27,13 +27,14 @@ const refundSchema = z.object({
 
 // ─── GET /api/admin/orders ───────────────────────────────────
 app.get('/', async (c) => {
-  const page        = Number(c.req.query('page')    ?? 1);
-  const limit       = Number(c.req.query('limit')   ?? 20);
-  const status      = c.req.query('status')  ?? '';
-  const search      = c.req.query('search')  ?? '';
-  const startDate   = c.req.query('startDate') ?? '';
-  const endDate     = c.req.query('endDate')   ?? '';
-  const offset      = (page - 1) * limit;
+  const page          = Number(c.req.query('page')           ?? 1);
+  const limit         = Number(c.req.query('limit')          ?? 20);
+  const status        = c.req.query('status')        ?? '';
+  const paymentStatus = c.req.query('payment_status') ?? '';
+  const search        = c.req.query('search')        ?? '';
+  const startDate     = c.req.query('startDate')     ?? '';
+  const endDate       = c.req.query('endDate')       ?? '';
+  const offset        = (page - 1) * limit;
 
   const conditions: string[] = [];
   const bind: (string | number)[] = [];
@@ -41,6 +42,10 @@ app.get('/', async (c) => {
   if (status) {
     conditions.push('o.status = ?');
     bind.push(status);
+  }
+  if (paymentStatus) {
+    conditions.push('o.payment_status = ?');
+    bind.push(paymentStatus);
   }
   if (search) {
     conditions.push('(o.order_number LIKE ? OR o.shipping_name LIKE ?)');

@@ -9,11 +9,11 @@ interface RelatedProduct {
 export default function RelatedProducts({ products }: { products: RelatedProduct[] }) {
   return (
     <div className="mb-16">
-      <h2 className="font-clash text-charcoal font-bold text-2xl mb-8">You Might Also Like</h2>
+      <h2 className="font-jakarta font-bold text-charcoal text-2xl mb-8">You Might Also Like</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
         {products.slice(0, 4).map((product) => (
           <Link key={product.id} href={`/product/${product.slug}`} className="group">
-            <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-cream-warm mb-3">
+            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-[#F5F1E9] mb-3">
               {product.primary_image && (
                 <Image
                   src={product.primary_image}
@@ -24,7 +24,8 @@ export default function RelatedProducts({ products }: { products: RelatedProduct
                 />
               )}
             </div>
-            <p className="font-satoshi text-charcoal text-sm font-medium line-clamp-2 mb-1">{product.name}</p>
+            <p className="font-jakarta text-charcoal text-sm font-medium line-clamp-2 mb-1">{product.name}</p>
+            <p className="font-jakarta text-[#F97316] text-sm font-semibold">{formatPrice(product.price)}</p>
           </Link>
         ))}
       </div>

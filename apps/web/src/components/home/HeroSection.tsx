@@ -1,178 +1,146 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { ArrowDown } from 'lucide-react';
 import Image from 'next/image';
+import HeroJar from '@/components/home/HeroJar';
 
 export default function HeroSection() {
-  const titleRef = useRef<HTMLDivElement>(null);
+  const jarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced || !titleRef.current) return;
+    if (prefersReduced) return;
 
     import('animejs').then(({ default: anime }) => {
+      // Gentle float — honey jar
       anime({
-        targets: titleRef.current!.querySelectorAll('.hero-char'),
-        opacity:    [0, 1],
-        translateY: [60, 0],
-        rotateX:    [90, 0],
-        easing:     'cubicBezier(0.16, 1, 0.3, 1)',
-        duration:   900,
-        delay:      anime.stagger(28, { start: 400 }),
+        targets: jarRef.current,
+        translateY: ['-10px', '10px'],
+        duration: 4000,
+        easing: 'easeInOutSine',
+        direction: 'alternate',
+        loop: true,
+      });
+
+      // Stagger in the headline lines
+      anime({
+        targets: '.hero-line',
+        opacity: [0, 1],
+        translateY: [40, 0],
+        easing: 'cubicBezier(0.16, 1, 0.3, 1)',
+        duration: 900,
+        delay: anime.stagger(120, { start: 100 }),
+      });
+
+      // Fade in supporting content
+      anime({
+        targets: '.hero-sub',
+        opacity: [0, 1],
+        translateY: [20, 0],
+        easing: 'cubicBezier(0.16, 1, 0.3, 1)',
+        duration: 800,
+        delay: 600,
       });
     });
   }, []);
 
-  const splitText = (text: string) =>
-    text.split('').map((ch, i) => (
-      <span key={`${text}-${i}`} className="hero-char inline-block" style={{ opacity: 0 }}>
-        {ch === ' ' ? ' ' : ch}
-      </span>
-    ));
-
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-cream">
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="/images/hero/hero-bg.png"
-          alt="Pristine forest background"
-          fill
-          priority
-          className="object-cover opacity-20"
-        />
-        <div className="absolute inset-0 bg-gradient-to-tr from-cream via-cream/80 to-transparent" />
-      </div>
+    <section className="relative bg-[#FFFDF8] overflow-hidden min-h-[92vh] flex items-center">
 
-      {/* Honeycomb background pattern */}
-      <div className="absolute inset-0 honeycomb-bg pointer-events-none z-10" style={{ opacity: 0.035 }} />
+      {/* Subtle honeycomb bg pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.025] pointer-events-none"
+        style={{ backgroundImage: "url('/images/textures/honeycomb.svg')", backgroundSize: '120px' }}
+      />
 
-      <div className="relative z-10 max-w-content mx-auto px-6 md:px-8 lg:px-12 w-full grid lg:grid-cols-2 gap-8 items-center py-28 lg:py-0">
+      {/* Warm vignette at the bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#FFF0D6]/30 to-transparent pointer-events-none" />
 
-        {/* ── Left: Text ── */}
-        <div>
-          <motion.div
-            className="font-satoshi uppercase tracking-[0.22em] mb-6 text-sm flex items-center gap-1.5"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-          >
-            <span className="font-extrabold text-charcoal text-base">SUMOSTA</span>
-            <span className="text-bark font-bold">&bull;</span>
-            <span className="font-extrabold text-bark text-base">INDULGENCE THAT CARES</span>
-          </motion.div>
+      <div className="relative w-full max-w-content mx-auto px-6 md:px-10 py-16 md:py-24">
 
-          <div ref={titleRef} className="mb-7 leading-[1.0] flex flex-col">
-            <div
-              className="font-clash font-bold text-charcoal"
-              style={{ fontSize: 'clamp(3.5rem, 8vw, 6.5rem)' }}
+        {/* ── Eyebrow ── */}
+        <div className="hero-line opacity-0 flex items-center gap-3 mb-6">
+          <span className="block w-8 h-px bg-honey-500" />
+          <span className="font-jakarta text-[11px] uppercase tracking-[0.2em] text-earth">
+            Single-origin · Raw · Unprocessed
+          </span>
+        </div>
+
+        {/* ── Typography composition ── */}
+        <div className="relative">
+
+          {/* Line 1 — Bespoke Serif italic accent */}
+          <div className="hero-line opacity-0">
+            <span className="font-bespoke italic text-honey-500 text-[clamp(1.75rem,3.5vw,3rem)] leading-none block mb-1 md:mb-2">
+              Nature's
+            </span>
+          </div>
+
+          {/* Line 2 — GOLDEN (massive Clash Display) with floating jar inside */}
+          <div className="hero-line opacity-0 relative">
+            <h1
+              className="font-clash font-bold text-charcoal leading-[0.82] tracking-[-0.02em] select-none"
+              style={{ fontSize: 'clamp(5rem, 14vw, 12rem)' }}
             >
-              {splitText("Indulgence")}
-            </div>
+              GOLDEN
+            </h1>
+
+            {/* Honey jar — floats inside the typographic field, overlapping the letters */}
             <div
-              className="font-clash font-bold text-honey-500 my-2"
-              style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)' }}
+              ref={jarRef}
+              className="absolute pointer-events-none"
+              style={{
+                right: 'clamp(-2rem, 2vw, 4rem)',
+                top:  'clamp(-4rem, -6vw, -8rem)',
+                width: 'clamp(180px, 26vw, 420px)',
+                zIndex: 10,
+              }}
             >
-              {splitText("≠")}
-            </div>
-            <div
-              className="font-bespoke italic text-bark"
-              style={{ fontSize: 'clamp(3.2rem, 7vw, 6rem)' }}
-            >
-              {splitText("Guilt")}
+              <HeroJar />
             </div>
           </div>
 
-          <motion.p
-            className="font-satoshi text-earth text-base md:text-lg leading-relaxed max-w-lg mb-10"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 1.2 }}
-          >
-            Zero refined sugars. Zero filler chemicals. 100% pure, nutrient-dense joy. Raw forest honey sourced from India&apos;s wildest reserves.
-          </motion.p>
-
-          <motion.div
-            className="flex flex-wrap items-center gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 1.4 }}
-          >
-            <Link
-              href="/shop"
-              className="bg-honey-400 text-midnight font-satoshi font-semibold px-8 py-4 rounded-md hover:bg-honey-500 transition-colors shadow-honey"
+          {/* Line 3 — PROMISE (offset right) */}
+          <div className="hero-line opacity-0 flex justify-end md:justify-end">
+            <h1
+              className="font-clash font-bold text-charcoal leading-[0.82] tracking-[-0.02em] select-none"
+              style={{ fontSize: 'clamp(4rem, 11vw, 9.5rem)' }}
             >
+              PROMISE
+            </h1>
+          </div>
+        </div>
+
+        {/* ── Supporting content ── */}
+        <div className="hero-sub opacity-0 mt-10 md:mt-14 flex flex-col sm:flex-row items-start sm:items-end gap-8 sm:gap-16">
+
+          {/* Description */}
+          <p className="font-jakarta text-bark text-base md:text-lg leading-relaxed max-w-xs">
+            Raw honey sourced from India's wildest apiaries — Western Ghats, Sundarbans, Himalayan foothills.
+          </p>
+
+          {/* CTAs */}
+          <div className="flex items-center gap-5 shrink-0">
+            <Link href="/shop" className="btn-honey">
               Shop Collection
             </Link>
             <Link
               href="/about"
-              className="font-satoshi text-bark font-medium flex items-center gap-2 hover:text-charcoal transition-colors group"
+              className="font-jakarta text-[13px] tracking-wide text-earth hover:text-charcoal transition-colors flex items-center gap-1.5 group"
             >
               Our Story
-              <span className="inline-block transition-transform group-hover:translate-x-1">→</span>
+              <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
             </Link>
-          </motion.div>
+          </div>
         </div>
 
-        {/* ── Right: Premium Typographic Origin Showcase ── */}
-        <motion.div
-          className="relative flex items-center justify-center w-full"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          {/* Soft radial backdrop */}
-          <div
-            className="absolute rounded-full blur-3xl bg-honey-200/40 opacity-40 pointer-events-none"
-            style={{ width: '80%', height: '80%', top: '10%', left: '10%' }}
-          />
+        {/* ── Scroll cue ── */}
+        <div className="hero-sub opacity-0 absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2">
+          <span className="font-jakarta text-[10px] uppercase tracking-[0.18em] text-earth-light">Scroll</span>
+          <span className="block w-px h-8 bg-gradient-to-b from-earth-light to-transparent" />
+        </div>
 
-          <div className="relative z-10 w-full max-w-md bg-cream border border-sand/80 p-8 md:p-10 rounded-2xl shadow-honey">
-            <span className="font-satoshi text-honey-600 text-[10px] uppercase tracking-[0.25em] font-semibold block mb-2">
-              Authentic & Pure
-            </span>
-            <h3 className="font-clash font-bold text-charcoal text-2xl mb-6">
-              Purity Highlights
-            </h3>
-
-            <div className="space-y-6 font-satoshi">
-              {[
-                { name: 'Raw & Authentic', note: 'Unheated, unfiltered, preserving all natural enzymes and pollen.', color: 'border-honey-400' },
-                { name: 'Unprocessed', note: '100% pure honey, straight from the hive with nothing added and nothing taken.', color: 'border-sage/60' },
-                { name: 'Single-Source', note: 'Sourced from India\'s untouched landscapes and pristine forests.', color: 'border-terracotta/60' }
-              ].map((origin) => (
-                <div key={origin.name} className="flex gap-4 items-start">
-                  <div className={`w-1 h-10 border-l-2 ${origin.color} mt-1`} />
-                  <div>
-                    <h4 className="font-clash font-bold text-charcoal text-sm">
-                      {origin.name}
-                    </h4>
-                    <p className="text-bark text-[12px] mt-1 leading-relaxed">{origin.note}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
       </div>
-
-      {/* Scroll indicator */}
-      <motion.div
-        className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2, duration: 0.8 }}
-      >
-        <span className="font-satoshi text-earth-light text-xs uppercase tracking-widest">Scroll to explore</span>
-        <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <ArrowDown size={16} className="text-earth-light" />
-        </motion.div>
-      </motion.div>
     </section>
   );
 }

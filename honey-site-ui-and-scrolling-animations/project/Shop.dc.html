@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #FFFDF8; -webkit-font-smoothing: antialiased; }
+a { color: #D4891A; text-decoration: none; }
+a:hover { color: #A66A10; }
+::selection { background: #FFE0A8; }
+@keyframes pulseGold { 0%,100% { opacity:0.3; transform:scale(0.85); } 50% { opacity:1; transform:scale(1); } }
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="background:#FFFDF8;overflow-x:hidden;font-family:'Manrope',sans-serif;color:#2C2417;">
+
+  <div style="position:fixed;inset:0;z-index:999;background:#FFFDF8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;opacity:{{ loaderOpacity }};pointer-events:{{ loaderPointerEvents }};transition:opacity .6s ease;">
+    <div style="position:relative;width:140px;height:130px;">
+      <span style="position:absolute;left:calc(50% - 20px);top:calc(50% - 23px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:0s;"></span>
+      <span style="position:absolute;left:calc(50% + 0px);top:calc(50% - 58px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:.08s;"></span>
+      <span style="position:absolute;left:calc(50% + 20px);top:calc(50% - 23px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:.16s;"></span>
+      <span style="position:absolute;left:calc(50% + 0px);top:calc(50% + 12px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:.24s;"></span>
+      <span style="position:absolute;left:calc(50% - 40px);top:calc(50% + 12px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:.32s;"></span>
+      <span style="position:absolute;left:calc(50% - 60px);top:calc(50% - 23px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:.4s;"></span>
+      <span style="position:absolute;left:calc(50% - 40px);top:calc(50% - 58px);width:40px;height:46px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:#F5A623;animation:pulseGold 1.2s ease-in-out infinite;animation-delay:.48s;"></span>
+    </div>
+    <p style="font-family:'Instrument Serif',serif;font-style:italic;color:#8B7355;font-size:14px;letter-spacing:0.02em;">{{ loaderText }}</p>
+  </div>
+
+  <!-- ===== HEADER ===== -->
+  <div style="position:fixed;top:0;left:0;right:0;z-index:50;">
+    <div style="background:#7A4D0B;color:#FFF9F0;text-align:center;padding:8px 16px;font-size:12px;letter-spacing:0.04em;">
+      Free shipping across India on orders over ₹500 &nbsp;•&nbsp; Raw, single-origin honey
+    </div>
+    <div style="background:rgba(255,253,248,0.95);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(44,36,23,0.06);">
+      <div style="max-width:1400px;margin:0 auto;padding:0 24px;height:72px;display:flex;align-items:center;justify-content:space-between;gap:32px;">
+        <a href="Home.dc.html" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:22px;color:#2C2417;">SUMOSTA</a>
+        <nav style="display:none;gap:28px;align-items:center;" class="sum-desktop-nav">
+          <a href="Home.dc.html" style="font-size:14px;color:#5C4A32;font-weight:500;">Home</a>
+          <a href="Shop.dc.html" style="font-size:14px;color:#2C2417;font-weight:600;">Shop</a>
+          <a href="Product.dc.html" style="font-size:14px;color:#5C4A32;font-weight:500;">Product</a>
+          <a href="Shop.dc.html" style="font-size:14px;color:#5C4A32;font-weight:500;">Gift Boxes</a>
+          <a href="About.dc.html" style="font-size:14px;color:#5C4A32;font-weight:500;">Our Story</a>
+        </nav>
+        <div style="display:flex;align-items:center;gap:18px;">
+          <button onclick="{{ openCart }}" aria-label="Cart" style="background:none;border:none;cursor:pointer;font-size:18px;color:#5C4A32;position:relative;padding:0;">🛍
+            <span style="position:absolute;top:-6px;right:-9px;background:#F5A623;color:#1A150E;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:flex;align-items:center;justify-content:center;">{{ cartCount }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="{{ cartOverlayStyle }}" onclick="{{ closeCart }}"></div>
+  <div style="{{ cartDrawerStyle }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:24px;border-bottom:1px solid #F0E6D3;">
+      <h3 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;color:#2C2417;margin:0;">Your Cart</h3>
+      <button onclick="{{ closeCart }}" style="background:none;border:none;font-size:20px;color:#5C4A32;cursor:pointer;">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:22px;">
+      <sc-for list="{{ cartItems }}" as="item" hint-placeholder-count="2">
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="width:64px;height:64px;border-radius:8px;flex-shrink:0;background:repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 8px,#FFF9F0 8px,#FFF9F0 16px);border:1px solid #F0E6D3;"></div>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:13px;font-weight:600;color:#2C2417;margin:0 0 2px;">{{ item.name }}</p>
+            <p style="font-size:12px;color:#C4B39A;margin:0 0 8px;">{{ item.size }}</p>
+            <div style="display:flex;align-items:center;border:1px solid #F0E6D3;border-radius:6px;width:fit-content;">
+              <button onclick="{{ item.onDec }}" style="width:26px;height:26px;background:none;border:none;font-size:13px;color:#5C4A32;cursor:pointer;">−</button>
+              <span style="width:24px;text-align:center;font-size:12px;font-weight:700;">{{ item.qty }}</span>
+              <button onclick="{{ item.onInc }}" style="width:26px;height:26px;background:none;border:none;font-size:13px;color:#5C4A32;cursor:pointer;">+</button>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <p style="font-size:13px;font-weight:700;color:#D4891A;margin:0 0 8px;">₹{{ item.lineTotal }}</p>
+            <button onclick="{{ item.onRemove }}" style="background:none;border:none;font-size:11px;color:#C4B39A;cursor:pointer;">Remove</button>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:48px 0;">
+          <p style="font-size:14px;color:#8B7355;margin:0 0 16px;">Your cart is empty.</p>
+          <a href="Shop.dc.html" style="color:#D4891A;font-weight:600;font-size:14px;">Shop Now →</a>
+        </div>
+      </sc-if>
+    </div>
+    <div style="border-top:1px solid #F0E6D3;padding:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;">
+        <span style="font-size:13px;color:#8B7355;">Subtotal</span>
+        <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:20px;color:#2C2417;">₹{{ cartSubtotal }}</span>
+      </div>
+      <a href="Shop.dc.html" style="display:block;text-align:center;background:#F5A623;color:#1A150E;font-weight:700;font-size:14px;padding:14px;border-radius:8px;">Proceed to Checkout</a>
+    </div>
+  </div>
+
+  <!-- ===== PAGE HEADER ===== -->
+  <section style="padding:150px 24px 40px;max-width:1400px;margin:0 auto;">
+    <p style="font-size:13px;color:#C4B39A;margin:0 0 12px;"><a href="Home.dc.html" style="color:#C4B39A;">Home</a> / Shop</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+      <div>
+        <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(2rem,4vw,3rem);color:#2C2417;margin:0 0 8px;">The Collection</h1>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <p style="font-family:'Instrument Serif',serif;font-style:italic;font-size:18px;color:#8B7355;margin:0;">Showing {{ resultCount }} of {{ totalCount }}<sc-if value="{{ activeChipLabel }}" hint-placeholder-val="{{ false }}"> in {{ activeChipLabel }}</sc-if></p>
+          <sc-if value="{{ showClearChip }}" hint-placeholder-val="{{ false }}">
+            <button onclick="{{ clearFilter }}" style="display:inline-flex;align-items:center;gap:6px;background:#FFF0D6;color:#A66A10;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:none;cursor:pointer;">{{ activeChipLabel }} <span>✕</span></button>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FILTER BAR ===== -->
+  <div style="{{ filterBarStyle }}">
+    <div style="max-width:1400px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="display:flex;gap:10px;overflow-x:auto;">
+        <sc-for list="{{ categoryFilters }}" as="cat" hint-placeholder-count="5">
+          <button onclick="{{ cat.onClick }}" style="{{ cat.style }}">{{ cat.name }}</button>
+        </sc-for>
+      </div>
+      <div style="position:relative;">
+        <select onchange="{{ onSortChange }}" style="appearance:none;padding:10px 34px 10px 16px;border-radius:8px;border:1px solid #F0E6D3;background:#FFFDF8;font-size:13px;color:#5C4A32;font-weight:600;cursor:pointer;">
+          <option value="featured">Sort: Featured</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="newest">Newest</option>
+        </select>
+        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#8B7355;font-size:10px;">▾</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PRODUCT GRID ===== -->
+  <section style="padding:48px 24px 96px;max-width:1400px;margin:0 auto;">
+    <sc-if value="{{ hasProducts }}" hint-placeholder-val="{{ true }}">
+      <div style="{{ gridStyle }}" class="sum-shop-grid">
+        <sc-for list="{{ filteredProducts }}" as="p" hint-placeholder-count="8">
+          <a href="Product.dc.html" data-reveal="1" onMouseEnter="{{ p.onEnter }}" onMouseLeave="{{ p.onLeave }}" style="display:block;opacity:0;transform:translateY(20px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);">
+            <div style="position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 14px,#FFF9F0 14px,#FFF9F0 28px);border:1px solid #F0E6D3;display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:12px;transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease;" style-hover="transform:scale(1.02);box-shadow:0 16px 32px rgba(212,137,26,0.18)">
+              <sc-if value="{{ p.compareAt }}" hint-placeholder-val="{{ false }}">
+                <span style="position:absolute;top:10px;right:10px;background:#C4573A;color:#FDE8E3;font-size:10px;font-weight:700;padding:4px 8px;border-radius:4px;">SALE</span>
+              </sc-if>
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.06em;color:#8B7355;text-transform:uppercase;padding:0 16px;">product photo<br/>{{ p.name }}</span>
+              <span style="{{ p.quickAddStyle }}">Quick Add</span>
+            </div>
+            <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#C4B39A;margin:0 0 4px;">{{ p.category }}</p>
+            <h3 style="font-size:15px;font-weight:600;color:#2C2417;margin:0 0 6px;">{{ p.name }}</h3>
+            <p style="font-size:14px;font-weight:700;color:#D4891A;margin:0;">₹{{ p.price }}
+              <sc-if value="{{ p.compareAt }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:12px;color:#C4B39A;text-decoration:line-through;font-weight:500;">₹{{ p.compareAt }}</span>
+              </sc-if>
+            </p>
+          </a>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showEmptyState }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:80px 24px;">
+        <div style="width:88px;height:88px;border-radius:999px;background:#FDF6EC;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;">
+          <span style="font-size:28px;">🍯</span>
+        </div>
+        <h3 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:20px;color:#2C2417;margin:0 0 8px;">No products found</h3>
+        <p style="font-size:14px;color:#8B7355;margin:0 0 24px;">Try a different category or clear your filters.</p>
+        <button onclick="{{ clearFilter }}" style="background:#F5A623;color:#1A150E;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;border:none;cursor:pointer;">Clear Filters</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasProducts }}" hint-placeholder-val="{{ true }}">
+      <div style="text-align:center;margin-top:56px;">
+        <button style="background:#FFFDF8;border:1px solid #F5A623;color:#D4891A;font-weight:700;font-size:14px;padding:14px 36px;border-radius:8px;cursor:pointer;">Load More</button>
+      </div>
+    </sc-if>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer style="background:#1A150E;padding:64px 24px 32px;">
+    <div style="max-width:1400px;margin:0 auto;">
+      <div style="display:grid;grid-template-columns:1fr;gap:36px;margin-bottom:48px;" class="sum-footer-grid">
+        <div>
+          <span style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:20px;color:#FFFDF8;">SUMOSTA</span>
+          <p style="font-family:'Instrument Serif',serif;font-style:italic;color:#C4B39A;font-size:14px;margin:8px 0 16px;">Nature&#39;s Golden Promise</p>
+          <p style="font-size:12px;line-height:1.7;color:#C4B39A;margin:0;">Raw, unprocessed honey sourced from India&#39;s wildest apiaries.</p>
+        </div>
+        <div>
+          <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:#FFCC66;font-weight:700;margin:0 0 16px;">Shop</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <a href="Shop.dc.html" style="font-size:13px;color:#C4B39A;">All Products</a>
+            <a href="Shop.dc.html" style="font-size:13px;color:#C4B39A;">Honey Sticks</a>
+            <a href="Shop.dc.html" style="font-size:13px;color:#C4B39A;">Spreads</a>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:#FFCC66;font-weight:700;margin:0 0 16px;">Company</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <a href="About.dc.html" style="font-size:13px;color:#C4B39A;">Our Story</a>
+            <a href="Home.dc.html" style="font-size:13px;color:#C4B39A;">Contact</a>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:#FFCC66;font-weight:700;margin:0 0 16px;">Help</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <a href="Home.dc.html" style="font-size:13px;color:#C4B39A;">Track Order</a>
+            <a href="Home.dc.html" style="font-size:13px;color:#C4B39A;">Privacy Policy</a>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(139,115,85,0.2);padding-top:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <p style="font-size:12px;color:#C4B39A;margin:0;">© 2026 SUMOSTA. All rights reserved.</p>
+        <p style="font-size:12px;color:#C4B39A;margin:0;">UPI • Visa • Mastercard • RuPay</p>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<helmet>
+<style>
+@media (min-width:1024px) {
+  .sum-desktop-nav { display: flex !important; }
+  .sum-shop-grid { grid-template-columns: repeat(4,1fr) !important; }
+  .sum-footer-grid { grid-template-columns: repeat(4,1fr) !important; }
+}
+@media (min-width:640px) and (max-width:1023px) {
+  .sum-shop-grid { grid-template-columns: repeat(3,1fr) !important; }
+}
+</style>
+</helmet>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const ALL_PRODUCTS = [
+  { id: 1, name: 'Western Ghats Raw Honey', category: 'Raw Honey', price: 599 },
+  { id: 2, name: 'Himalayan Wild Honey', category: 'Raw Honey', price: 699 },
+  { id: 3, name: 'Sundarbans Mangrove Honey', category: 'Raw Honey', price: 549 },
+  { id: 4, name: 'Classic Honey Sticks — 10 Pack', category: 'Honey Sticks', price: 199 },
+  { id: 5, name: 'Assorted Flavor Honey Sticks — 20 Pack', category: 'Honey Sticks', price: 449 },
+  { id: 6, name: 'Cinnamon Honey Spread', category: 'Honey Spreads', price: 399 },
+  { id: 7, name: 'Vanilla Bean Honey Spread', category: 'Honey Spreads', price: 399 },
+  { id: 8, name: 'Cardamom Honey Spread', category: 'Honey Spreads', price: 399 },
+  { id: 9, name: 'Turmeric Golden Honey Spread', category: 'Honey Spreads', price: 449 },
+  { id: 10, name: 'Raw Honeycomb Piece', category: 'Honeycomb', price: 799 },
+  { id: 11, name: 'The Essentials Gift Box', category: 'Gift Boxes', price: 1499, compareAt: 1799 },
+  { id: 12, name: 'The Connoisseur Gift Box', category: 'Gift Boxes', price: 2999, compareAt: 3499 },
+];
+const CATEGORIES = ['All', 'Raw Honey', 'Honey Sticks', 'Honey Spreads', 'Gift Boxes'];
+
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  state = {
+    category: 'All', sort: 'featured', hoveredId: null, filterStuck: false, transitioning: false, pageLoading: true,
+    cartOpen: false,
+    cart: [
+      { id: 1, name: 'Western Ghats Raw Honey', size: '500g', price: 599, qty: 1 },
+      { id: 6, name: 'Cinnamon Honey Spread', size: '250g', price: 399, qty: 1 },
+    ],
+  };
+
+  componentDidMount() {
+    this._loaderTimeout = setTimeout(() => this.setState({ pageLoading: false }), 900);
+    const self = this;
+    this._io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+          self._io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    this._observeReveals();
+    if (this.rootRef.current) {
+      this._mutObserver = new MutationObserver(() => self._observeReveals());
+      this._mutObserver.observe(this.rootRef.current, { childList: true, subtree: true });
+    }
+    this._onScroll = () => {
+      self._revealVisible();
+      const stuck = window.scrollY > 190;
+      if (stuck !== self._lastStuck) {
+        self._lastStuck = stuck;
+        self.setState({ filterStuck: stuck });
+      }
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+    this._revealVisible();
+  }
+
+  componentWillUnmount() {
+    if (this._io) this._io.disconnect();
+    if (this._mutObserver) this._mutObserver.disconnect();
+    if (this._onScroll) window.removeEventListener('scroll', this._onScroll);
+    if (this._filterTimeout) clearTimeout(this._filterTimeout);
+    if (this._loaderTimeout) clearTimeout(this._loaderTimeout);
+  }
+
+  _observeReveals() {
+    const root = this.rootRef.current;
+    if (!root || !this._io) return;
+    root.querySelectorAll('[data-reveal]').forEach((el) => this._io.observe(el));
+  }
+
+  _revealVisible() {
+    const root = this.rootRef.current;
+    if (!root) return;
+    const vh = window.innerHeight;
+    root.querySelectorAll('[data-reveal]').forEach((el) => {
+      if (el.style.opacity === '1') return;
+      const r = el.getBoundingClientRect();
+      if (r.top < vh * 0.92 && r.bottom > 0) {
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      }
+    });
+  }
+
+  getFiltered() {
+    let list = this.state.category === 'All' ? ALL_PRODUCTS : ALL_PRODUCTS.filter((p) => p.category === this.state.category);
+    list = [...list];
+    if (this.state.sort === 'price_asc') list.sort((a, b) => a.price - b.price);
+    if (this.state.sort === 'price_desc') list.sort((a, b) => b.price - a.price);
+    return list;
+  }
+
+  changeCategory(cat) {
+    const self = this;
+    this.setState({ transitioning: true });
+    if (this._filterTimeout) clearTimeout(this._filterTimeout);
+    this._filterTimeout = setTimeout(() => {
+      self.setState({ category: cat, transitioning: false });
+    }, 180);
+  }
+
+  renderVals() {
+    const filtered = this.getFiltered();
+    const activeCat = this.state.category;
+    const self = this;
+    const hoveredId = this.state.hoveredId;
+    return {
+      rootRef: this.rootRef,
+      loaderOpacity: this.state.pageLoading ? 1 : 0,
+      loaderPointerEvents: this.state.pageLoading ? 'auto' : 'none',
+      loaderText: 'Curating the Collection...',
+      cartCount: this.state.cart.reduce((sum, i) => sum + i.qty, 0),
+      cartEmpty: this.state.cart.length === 0,
+      cartSubtotal: this.state.cart.reduce((sum, i) => sum + i.qty * i.price, 0).toLocaleString('en-IN'),
+      cartItems: this.state.cart.map((item) => ({
+        name: item.name, size: item.size, qty: item.qty, lineTotal: (item.qty * item.price).toLocaleString('en-IN'),
+        onDec: () => self.setState((s) => ({ cart: s.cart.map((i) => i.id === item.id ? { ...i, qty: Math.max(1, i.qty - 1) } : i) })),
+        onInc: () => self.setState((s) => ({ cart: s.cart.map((i) => i.id === item.id ? { ...i, qty: i.qty + 1 } : i) })),
+        onRemove: () => self.setState((s) => ({ cart: s.cart.filter((i) => i.id !== item.id) })),
+      })),
+      openCart: () => this.setState({ cartOpen: true }),
+      closeCart: () => this.setState({ cartOpen: false }),
+      cartOverlayStyle: {
+        position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(26,21,14,0.5)',
+        opacity: this.state.cartOpen ? 1 : 0, pointerEvents: this.state.cartOpen ? 'auto' : 'none',
+        transition: 'opacity .3s ease',
+      },
+      cartDrawerStyle: {
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(420px,100%)', zIndex: 91,
+        background: '#FFFDF8', boxShadow: '-8px 0 30px rgba(44,36,23,0.15)',
+        display: 'flex', flexDirection: 'column',
+        transform: this.state.cartOpen ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform .4s cubic-bezier(.16,1,.3,1)',
+      },
+      totalCount: ALL_PRODUCTS.length,
+      resultCount: filtered.length,
+      hasProducts: filtered.length > 0,
+      showEmptyState: filtered.length === 0,
+      showClearChip: activeCat !== 'All',
+      activeChipLabel: activeCat !== 'All' ? activeCat : '',
+      clearFilter: () => this.changeCategory('All'),
+      categoryFilters: CATEGORIES.map((cat) => ({
+        name: cat,
+        onClick: () => self.changeCategory(cat),
+        style: {
+          padding: '9px 18px', borderRadius: '999px', fontSize: '13px', fontWeight: 600,
+          border: cat === activeCat ? '1px solid #F5A623' : '1px solid #F0E6D3',
+          background: cat === activeCat ? '#F5A623' : '#FFFDF8',
+          color: cat === activeCat ? '#1A150E' : '#5C4A32',
+          cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+          transition: 'background .25s ease, border .25s ease',
+        },
+      })),
+      filteredProducts: filtered.map((p) => ({
+        ...p,
+        onEnter: () => self.setState({ hoveredId: p.id }),
+        onLeave: () => self.setState({ hoveredId: null }),
+        quickAddStyle: {
+          position: 'absolute', bottom: 0, left: 0, right: 0, textAlign: 'center',
+          background: '#2C2417', color: '#FFF0D6', fontSize: '11px', fontWeight: 700,
+          letterSpacing: '0.05em', textTransform: 'uppercase', padding: '10px 0',
+          transform: hoveredId === p.id ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform .3s cubic-bezier(.16,1,.3,1)',
+        },
+      })),
+      gridStyle: {
+        display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '28px 20px',
+        opacity: this.state.transitioning ? 0 : 1,
+        transition: 'opacity .18s ease',
+      },
+      filterBarStyle: {
+        position: 'sticky', top: '112px', zIndex: 30, background: '#FFFDF8',
+        borderBottom: '1px solid #F0E6D3', padding: '16px 24px',
+        boxShadow: this.state.filterStuck ? '0 4px 12px rgba(44,36,23,0.06)' : 'none',
+        transition: 'box-shadow .25s ease',
+      },
+      onSortChange: (e) => this.setState({ sort: e.target.value }),
+    };
+  }
+}
+</script>
+</body>
+</html>

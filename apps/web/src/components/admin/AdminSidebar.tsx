@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, ShoppingBag, Package, Users, Tag, Star,
-  BarChart2, Image as ImageIcon, Settings, LogOut,
+  LayoutDashboard, ShoppingBag, FileText, Package, Users,
+  Tag, Star, Mail, Truck, ShoppingCart, Image as ImageIcon,
+  BarChart2, Settings, LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +14,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/admin',           label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/orders',    label: 'Orders',    icon: ShoppingBag },
+      { href: '/admin/invoices',  label: 'Invoices',  icon: FileText },
       { href: '/admin/products',  label: 'Products',  icon: Package },
       { href: '/admin/customers', label: 'Customers', icon: Users },
     ],
@@ -20,30 +22,48 @@ const NAV_GROUPS = [
   {
     label: 'Marketing',
     items: [
-      { href: '/admin/coupons',   label: 'Coupons',   icon: Tag },
-      { href: '/admin/reviews',   label: 'Reviews',   icon: Star },
+      { href: '/admin/coupons',    label: 'Coupons',     icon: Tag },
+      { href: '/admin/reviews',    label: 'Reviews',     icon: Star },
+      { href: '/admin/marketing',  label: 'Subscribers', icon: Mail },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { href: '/admin/shipping',    label: 'Shipping',    icon: Truck },
+      { href: '/admin/abandonment', label: 'Abandoned Carts', icon: ShoppingCart },
+      { href: '/admin/media',       label: 'Media',       icon: ImageIcon },
     ],
   },
   {
     label: 'Insights',
     items: [
       { href: '/admin/analytics', label: 'Analytics', icon: BarChart2 },
-      { href: '/admin/media',     label: 'Media',     icon: ImageIcon },
     ],
   },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const router   = useRouter();
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/admin' && pathname.startsWith(href + '/'));
+
+  const handleLogout = () => {
+    localStorage.removeItem('sumosta_access_token');
+    localStorage.removeItem('sumosta_refresh_token');
+    router.push('/admin/login');
+  };
 
   return (
     <aside className="hidden lg:flex w-56 bg-midnight flex-col h-screen sticky top-0 shrink-0">
       {/* Brand */}
       <div className="px-5 py-4 border-b border-white/[0.06]">
-        <Link href="/" className="font-satoshi text-cream font-bold text-sm tracking-widest hover:text-honey-300 transition-colors">
+        <Link
+          href="/"
+          className="font-satoshi text-cream font-bold text-sm tracking-widest hover:text-honey-300 transition-colors"
+        >
           SUMOSTA
         </Link>
         <p className="font-satoshi text-earth/60 text-[10px] mt-0.5 tracking-wider">Admin Panel</p>
@@ -92,12 +112,12 @@ export default function AdminSidebar() {
         >
           <Settings size={14} /> Settings
         </Link>
-        <Link
-          href="/auth/login"
-          className="flex items-center gap-2.5 px-5 py-2 font-satoshi text-xs text-earth-light hover:text-cream transition-colors"
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 px-5 py-2 font-satoshi text-xs text-earth-light hover:text-cream transition-colors"
         >
           <LogOut size={14} /> Sign Out
-        </Link>
+        </button>
       </div>
     </aside>
   );

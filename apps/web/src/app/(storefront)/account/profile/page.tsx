@@ -52,57 +52,57 @@ export default function ProfilePage() {
   };
 
   const inputClass = (hasError: boolean) =>
-    `w-full border rounded-lg px-4 py-3 text-sm font-satoshi text-bark bg-white focus:outline-none transition-colors ${
-      hasError ? 'border-terracotta/50 focus:border-terracotta' : 'border-sand focus:border-honey-400'
+    `w-full border rounded-lg px-4 py-3 text-sm font-jakarta text-charcoal bg-white focus:outline-none transition-colors ${
+      hasError ? 'border-red-400 focus:border-red-500' : 'border-[#E5E7EB] focus:border-[#F97316]'
     }`;
 
   return (
     <div>
-      <h2 className="font-satoshi text-charcoal font-semibold text-lg mb-6">Profile</h2>
+      <h2 className="font-jakarta text-charcoal font-semibold text-lg mb-6">Profile</h2>
 
-      <div className="bg-white rounded-2xl border border-sand p-6">
+      <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-md">
           <div>
-            <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">Full Name</label>
+            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Full Name</label>
             <input {...register('name')} className={inputClass(!!errors.name)} />
-            {errors.name && <p className="font-satoshi text-terracotta text-xs mt-1">{errors.name.message}</p>}
+            {errors.name && <p className="font-jakarta text-red-600 text-xs mt-1">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">Email</label>
+            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Email</label>
             <input
               type="email"
               value={user?.email ?? ''}
               disabled
-              className="w-full border border-sand rounded-lg px-4 py-3 text-sm font-satoshi text-earth-light bg-cream-warm cursor-not-allowed"
+              className="w-full border border-[#E5E7EB] rounded-lg px-4 py-3 text-sm font-jakarta text-gray-400 bg-[#FAF7F2] cursor-not-allowed"
             />
-            <p className="font-satoshi text-earth-light text-xs mt-1">Email cannot be changed</p>
+            <p className="font-jakarta text-gray-400 text-xs mt-1">Email cannot be changed</p>
           </div>
 
           <div>
-            <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">Phone Number</label>
+            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Phone Number</label>
             <input
               type="tel"
               {...register('phone')}
               className={inputClass(!!errors.phone)}
               placeholder="9876543210"
             />
-            {errors.phone && <p className="font-satoshi text-terracotta text-xs mt-1">{errors.phone.message}</p>}
+            {errors.phone && <p className="font-jakarta text-red-600 text-xs mt-1">{errors.phone.message}</p>}
           </div>
 
           {error && (
-            <div className="bg-terracotta-light border border-terracotta/20 rounded-lg px-4 py-3">
-              <p className="font-satoshi text-terracotta text-sm">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="font-jakarta text-red-600 text-sm">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={saving}
-            className={`flex items-center gap-2 font-satoshi font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors ${
+            className={`flex items-center gap-2 font-jakarta font-semibold text-sm px-6 py-2.5 rounded-full transition-colors ${
               saved
-                ? 'bg-sage text-white'
-                : 'bg-honey-400 hover:bg-honey-500 text-midnight'
+                ? 'bg-green-600 text-white'
+                : 'bg-[#F97316] hover:bg-[#EA580C] text-white'
             } disabled:opacity-60`}
           >
             {saving ? <HoneycombLoader size="sm" /> : saved ? <Check size={15} /> : null}

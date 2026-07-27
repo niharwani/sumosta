@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
 
@@ -81,6 +81,12 @@ export default function AdminOrderDetailPage() {
         <span className={`text-xs font-satoshi font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_STYLES[order.status] ?? 'bg-gray-100 text-gray-600'}`}>
           {order.status}
         </span>
+        <Link
+          href={`/admin/invoices/${id}`}
+          className="ml-auto flex items-center gap-1.5 text-xs font-satoshi text-honey-600 hover:text-honey-700 font-medium"
+        >
+          <FileText size={13} /> View Invoice
+        </Link>
       </div>
 
       <div className="grid gap-5">

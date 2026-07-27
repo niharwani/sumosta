@@ -1,22 +1,26 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { Bell, ChevronRight } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
 const LABELS: Record<string, string> = {
-  '/admin':            'Dashboard',
-  '/admin/orders':     'Orders',
-  '/admin/products':   'Products',
-  '/admin/customers':  'Customers',
-  '/admin/analytics':  'Analytics',
-  '/admin/coupons':    'Coupons',
-  '/admin/reviews':    'Reviews',
-  '/admin/media':      'Media',
-  '/admin/settings':   'Settings',
+  '/admin':             'Dashboard',
+  '/admin/orders':      'Orders',
+  '/admin/invoices':    'Invoices',
+  '/admin/products':    'Products',
+  '/admin/customers':   'Customers',
+  '/admin/analytics':   'Analytics',
+  '/admin/coupons':     'Coupons',
+  '/admin/reviews':     'Reviews',
+  '/admin/marketing':   'Subscribers',
+  '/admin/shipping':    'Shipping',
+  '/admin/abandonment': 'Abandoned Carts',
+  '/admin/media':       'Media',
+  '/admin/settings':    'Settings',
 };
 
 function getLabel(pathname: string): string {
-  // Longest prefix match so /admin/orders/123 → "Orders"
   const match = Object.keys(LABELS)
     .filter((p) => pathname === p || (p !== '/admin' && pathname.startsWith(p + '/')))
     .sort((a, b) => b.length - a.length)[0];
@@ -24,9 +28,21 @@ function getLabel(pathname: string): string {
 }
 
 export default function AdminHeader() {
-  const pathname = usePathname();
-  const label = getLabel(pathname);
-  const isNested = pathname.split('/').length > 3;
+  const pathname  = usePathname();
+  const label     = getLabel(pathname);
+  const isNested  = pathname.split('/').length > 3;
+  const [adminName, setAdminName] = useState('Admin');
+
+  useEffect(() => {
+    // Pull name from JWT sub or just show Admin
+    try {
+      const token = localStorage.getItem('sumosta_access_token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.name) setAdminName(payload.name.split(' ')[0]);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   return (
     <header className="h-14 bg-white border-b border-gray-100 px-6 flex items-center justify-between sticky top-0 z-10">
@@ -62,9 +78,11 @@ export default function AdminHeader() {
 
         <div className="flex items-center gap-2.5 pl-3 border-l border-gray-100">
           <div className="w-7 h-7 rounded-full bg-honey-400 flex items-center justify-center shrink-0">
-            <span className="text-midnight text-xs font-satoshi font-bold">A</span>
+            <span className="text-midnight text-xs font-satoshi font-bold">
+              {adminName.charAt(0).toUpperCase()}
+            </span>
           </div>
-          <span className="font-satoshi text-gray-700 text-sm font-medium hidden sm:block">Admin</span>
+          <span className="font-satoshi text-gray-700 text-sm font-medium hidden sm:block">{adminName}</span>
         </div>
       </div>
     </header>

@@ -76,12 +76,12 @@ export default function ContactPage() {
   };
 
   const inputClass = (hasError: boolean) =>
-    `w-full border rounded-lg px-4 py-3 text-sm font-satoshi text-bark bg-white focus:outline-none transition-colors ${
-      hasError ? 'border-terracotta/50 focus:border-terracotta' : 'border-sand focus:border-honey-400'
+    `w-full border rounded-lg px-4 py-3 text-sm font-jakarta text-charcoal bg-white focus:outline-none transition-colors ${
+      hasError ? 'border-red-400 focus:border-red-500' : 'border-[#E5E7EB] focus:border-[#F97316]'
     }`;
 
   return (
-    <div className="max-w-[1400px] mx-auto px-6 md:px-12 py-20">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-20">
       {/* Header */}
       <motion.div
         initial="hidden"
@@ -89,11 +89,11 @@ export default function ContactPage() {
         variants={fadeUp}
         className="text-center mb-16"
       >
-        <p className="font-satoshi text-honey-500 text-xs uppercase tracking-[0.2em] mb-3">Get in touch</p>
-        <h1 className="font-clash text-charcoal font-bold" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)' }}>
+        <p className="font-jakarta text-[#F97316] text-xs uppercase tracking-[0.2em] mb-3">Get in touch</p>
+        <h1 className="font-jakarta font-bold text-charcoal" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)' }}>
           Say Hello
         </h1>
-        <p className="font-satoshi text-earth mt-4 max-w-xl mx-auto leading-relaxed">
+        <p className="font-jakarta text-gray-600 mt-4 max-w-xl mx-auto leading-relaxed">
           From raw, un-processed forest honeys, ultra-premium rare stingless bee honey to corporate gifting or B2B tie-ups – our team is here to help.
         </p>
       </motion.div>
@@ -104,26 +104,26 @@ export default function ContactPage() {
           <div className="space-y-8">
             {CONTACT_INFO.map(({ icon: Icon, label, value, href }) => (
               <div key={label} className="flex gap-4">
-                <div className="w-10 h-10 bg-honey-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Icon size={18} className="text-honey-500" />
+                <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Icon size={18} className="text-[#F97316]" />
                 </div>
                 <div>
-                  <p className="font-satoshi text-earth text-xs uppercase tracking-wider mb-1">{label}</p>
+                  <p className="font-jakarta text-gray-400 text-xs uppercase tracking-wider mb-1">{label}</p>
                   {href ? (
-                    <a href={href} className="font-satoshi text-bark font-medium hover:text-honey-500 transition-colors">
+                    <a href={href} className="font-jakarta text-charcoal font-medium hover:text-[#F97316] transition-colors">
                       {value}
                     </a>
                   ) : (
-                    <p className="font-satoshi text-bark font-medium">{value}</p>
+                    <p className="font-jakarta text-charcoal font-medium">{value}</p>
                   )}
                 </div>
               </div>
             ))}
 
-            <div className="pt-4 border-t border-sand">
-              <p className="font-satoshi text-earth text-xs uppercase tracking-wider mb-3">Support Hours</p>
-              <p className="font-satoshi text-bark text-sm">Monday – Saturday</p>
-              <p className="font-satoshi text-earth text-sm">10:00 AM – 6:00 PM IST</p>
+            <div className="pt-4 border-t border-[#E5E7EB]">
+              <p className="font-jakarta text-gray-400 text-xs uppercase tracking-wider mb-3">Support Hours</p>
+              <p className="font-jakarta text-charcoal text-sm">Monday – Saturday</p>
+              <p className="font-jakarta text-gray-600 text-sm">10:00 AM – 6:00 PM IST</p>
             </div>
           </div>
         </RevealOnScroll>
@@ -134,18 +134,18 @@ export default function ContactPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-sage-light border border-sage/20 rounded-2xl p-10 text-center"
+              className="bg-green-50 border border-green-200 rounded-2xl p-10 text-center"
             >
-              <div className="w-14 h-14 bg-sage rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-14 h-14 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check size={24} className="text-white" />
               </div>
-              <h3 className="font-satoshi text-charcoal font-semibold text-lg mb-2">Message sent!</h3>
-              <p className="font-satoshi text-earth text-sm">
-                We'll get back to you within 1–2 business days. Thank you for reaching out.
+              <h3 className="font-jakarta text-charcoal font-semibold text-lg mb-2">Message sent!</h3>
+              <p className="font-jakarta text-gray-600 text-sm">
+                We&apos;ll get back to you within 1–2 business days. Thank you for reaching out.
               </p>
               <button
                 onClick={() => setSubmitted(false)}
-                className="mt-6 font-satoshi text-sm text-honey-500 hover:text-honey-600 underline"
+                className="mt-6 font-jakarta text-sm text-[#F97316] hover:text-[#EA580C] underline"
               >
                 Send another message
               </button>
@@ -154,7 +154,7 @@ export default function ContactPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div className="grid sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">
+                  <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
                     Name *
                   </label>
                   <input
@@ -163,11 +163,11 @@ export default function ContactPage() {
                     placeholder="Your name"
                   />
                   {errors.name && (
-                    <p className="font-satoshi text-terracotta text-xs mt-1">{errors.name.message}</p>
+                    <p className="font-jakarta text-red-600 text-xs mt-1">{errors.name.message}</p>
                   )}
                 </div>
                 <div>
-                  <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">
+                  <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
                     Email *
                   </label>
                   <input
@@ -177,14 +177,14 @@ export default function ContactPage() {
                     placeholder="you@example.com"
                   />
                   {errors.email && (
-                    <p className="font-satoshi text-terracotta text-xs mt-1">{errors.email.message}</p>
+                    <p className="font-jakarta text-red-600 text-xs mt-1">{errors.email.message}</p>
                   )}
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">
+                  <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
                     Phone
                   </label>
                   <input
@@ -194,7 +194,7 @@ export default function ContactPage() {
                   />
                 </div>
                 <div>
-                  <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">
+                  <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
                     Subject
                   </label>
                   <input
@@ -206,7 +206,7 @@ export default function ContactPage() {
               </div>
 
               <div>
-                <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">
+                <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
                   Message *
                 </label>
                 <textarea
@@ -216,20 +216,20 @@ export default function ContactPage() {
                   placeholder="Tell us how we can help..."
                 />
                 {errors.message && (
-                  <p className="font-satoshi text-terracotta text-xs mt-1">{errors.message.message}</p>
+                  <p className="font-jakarta text-red-600 text-xs mt-1">{errors.message.message}</p>
                 )}
               </div>
 
               {error && (
-                <div className="bg-terracotta-light border border-terracotta/20 rounded-lg px-4 py-3">
-                  <p className="font-satoshi text-terracotta text-sm">{error}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  <p className="font-jakarta text-red-600 text-sm">{error}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center gap-2 bg-honey-400 hover:bg-honey-500 disabled:opacity-60 text-midnight font-satoshi font-semibold text-sm px-8 py-3 rounded-xl transition-colors"
+                className="flex items-center gap-2 btn-pill-orange disabled:opacity-60"
               >
                 {submitting ? <HoneycombLoader size="sm" /> : null}
                 {submitting ? 'Sending...' : 'Send Message'}

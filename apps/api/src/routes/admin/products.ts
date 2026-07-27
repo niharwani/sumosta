@@ -81,10 +81,11 @@ app.get('/', async (c) => {
 
 // ─── POST /api/admin/products ────────────────────────────────
 app.post('/', zValidator('json', productSchema), async (c) => {
-  const body = c.req.valid('json');
-  const id   = generateId('prd');
-  const slug = body.slug || slugify(body.name);
-  const now  = new Date().toISOString();
+  const body    = c.req.valid('json');
+  const rawBody = await c.req.json() as Record<string, unknown>;
+  const id      = generateId('prd');
+  const slug    = body.slug || slugify(body.name);
+  const now     = new Date().toISOString();
 
   await c.env.DB.prepare(`
     INSERT INTO products (
@@ -95,7 +96,7 @@ app.post('/', zValidator('json', productSchema), async (c) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, body.name, slug, body.sku, body.categoryId,
-    body.shortDescription, body.description,
+    body.shortDescription ?? '', body.description ?? '',
     body.price, body.compareAtPrice ?? null, body.costPrice ?? null,
     body.stock, body.lowStockThreshold,
     body.weight ?? null, JSON.stringify(body.tags),
@@ -103,6 +104,17 @@ app.post('/', zValidator('json', productSchema), async (c) => {
     body.metaTitle ?? null, body.metaDescription ?? null,
     now, now,
   ).run();
+
+  // Save variants
+  const variants = Array.isArray(rawBody.variants) ? rawBody.variants as any[] : [];
+  for (const v of variants) {
+    if (!v.name) continue;
+    const vid = generateId('var');
+    await c.env.DB.prepare(`
+      INSERT INTO product_variants (id, product_id, name, sku, price_adjust, stock)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(vid, id, v.name, v.sku || null, v.price_adjustment ?? 0, v.stock ?? 0).run();
+  }
 
   await bustProductCache(c.env.KV_CACHE);
 
@@ -243,6 +255,19 @@ app.put('/:id', async (c) => {
   await c.env.DB.prepare(
     `UPDATE products SET ${fields.join(', ')} WHERE id = ?`,
   ).bind(...values).run();
+
+  // Sync variants: delete all existing and re-insert submitted ones
+  if ('variants' in body && Array.isArray(body.variants)) {
+    await c.env.DB.prepare('DELETE FROM product_variants WHERE product_id = ?').bind(id).run();
+    for (const v of body.variants as any[]) {
+      if (!v.name) continue;
+      const vid = generateId('var');
+      await c.env.DB.prepare(`
+        INSERT INTO product_variants (id, product_id, name, sku, price_adjust, stock)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(vid, id, v.name, v.sku || null, v.price_adjustment ?? 0, v.stock ?? 0).run();
+    }
+  }
 
   await bustProductCache(c.env.KV_CACHE, existing.slug);
 

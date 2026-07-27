@@ -38,22 +38,22 @@ function SearchContent() {
   }, [query]);
 
   return (
-    <div className="max-w-[1400px] mx-auto px-6 md:px-12 py-12">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-12">
       <div className="max-w-xl mx-auto mb-12">
         <div className="relative">
-          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-earth" />
+          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for honey, sticks, spreads..."
             autoFocus
-            className="w-full border border-sand rounded-2xl pl-12 pr-12 py-4 font-satoshi text-bark text-base bg-white focus:outline-none focus:border-honey-400 transition-colors shadow-sm"
+            className="w-full border border-[#E5E7EB] rounded-full pl-12 pr-12 py-4 font-jakarta text-charcoal text-base bg-white focus:outline-none focus:border-[#F97316] transition-colors shadow-sm"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-earth-light hover:text-earth transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X size={18} />
             </button>
@@ -70,7 +70,7 @@ function SearchContent() {
             exit={{ opacity: 0 }}
             className="text-center py-20"
           >
-            <p className="font-satoshi text-earth text-lg">Start typing to search our collection</p>
+            <p className="font-jakarta text-gray-600 text-lg">Start typing to search our collection</p>
           </motion.div>
         ) : isLoading || isFetching ? (
           <motion.div
@@ -90,16 +90,16 @@ function SearchContent() {
             exit={{ opacity: 0 }}
             className="text-center py-20"
           >
-            <p className="font-clash text-charcoal font-bold text-2xl mb-3">No results for "{debouncedQuery}"</p>
-            <p className="font-satoshi text-earth">Try a different search term or browse our collection</p>
-            <a href="/shop" className="inline-block mt-6 font-satoshi font-semibold text-sm text-honey-500 hover:text-honey-600 underline">
+            <p className="font-jakarta font-bold text-charcoal text-2xl mb-3">No results for &ldquo;{debouncedQuery}&rdquo;</p>
+            <p className="font-jakarta text-gray-600">Try a different search term or browse our collection</p>
+            <a href="/shop" className="inline-block mt-6 font-jakarta font-semibold text-sm text-[#F97316] hover:text-[#EA580C] underline">
               Browse all products →
             </a>
           </motion.div>
         ) : (
           <motion.div key="results" initial="hidden" animate="visible" variants={staggerContainer}>
-            <p className="font-satoshi text-earth text-sm mb-6">
-              {data?.data?.total ?? products.length} results for "{debouncedQuery}"
+            <p className="font-jakarta text-gray-600 text-sm mb-6">
+              {data?.data?.total ?? products.length} results for &ldquo;{debouncedQuery}&rdquo;
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-6">
               {products.map((product: any, i: number) => (

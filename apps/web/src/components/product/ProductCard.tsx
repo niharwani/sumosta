@@ -1,72 +1,114 @@
 'use client';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import Image from 'next/image';
+import { ShoppingBag } from 'lucide-react';
+import { formatPrice } from '@/lib/utils';
 import type { Product } from 'shared';
 
 interface ProductCardProps {
   product: Product;
   index?: number;
   className?: string;
+  /** If true, shows a larger, more prominent "featured" treatment */
+  featured?: boolean;
 }
 
-export default function ProductCard({ product, index = 0, className }: ProductCardProps) {
-  const isOutOfStock = product.stock === 0;
+export default function ProductCard({ product, index = 0, className, featured = false }: ProductCardProps) {
+  const isOutOfStock  = product.stock === 0;
+  const primaryImage  = product.images?.find((img) => img.isPrimary)?.url ?? product.images?.[0]?.url;
+  const hasDiscount   = product.compareAtPrice != null && product.compareAtPrice > product.price;
+  const discountPct   = hasDiscount
+    ? Math.round(100 - (product.price / product.compareAtPrice!) * 100)
+    : null;
 
   return (
-    <motion.div
-      className={cn('group relative flex flex-col', className)}
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.07, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <Link href={`/product/${product.slug}`} className="block flex-1 flex flex-col">
-        {/* Image Box */}
-        <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#FCFAF6] border border-sand/70 p-6 flex items-center justify-center group-hover:border-honey-300 group-hover:shadow-honey transition-all duration-300">
-          
-          {/* Sourcing/Tag Overlay */}
-          <span className="absolute top-3 left-3 bg-honey-400/90 text-midnight text-[8px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-widest select-none shadow-sm">
-            100% Pure
-          </span>
+    <div className={`group flex flex-col h-full ${className ?? ''}`}>
+      <Link href={`/product/${product.slug}`} className="flex flex-col h-full">
 
-          {/* Weight Badge Overlay */}
-          <span className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm border border-sand/40 text-[9px] text-bark px-2.5 py-0.5 rounded-md uppercase font-bold tracking-wider select-none shadow-sm">
-            {product.weight ? `${product.weight}g` : 'Glass Jar'}
-          </span>
-
-          {/* Product Image */}
-          {product.images && product.images.length > 0 ? (
-            <img
-              src={product.images.find(img => img.isPrimary)?.url || product.images[0]?.url}
+        {/* Image container */}
+        <div
+          className={`relative overflow-hidden rounded-xl bg-[#FDF6EC] ${
+            featured ? 'aspect-[4/5]' : 'aspect-[3/4]'
+          }`}
+        >
+          {primaryImage ? (
+            <Image
+              src={primaryImage}
               alt={product.name}
-              className="max-h-full max-w-full object-contain select-none transition-transform duration-500 ease-out group-hover:scale-105"
+              fill
+              sizes={
+                featured
+                  ? '(max-width: 768px) 100vw, 50vw'
+                  : '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'
+              }
+              className="object-contain p-6 transition-transform duration-700 ease-out group-hover:scale-[1.04]"
             />
           ) : (
-            <span className="text-6xl select-none transition-transform duration-300 group-hover:scale-110">
+            <div className="absolute inset-0 flex items-center justify-center text-7xl select-none opacity-40">
               🍯
-            </span>
+            </div>
+          )}
+
+          {/* Discount badge */}
+          {discountPct && !isOutOfStock && (
+            <div className="absolute top-3 left-3 bg-charcoal text-[#FFFDF8] font-jakarta text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded">
+              -{discountPct}%
+            </div>
           )}
 
           {/* Out of stock overlay */}
           {isOutOfStock && (
-            <div className="absolute inset-0 bg-cream/70 backdrop-blur-[1px] flex items-center justify-center">
-              <span className="font-satoshi text-bark text-xs font-bold uppercase tracking-wider bg-white border border-sand/80 px-3 py-1 rounded-md shadow-sm">
+            <div className="absolute inset-0 bg-[#FFFDF8]/75 backdrop-blur-[1px] flex items-center justify-center z-10">
+              <span className="font-jakarta text-earth text-xs uppercase tracking-[0.14em]">
                 Out of Stock
               </span>
             </div>
           )}
+
+          {/* Hover: Add to Cart slide-up */}
+          {!isOutOfStock && (
+            <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+              <div className="bg-charcoal/90 backdrop-blur-sm py-3 px-4 flex items-center justify-center gap-2">
+                <ShoppingBag size={13} className="text-[#FFFDF8]" />
+                <span className="font-jakarta text-[#FFFDF8] text-[12px] font-medium tracking-[0.08em]">
+                  Add to Cart
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Info */}
-        <div className="mt-4 flex-1 flex flex-col">
-          <p className="font-satoshi text-honey-600 text-[10px] uppercase tracking-[0.15em] font-semibold mb-1">
-            {product.category?.name}
-          </p>
-          <h3 className="font-clash text-charcoal font-bold text-sm md:text-base line-clamp-2 leading-snug group-hover:text-honey-600 transition-colors">
+        {/* Card body — left-aligned */}
+        <div className="mt-4 flex flex-col gap-1 px-0.5 flex-1">
+
+          {/* Category tag */}
+          {product.category?.name && (
+            <span className="font-jakarta text-[10px] uppercase tracking-[0.14em] text-earth-light">
+              {product.category.name}
+            </span>
+          )}
+
+          {/* Name */}
+          <h3 className={`font-jakarta font-semibold text-charcoal group-hover:text-honey-600 transition-colors line-clamp-2 ${
+            featured ? 'text-lg md:text-xl' : 'text-[15px]'
+          }`}>
             {product.name}
           </h3>
+
+          {/* Price row */}
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="font-clash font-medium text-honey-500 text-base">
+              {formatPrice(product.price)}
+            </span>
+            {hasDiscount && (
+              <span className="font-jakarta text-earth-light text-xs line-through">
+                {formatPrice(product.compareAtPrice!)}
+              </span>
+            )}
+          </div>
+
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }

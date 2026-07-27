@@ -202,22 +202,10 @@ VALUES
 );
 
 -- ============================================================
--- PRODUCT IMAGES (placeholders — will be replaced with R2 URLs)
+-- PRODUCT IMAGES
+-- Upload real images via /admin/media, then link via /admin/products/:id/images
+-- Images are served from R2: https://sumosta-api.sumosta-dev.workers.dev/api/media/products/...
 -- ============================================================
-INSERT OR IGNORE INTO product_images (id, product_id, url, alt_text, sort_order, is_primary) VALUES
-('img_wg_1',   'prod_wg_honey_500',      '/images/products/western-ghats-honey.jpg',       'Western Ghats Raw Honey 500g jar', 0, 1),
-('img_wg_2',   'prod_wg_honey_1kg',      '/images/products/western-ghats-honey-1kg.jpg',   'Western Ghats Raw Honey 1kg jar',  0, 1),
-('img_him_1',  'prod_himalayan_honey',   '/images/products/himalayan-honey.jpg',            'Himalayan Wild Honey 500g jar',    0, 1),
-('img_sun_1',  'prod_sundarbans_honey',  '/images/products/sundarbans-honey.jpg',           'Sundarbans Mangrove Honey 500g',   0, 1),
-('img_stk_1',  'prod_sticks_classic_10', '/images/products/honey-sticks-classic.jpg',       'Classic Honey Sticks 10 Pack',     0, 1),
-('img_stk_2',  'prod_sticks_assorted_20','/images/products/honey-sticks-assorted.jpg',      'Assorted Flavor Honey Sticks',     0, 1),
-('img_cin_1',  'prod_spread_cinnamon',   '/images/products/cinnamon-honey-spread.jpg',      'Cinnamon Honey Spread 250g',       0, 1),
-('img_van_1',  'prod_spread_vanilla',    '/images/products/vanilla-honey-spread.jpg',       'Vanilla Bean Honey Spread 250g',   0, 1),
-('img_card_1', 'prod_spread_cardamom',   '/images/products/cardamom-honey-spread.jpg',      'Cardamom Honey Spread 250g',       0, 1),
-('img_tur_1',  'prod_spread_turmeric',   '/images/products/turmeric-honey-spread.jpg',      'Turmeric Golden Honey Spread 250g',0, 1),
-('img_hc_1',   'prod_honeycomb',         '/images/products/raw-honeycomb.jpg',              'Raw Honeycomb Piece 250g',         0, 1),
-('img_ge_1',   'prod_gift_essentials',   '/images/products/essentials-gift-box.jpg',        'The Essentials Gift Box',          0, 1),
-('img_gc_1',   'prod_gift_connoisseur',  '/images/products/connoisseur-gift-box.jpg',       'The Connoisseur Gift Box',         0, 1);
 
 -- ============================================================
 -- COUPONS

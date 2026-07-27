@@ -1,328 +1,234 @@
 'use client';
-import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import ProductGallery  from '@/components/product/ProductGallery';
-import ProductInfo     from '@/components/product/ProductInfo';
-import RelatedProducts from '@/components/product/RelatedProducts';
-import GoldenDivider   from '@/components/shared/GoldenDivider';
-import HoneycombLoader from '@/components/shared/HoneycombLoader';
-import { productsApi } from '@/lib/api';
-import { STATIC_PRODUCTS, STATIC_COMBOS } from '@/lib/content';
-import { ShieldCheck, CheckCircle2, X, Sparkles, Send } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useCartStore } from '@/stores/cart-store';
 
-export default function ProductPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const cleanSlug = slug ? decodeURIComponent(slug).replace(/\/$/, '') : '';
-  const isReady = cleanSlug && cleanSlug !== '_placeholder' && cleanSlug !== '[slug]';
+const PRODUCT_NAME = 'Western Ghats Raw Honey';
+const PRODUCT_CATEGORY = 'Raw Honey';
+const BASE_PRICE = 599;
+const THUMBS = ['front', 'label', 'texture', 'lifestyle'];
+const SIZES = [
+  { name: '500g', price: 599 },
+  { name: '1kg', price: 999 },
+];
+const ACCORDION = [
+  { title: 'Description', body: 'Harvested from wild Apis dorsata and Apis cerana colonies across the Western Ghats. Cold-extracted, gravity-filtered, never heated above hive temperature.' },
+  { title: 'Ingredients & Nutrition', body: '100% raw honey. No additives, no sugar syrup. Per 100g: 304 kcal, 82g carbohydrates, 0g fat, 0g protein.' },
+  { title: 'Shipping & Returns', body: 'Ships in 2–4 business days. Free shipping on orders over ₹500. 7-day returns on unopened jars.' },
+  { title: 'How to Use', body: 'Best enjoyed on warm (not hot) toast, stirred into tea below 60°C, or straight off the spoon.' },
+];
+const RELATED = [
+  { id: 2, name: 'Himalayan Wild Honey', price: 699 },
+  { id: 3, name: 'Sundarbans Mangrove Honey', price: 549 },
+  { id: 10, name: 'Raw Honeycomb Piece', price: 799 },
+  { id: 11, name: 'The Essentials Gift Box', price: 1499 },
+];
 
-  const [showCertModal, setShowCertModal] = useState(false);
-  const [notifyEmail, setNotifyEmail] = useState('');
-  const [notifySuccess, setNotifySuccess] = useState(false);
+export default function ProductContent() {
+  const [activeThumb, setActiveThumb] = useState('front');
+  const [activeSize, setActiveSize] = useState('500g');
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [stickyVisible, setStickyVisible] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState<number | null>(0);
 
-  // Synchronous static fallback map for instant load & offline capability
-  const allProducts = [
-    ...STATIC_PRODUCTS,
-    ...STATIC_COMBOS.map((c) => ({
-      id: c.id,
-      name: c.name,
-      slug: c.slug,
-      sku: c.id,
-      categoryId: 'gift-boxes',
-      category: {
-        id: 'gift-boxes',
-        name: 'Gift Boxes & Combos',
-        slug: 'gift-boxes',
-        description: 'SUMOSTA curated forest honey combinations and gifting sets.',
-        imageUrl: null,
-        sortOrder: 5,
-      },
-      shortDescription: c.description,
-      description: c.description,
-      price: c.price,
-      compareAtPrice: c.compareAtPrice,
-      costPrice: null,
-      stock: 50,
-      lowStockThreshold: 2,
-      weight: 1500,
-      tags: ['combo', 'gifting', 'giftbox', 'organic'],
-      isFeatured: true,
-      isActive: true,
-      metaTitle: c.name,
-      metaDescription: c.description,
-      images: [
-        {
-          id: `img_${c.id}`,
-          url: c.image,
-          altText: c.name,
-          sortOrder: 1,
-          isPrimary: true,
-        },
-      ],
-      variants: c.variants ?? [],
-      averageRating: 4.8,
-      reviewCount: 15,
-      createdAt: '2026-06-01T00:00:00Z',
-      updatedAt: '2026-06-01T00:00:00Z',
-      comingSoon: false,
-      batchCertificate: undefined,
-      sourcingStory: 'A beautifully packaged curation of our finest wild forest honeys. Perfect for gifting wellness to loved ones.',
-      nutritionalBenefits: [
-        'Verifiably pure wild honey assortments.',
-        'Packaged in organic premium gift settings.',
-        'Provides diverse nutritional profiles in one set.'
-      ],
-    })),
-  ];
+  const { addItem, openCart } = useCartStore();
+  const addTimeout = useRef<ReturnType<typeof setTimeout>>();
 
-  const localProduct = (() => {
-    const found = allProducts.find(p => p.slug === cleanSlug || p.id === cleanSlug);
-    if (!found) return undefined;
-    return {
-      ...found,
-      reviews: [],
-      relatedProducts: allProducts.filter(p => p.id !== found.id && p.categoryId === found.categoryId).slice(0, 4)
+  const currentPrice = SIZES.find((s) => s.name === activeSize)?.price ?? BASE_PRICE;
+
+  // Sticky bar on scroll past 520px
+  useEffect(() => {
+    const onScroll = () => {
+      setStickyVisible(window.scrollY > 520);
+      document.querySelectorAll('[data-reveal]').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight * 0.92 && r.bottom > 0) {
+          el.classList.add('revealed');
+        }
+      });
     };
-  })();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-  const { data: product, isLoading, isError } = useQuery({
-    queryKey: ['product', cleanSlug],
-    queryFn: () => productsApi.get(cleanSlug),
-    enabled: !!isReady,
-    initialData: localProduct as any,
-  });
+  const handleAddToCart = useCallback(() => {
+    if (added) return;
+    addItem(
+      'western-ghats-raw-honey',
+      activeSize,
+      qty,
+      { id: 'western-ghats-raw-honey', name: PRODUCT_NAME, slug: 'western-ghats-raw-honey', price: currentPrice, images: [], stock: 100 },
+    );
+    setAdded(true);
+    clearTimeout(addTimeout.current);
+    addTimeout.current = setTimeout(() => {
+      setAdded(false);
+      openCart();
+    }, 1800);
+  }, [added, activeSize, qty, currentPrice, addItem, openCart]);
 
-  const handleNotifySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!notifyEmail) return;
-    setNotifySuccess(true);
-    setNotifyEmail('');
+  const toggleAccordion = (i: number) => setOpenAccordion((prev) => (prev === i ? null : i));
+
+  const addBtnStyle: React.CSSProperties = {
+    flex: 1,
+    padding: '14px 28px',
+    borderRadius: '8px',
+    border: 'none',
+    fontSize: '15px',
+    fontWeight: 700,
+    cursor: added ? 'default' : 'pointer',
+    background: added ? '#7C9A6E' : '#F5A623',
+    color: added ? '#FFFDF8' : '#1A150E',
+    transition: 'background 0.3s ease, transform 0.2s ease',
+    fontFamily: 'var(--font-bricolage), sans-serif',
+    letterSpacing: '0.01em',
   };
 
-  if ((isLoading && !product) || !product) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh] bg-cream">
-        <HoneycombLoader size="lg" />
-      </div>
-    );
-  }
-
-  if (isError && !product) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 bg-cream">
-        <p className="font-satoshi text-earth text-lg">Product not found.</p>
-        <a href="/shop" className="font-satoshi text-honey-500 underline">Browse all products</a>
-      </div>
-    );
-  }
-
-  const isComingSoon = product.comingSoon;
-  const cert = product.batchCertificate;
-
   return (
-    <div className="bg-cream min-h-screen pt-8 pb-20">
-      <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12">
-        
-        {/* Breadcrumbs */}
-        <nav className="font-satoshi text-xs text-earth-light mb-8 flex gap-2">
-          <a href="/" className="hover:text-honey-500">Home</a>
-          <span>/</span>
-          <a href="/shop" className="hover:text-honey-500">Shop</a>
-          <span>/</span>
-          <span className="text-bark">{product.name}</span>
-        </nav>
+    <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
 
-        {/* Top Split: Gallery + Purchase details */}
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
-          <div className="relative">
-            {isComingSoon && (
-              <span className="absolute top-4 left-4 z-10 bg-honey-400 text-midnight text-xs font-bold uppercase tracking-wider px-3 py-1 rounded shadow-sm">
-                Coming Soon
-              </span>
-            )}
-            <ProductGallery images={product.images ?? []} productName={product.name} batchCertificate={(product as any).batchCertificate} />
-          </div>
-
-          <div className="space-y-6">
-            {!isComingSoon ? (
-              // Standard Product Info
-              <ProductInfo product={product} />
-            ) : (
-              // Custom Coming Soon product interface
-              <div className="space-y-6">
-                <div>
-                  <span className="bg-honey-100 text-honey-600 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                    {product.category?.name}
-                  </span>
-                  <h1 className="font-clash text-charcoal font-bold text-3xl md:text-4xl mt-3 mb-2">
-                    {product.name}
-                  </h1>
-                  <p className="font-bespoke italic text-honey-500 text-lg">Launch Reservation Open</p>
-                </div>
-
-                <p className="font-satoshi text-bark text-sm leading-relaxed">{product.description}</p>
-                
-                <div className="border border-sand bg-cream-warm p-6 rounded-2xl space-y-4">
-                  <h3 className="font-clash font-bold text-charcoal text-sm flex items-center gap-1.5">
-                    <Sparkles size={16} className="text-honey-500" /> Sourcing Launch Alert
-                  </h3>
-                  <p className="font-satoshi text-bark text-xs leading-relaxed">
-                    This premium product is currently in the harvesting and sourcing phase. Enter your email below to be notified first when this batch is launched.
-                  </p>
-
-                  {notifySuccess ? (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-sage-light/40 border border-sage/10 text-sage text-xs p-3 rounded-lg flex items-center gap-2"
-                    >
-                      <CheckCircle2 size={14} /> You&apos;ve registered successfully! We will email you the moment we harvest.
-                    </motion.div>
-                  ) : (
-                    <form onSubmit={handleNotifySubmit} className="flex gap-2">
-                      <input
-                        type="email"
-                        required
-                        value={notifyEmail}
-                        onChange={(e) => setNotifyEmail(e.target.value)}
-                        placeholder="your@email.com"
-                        className="flex-1 bg-white border border-sand px-3 py-2 text-xs rounded focus:outline-none focus:border-honey-500 font-satoshi text-charcoal"
-                      />
-                      <button 
-                        type="submit"
-                        className="bg-midnight hover:bg-honey-500 hover:text-midnight text-cream text-xs font-bold px-4 py-2 rounded flex items-center gap-1 transition-colors"
-                      >
-                        <Send size={12} /> Notify Me
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            )}
-
-
+      {/* Lightbox */}
+      {lightboxOpen && (
+        <div onClick={() => setLightboxOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(26,21,14,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setLightboxOpen(false)} style={{ position: 'absolute', top: '24px', right: '28px', background: 'none', border: 'none', fontSize: '28px', color: '#FFFDF8', cursor: 'pointer' }}>✕</button>
+          <div style={{ width: 'min(80vw,640px)', height: 'min(80vw,640px)', borderRadius: '16px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 16px,#FFF9F0 16px,#FFF9F0 32px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+            <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '14px', letterSpacing: '0.06em', color: '#8B7355', textTransform: 'uppercase' }}>product photo — {PRODUCT_NAME} — {activeThumb} (zoomed)</span>
           </div>
         </div>
+      )}
 
-        <GoldenDivider className="my-16" />
-
-        {/* Related Products */}
-        {product.relatedProducts && product.relatedProducts.length > 0 && (
-          <RelatedProducts products={product.relatedProducts} />
-        )}
+      {/* Sticky add-to-cart bar */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 80, background: 'rgba(255,253,248,0.97)', backdropFilter: 'blur(12px)', borderTop: '1px solid #F0E6D3', boxShadow: '0 -4px 20px rgba(44,36,23,0.08)', transform: stickyVisible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.35s cubic-bezier(0.25,0.1,0.25,1)' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', height: '76px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: '13px', fontWeight: 700, color: '#2C2417', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{PRODUCT_NAME}</p>
+            <p style={{ fontSize: '12px', color: '#D4891A', fontWeight: 700, margin: '2px 0 0' }}>₹{currentPrice} <span style={{ color: '#8B7355', fontWeight: 500 }}>/ {activeSize}</span></p>
+          </div>
+          <button onClick={handleAddToCart} style={{ ...addBtnStyle, flex: 'none', padding: '12px 28px', fontSize: '14px' }}>
+            {added ? 'Added ✓' : 'Add to Cart'}
+          </button>
+        </div>
       </div>
 
-      {/* COA Certificate Modal */}
-      <AnimatePresence>
-        {showCertModal && cert && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/70 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-cream w-full max-w-2xl rounded-2xl shadow-lg border border-sand overflow-hidden flex flex-col max-h-[90vh]"
+      {/* Product layout */}
+      <section style={{ padding: '150px 24px 0', maxWidth: '1400px', margin: '0 auto' }}>
+        <p style={{ fontSize: '13px', color: '#C4B39A', margin: '0 0 32px' }}>
+          <Link href="/" style={{ color: '#C4B39A', textDecoration: 'none' }}>Home</Link> /{' '}
+          <Link href="/shop" style={{ color: '#C4B39A', textDecoration: 'none' }}>Shop</Link> /{' '}
+          {PRODUCT_NAME}
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '48px' }} className="sum-pdp-grid">
+          {/* Gallery */}
+          <div>
+            <div
+              onClick={() => setLightboxOpen(true)}
+              style={{ cursor: 'zoom-in', aspectRatio: '1/1', borderRadius: '16px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 16px,#FFF9F0 16px,#FFF9F0 32px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '14px', position: 'relative' }}
             >
-              
-              {/* Modal Header */}
-              <div className="bg-midnight text-cream p-4 px-6 flex justify-between items-center border-b border-earth/20 relative">
-                <div className="absolute inset-0 honeycomb-bg pointer-events-none opacity-[0.03]" />
-                <div className="relative z-10">
-                  <h3 className="font-clash text-base md:text-lg font-bold flex items-center gap-2 text-honey-400">
-                    🛡️ Certificate of Analysis (COA)
-                  </h3>
-                  <p className="font-satoshi text-earth-light text-xs">Official Laboratory Test Breakdown</p>
-                </div>
-                <button 
-                  onClick={() => setShowCertModal(false)}
-                  className="text-earth-light hover:text-cream transition-colors p-1"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6 overflow-y-auto space-y-6 font-satoshi">
-                
-                {/* Lab Info Metadata */}
-                <div className="grid grid-cols-2 gap-4 text-xs border-b border-sand pb-4">
-                  <div>
-                    <p className="text-earth-light uppercase tracking-wider text-[10px]">Testing Lab</p>
-                    <p className="text-bark font-bold mt-0.5">{cert.nablLab}</p>
-                    <p className="text-earth-light mt-0.5">Accreditation: NABL Accredited / Government Approved</p>
-                  </div>
-                  <div>
-                    <p className="text-earth-light uppercase tracking-wider text-[10px]">Certificate Details</p>
-                    <p className="text-bark font-mono font-bold mt-0.5">Cert No: {cert.certificateNo}</p>
-                    <p className="text-bark font-mono mt-0.5">Batch: {cert.batchNo}</p>
-                  </div>
-                  <div>
-                    <p className="text-earth-light uppercase tracking-wider text-[10px]">Analysis Date</p>
-                    <p className="text-bark font-bold mt-0.5">{cert.testingDate}</p>
-                  </div>
-                  <div>
-                    <p className="text-earth-light uppercase tracking-wider text-[10px]">Expiry Date</p>
-                    <p className="text-bark font-bold mt-0.5">{cert.expiryDate}</p>
-                  </div>
-                </div>
-
-                {/* Parameters Table */}
-                <div>
-                  <h4 className="font-clash font-bold text-charcoal text-sm mb-3">Testing Parameters Table:</h4>
-                  <div className="border border-sand rounded-xl overflow-hidden shadow-sm">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="bg-cream-warm border-b border-sand text-xs text-earth uppercase font-semibold">
-                        <tr>
-                          <th className="p-3 pl-4">Parameter Name</th>
-                          <th className="p-3">Analysis Result</th>
-                          <th className="p-3">Permitted Limit</th>
-                          <th className="p-3 pr-4 text-right">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-sand text-xs text-bark">
-                        {cert.parameters.map((param: any) => (
-                          <tr key={param.name} className="hover:bg-honey-50/10">
-                            <td className="p-3 pl-4 font-medium text-charcoal">{param.name}</td>
-                            <td className="p-3 font-mono">{param.result}</td>
-                            <td className="p-3 text-earth-light">{param.fssaiLimit}</td>
-                            <td className="p-3 pr-4 text-right">
-                              <span className="inline-flex items-center gap-0.5 text-sage font-bold bg-sage-light/60 px-1.5 py-0.5 rounded">
-                                <CheckCircle2 size={10} /> {param.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Footnote stamp */}
-                <div className="bg-sage-light/20 border border-sage/10 p-4 rounded-xl flex gap-3 items-center">
-                  <span className="text-2xl text-sage">🛡️</span>
-                  <div className="text-xs text-bark">
-                    <p className="font-semibold text-charcoal">NPOP APEDA Traceability Verified</p>
-                    <p className="text-earth-light mt-0.5">This batch complies strictly with standard organic frameworks. No heavy metals, pesticides, or C3/C4 cane/corn syrups detected.</p>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Modal Footer */}
-              <div className="bg-cream-warm border-t border-sand p-4 px-6 flex justify-between items-center">
-                <span className="text-xs text-earth-light">SUMOSTA Integrity Assurance</span>
-                <button 
-                  onClick={() => setShowCertModal(false)}
-                  className="bg-midnight hover:bg-charcoal text-cream text-xs font-semibold px-4 py-2 rounded-md flex items-center gap-1.5 transition-colors shadow-sm"
-                >
-                  Download PDF Report
-                </button>
-              </div>
-
-            </motion.div>
+              <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '12px', letterSpacing: '0.06em', color: '#8B7355', textTransform: 'uppercase' }}>product photo<br />{PRODUCT_NAME} — {activeThumb}</span>
+              <span style={{ position: 'absolute', bottom: '12px', right: '12px', background: 'rgba(26,21,14,0.55)', color: '#FFFDF8', fontSize: '11px', padding: '6px 10px', borderRadius: '999px' }}>Click to zoom</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '2px', scrollbarWidth: 'none' }}>
+              {THUMBS.map((th) => {
+                const active = activeThumb === th;
+                return (
+                  <button key={th} onClick={() => setActiveThumb(th)} style={{ flexShrink: 0, width: '72px', height: '72px', borderRadius: '8px', border: active ? '2px solid #F5A623' : '1px solid #F0E6D3', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 8px,#FFF9F0 8px,#FFF9F0 16px)', cursor: 'pointer', fontSize: '10px', fontWeight: 600, textTransform: 'capitalize', color: active ? '#D4891A' : '#8B7355', transition: 'border-color 0.2s ease' }}>
+                    {th}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+
+          {/* Product info */}
+          <div>
+            <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C4B39A', margin: '0 0 10px' }}>{PRODUCT_CATEGORY}</p>
+            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.6rem)', color: '#2C2417', margin: '0 0 14px' }}>{PRODUCT_NAME}</h1>
+            <p style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '28px', color: '#D4891A', margin: '0 0 20px' }}>
+              ₹{currentPrice} <span style={{ fontSize: '15px', color: '#C4B39A', textDecoration: 'line-through', fontWeight: 500 }}>₹{Math.round(currentPrice * 1.33)}</span>
+            </p>
+            <p style={{ fontSize: '15px', lineHeight: 1.75, color: '#5C4A32', margin: '0 0 28px', maxWidth: '480px' }}>
+              Single-origin raw honey harvested from wild colonies deep in the Western Ghats. Unfiltered, unheated, and bottled within days of harvest to preserve every enzyme and aroma note.
+            </p>
+
+            {/* Size selector */}
+            <div style={{ marginBottom: '28px' }}>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: '#2C2417', margin: '0 0 10px' }}>Size</p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {SIZES.map((sz) => {
+                  const active = activeSize === sz.name;
+                  return (
+                    <button key={sz.name} onClick={() => setActiveSize(sz.name)} style={{ padding: '10px 22px', borderRadius: '8px', border: active ? '2px solid #F5A623' : '1px solid #F0E6D3', background: active ? '#FFF9F0' : '#FFFDF8', color: active ? '#D4891A' : '#5C4A32', fontWeight: active ? 700 : 500, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+                      {sz.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Qty + Add to cart */}
+            <div style={{ display: 'flex', gap: '14px', marginBottom: '28px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #F0E6D3', borderRadius: '8px' }}>
+                <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: '40px', height: '44px', background: 'none', border: 'none', fontSize: '16px', color: '#5C4A32', cursor: 'pointer' }}>−</button>
+                <span style={{ width: '36px', textAlign: 'center', fontWeight: 700, fontSize: '14px' }}>{qty}</span>
+                <button onClick={() => setQty((q) => q + 1)} style={{ width: '40px', height: '44px', background: 'none', border: 'none', fontSize: '16px', color: '#5C4A32', cursor: 'pointer' }}>+</button>
+              </div>
+              <button onClick={handleAddToCart} style={addBtnStyle}>
+                {added ? 'Added ✓' : 'Add to Cart'}
+              </button>
+            </div>
+
+            {/* Trust badges */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', padding: '20px 0', borderTop: '1px solid #F0E6D3', marginBottom: '24px' }}>
+              {['Raw & Unfiltered', 'Lab‑Tested Purity', 'Free Shipping ₹500+'].map((badge) => (
+                <span key={badge} style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5C4A32', fontWeight: 600 }}>{badge}</span>
+              ))}
+            </div>
+
+            {/* Accordion */}
+            <div style={{ borderTop: '1px solid #F0E6D3' }}>
+              {ACCORDION.map((a, i) => {
+                const open = openAccordion === i;
+                return (
+                  <div key={a.title} style={{ borderBottom: '1px solid #F0E6D3' }}>
+                    <button onClick={() => toggleAccordion(i)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: '16px 0', cursor: 'pointer', textAlign: 'left' }}>
+                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#2C2417' }}>{a.title}</span>
+                      <span style={{ fontSize: '18px', color: '#8B7355', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease', display: 'inline-block' }}>›</span>
+                    </button>
+                    <div style={{ overflow: 'hidden', maxHeight: open ? '200px' : '0', transition: 'max-height 0.35s cubic-bezier(0.25,0.1,0.25,1)' }}>
+                      <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32', margin: '0 0 16px' }}>{a.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Related products */}
+      <section style={{ padding: '96px 0', maxWidth: '1400px', margin: '0 auto', overflow: 'hidden' }}>
+        <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.6rem)', color: '#2C2417', margin: '0 0 32px', padding: '0 24px' }}>You Might Also Like</h2>
+        <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', padding: '0 24px 12px', scrollbarWidth: 'none' }}>
+          {RELATED.map((p) => (
+            <Link key={p.id} href={`/product/${p.id}`} data-reveal style={{ minWidth: '260px', maxWidth: '260px', flexShrink: 0, textDecoration: 'none' }}>
+              <div style={{ aspectRatio: '3/4', borderRadius: '12px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 14px,#FFF9F0 14px,#FFF9F0 28px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '12px' }}>
+                <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '10px', color: '#8B7355', textTransform: 'uppercase', padding: '0 12px' }}>product photo<br />{p.name}</span>
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#2C2417', margin: '0 0 4px' }}>{p.name}</h3>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: '#D4891A', margin: 0 }}>₹{p.price}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <style>{`
+        @media (min-width: 1024px) {
+          .sum-pdp-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,326 +1,222 @@
 'use client';
-import { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import RevealOnScroll from '@/components/shared/RevealOnScroll';
-import GoldenDivider from '@/components/shared/GoldenDivider';
-import { animateCounter } from '@/lib/anime-presets';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-
-const STATS = [
-  { value: 5, label: 'Forest Ecosystems', suffix: '+' },
-  { value: 0, label: 'Additives Used', suffix: '' },
-  { value: 100, label: 'Traceable', suffix: '%' },
-  { value: 5, label: 'Rare Honeys', suffix: '' },
-];
+import Link from 'next/link';
 
 const STORY_SECTIONS = [
   {
-    eyebrow: 'THE PROBLEM',
-    headline: 'The Sweet Tooth & The Corporate Toll',
-    body: `Being founders hailing from the Gujarati and Marwari families, a deep love for food and an inherent sweet tooth are practically woven into our DNA. But as we plunged into the high-stress rhythms of modern corporate life & entrepreneurship, that love for flavor hit a wall. Trapped in endless workdays, we defaulted to quick fixes: processed snacks loaded with refined sugars. Before long, the toll caught up with us in the form of stubborn gut health issues and chronic fatigue. As lifelong foodies, we completely refused a life of joyless, cardboard-tasting dietary restrictions. We wanted an "indulgence that cares."`,
-    image: '/images/brand/origin.png',
-    imageAlt: 'The modern hustle - a moment of pause with raw honey',
+    eyebrow: 'OUR ORIGIN',
+    headline: 'Born from a Love of Pure Honey',
     imageRight: false,
+    imageAlt: 'Wild honeybee pollinating a flower',
+    image: '/images/home/story-bees-flower.jpg',
+    paragraphs: [
+      'SUMOSTA began with a simple conviction: honey in its natural state is one of nature\'s most perfect foods. Our founders, having grown up near the forests of the Western Ghats, watched as commercial honey became increasingly processed, heated, and adulterated. They set out to change that.',
+      'The name SUMOSTA derives from the Sanskrit root for sweetness — and our mission is to preserve it, exactly as nature intended.',
+    ],
   },
   {
-    eyebrow: 'THE INSPIRATION',
-    headline: 'The Sumo Inspiration: Fueling True Strength',
-    body: `That search for balance led us to an unexpected inspiration: the ancient philosophy of the Sumo. True Sumos are masters of unyielding power, absolute mental calm, and flawless ritualistic discipline. They don’t starve their bodies with restrictive, empty "zero-calorie" diets; they build their resilience through nutrient-dense fueling to conquer high-stress daily challenges. We realized that is exactly what the modern hustle required—not restriction, but powerful, intentional nourishment.`,
-    image: '/images/brand/hero.png',
-    imageAlt: 'Sumo inspiration - strength and balance',
+    eyebrow: 'HOW WE SOURCE',
+    headline: "From Wild Hives, Across India's Most Remote Forests",
     imageRight: true,
+    imageAlt: 'Beekeeper inspecting honeycomb frame',
+    image: '/images/home/story-wild-hives.jpg',
+    paragraphs: [
+      'We work directly with traditional beekeepers and forest tribes across three distinct ecosystems — the Western Ghats, the Sundarbans mangroves, and the Himalayan foothills. Each ecosystem produces honey with its own distinctive terroir, flavor profile, and medicinal properties.',
+      'Our beekeepers are not industrialists. They are custodians — families who have harvested honey from the same forests for generations. We pay them above market rates and ensure their livelihoods are protected.',
+    ],
   },
   {
-    eyebrow: 'THE REALITY',
-    headline: 'The Supermarket Illusion vs. Wild Reality',
-    body: `To find this ultimate ancestral fuel, we turned to honey. But what we found on supermarket shelves shocked us. Most commercial honey is industrially dead—heavily heated, stripped of live enzymes, and stretched with hidden sugar syrups. We realized most consumers are entirely unaware that authentic, raw wild forest honey even exists. They have never experienced the complex flavors and superior medicinal benefits of honey left completely untouched by industrial factories.`,
-    image: '/images/brand/purity.png',
-    imageAlt: 'Raw honeycomb - nature untouched by industrial factories',
+    eyebrow: 'OUR PROMISE',
+    headline: 'Raw, Unprocessed, and Fully Traceable',
     imageRight: false,
-  },
-  {
-    eyebrow: 'THE MISSION',
-    headline: 'Sourcing From India\'s Untamed Ecosystems',
-    body: `We bypassed commercial supply chains and went straight into the wild. Our quest took us deep into the most remote micro-regions and pristine forests of India. Partnering with indigenous bee-foragers who have lived in harmony with these lands for generations, we harvested honey exactly as nature intended it: unprocessed, unfiltered, and alive with raw nutrients.`,
-    image: '/images/brand/sourcing.png',
-    imageAlt: 'Tribal honey gatherer climbing a forest canopy tree',
-    imageRight: true,
-  },
-  {
-    eyebrow: 'THE BREAKTHROUGH',
-    headline: 'The Birth of a Daily Ritual',
-    body: `We brought these wild forest honeys into our own lives, turning them into a daily ritual—a mindful spoonful for morning power and a soothing reset after a chaotic boardroom day. The results were life-changing. Our gut health restored itself, our energy stabilized, and our sweet cravings were deeply satisfied without a single drop of guilt.
-
-SUMOSTA was born to bring that exact breakthrough straight to your dining table. We did the hard work of traversing remote forests and ensuring rigorous, batch-wise lab verification so you can focus entirely on the pure joy of your daily wellness ritual.
-
-Welcome to SUMOSTA. Welcome to Indulgence that Cares.`,
-    image: '/images/brand/category-honey.png',
-    imageAlt: 'A daily wellness ritual of raw honey',
-    imageRight: false,
+    imageAlt: 'Honey dripping from a dipper — raw and unfiltered',
+    image: '/images/home/story-raw-honey.jpg',
+    paragraphs: [
+      'Every jar of SUMOSTA honey is raw — never heated above hive temperature, never ultra-filtered. This preserves the pollen, enzymes, and antioxidants that make honey genuinely beneficial.',
+      'We test every batch at a third-party FSSAI-approved laboratory for purity, moisture content, and adulteration markers. The batch ID on every jar can be traced back to its specific apiary and harvest month.',
+    ],
   },
 ];
 
-function StatCounter({ value, suffix, label }: { value: number; suffix: string; label: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLSpanElement>(null);
-  const triggered = useRef(false);
+const STATS = [
+  { value: 12, suffix: '', label: 'Wild Apiaries' },
+  { value: 0, suffix: '', label: 'Additives' },
+  { value: 100, suffix: '%', label: 'Traceable' },
+];
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !triggered.current && counterRef.current) {
-        triggered.current = true;
-        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (prefersReducedMotion) {
-          counterRef.current.textContent = `${value.toLocaleString('en-IN')}${suffix}`;
-        } else {
-          import('animejs').then((mod) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const animeLib = (mod.default ?? mod) as any;
-            animateCounter(animeLib, counterRef.current!, value);
-            if (suffix) {
-              setTimeout(() => {
-                if (counterRef.current) counterRef.current.textContent = `${value.toLocaleString('en-IN')}${suffix}`;
-              }, 2100);
-            }
-          });
-        }
-        observer.disconnect();
-      }
-    }, { threshold: 0.5 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [value, suffix]);
-
-  return (
-    <div ref={containerRef} className="text-center">
-      <div className="font-clash font-bold text-honey-400 mb-2" style={{ fontSize: 'clamp(2.5rem, 5vw, 4.5rem)' }}>
-        <span ref={counterRef}>0</span>
-      </div>
-      <p className="font-satoshi text-earth text-sm uppercase tracking-wider">{label}</p>
-    </div>
-  );
-}
+const TEAM = [
+  { name: 'Arjun Nair', role: 'Co-founder & Head of Sourcing', bio: 'Former wildlife researcher. Has hiked every trail in the Western Ghats twice.', initials: 'AN' },
+  { name: 'Priya Menon', role: 'Co-founder & CEO', bio: 'Food scientist turned entrepreneur. Believes the best product is no product at all — just nature.', initials: 'PM' },
+  { name: 'Rahul Sharma', role: 'Head of Quality', bio: '15 years in food safety. Has rejected more honey than he has approved, and proud of it.', initials: 'RS' },
+];
 
 export default function AboutPage() {
+  const [statDisplays, setStatDisplays] = useState(STATS.map(() => '0'));
+  const [statsTriggered, setStatsTriggered] = useState(false);
+  const statsRef = useRef<HTMLDivElement>(null);
+
+  // Reveal on scroll
+  useEffect(() => {
+    const reveal = () => {
+      document.querySelectorAll('[data-reveal]').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight * 0.92 && r.bottom > 0) {
+          el.classList.add('revealed');
+        }
+      });
+    };
+    window.addEventListener('scroll', reveal, { passive: true });
+    reveal();
+    return () => window.removeEventListener('scroll', reveal);
+  }, []);
+
+  // Stats count-up
+  useEffect(() => {
+    if (statsTriggered) return;
+    const el = statsRef.current;
+    if (!el) return;
+    const check = () => {
+      const r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight * 0.85) {
+        setStatsTriggered(true);
+        const duration = 1400;
+        const start = performance.now();
+        const tick = (now: number) => {
+          const t = Math.min(1, (now - start) / duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+          setStatDisplays(STATS.map((s) => Math.round(s.value * ease) + s.suffix));
+          if (t < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        window.removeEventListener('scroll', check);
+      }
+    };
+    window.addEventListener('scroll', check, { passive: true });
+    check();
+    return () => window.removeEventListener('scroll', check);
+  }, [statsTriggered]);
+
   return (
-    <div>
-      {/* Hero */}
-      <div className="relative h-[60vh] min-h-[400px] bg-midnight overflow-hidden">
+    <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
+
+      {/* Dark hero */}
+      <div style={{ position: 'relative', height: '60vh', minHeight: '420px', background: '#1A150E', overflow: 'hidden', marginTop: 0 }}>
         <Image
-          src="/images/brand/hero.png"
-          alt="Pristine Indian forest canopy at golden hour"
+          src="/images/home/about-hero-honeycomb.jpg"
           fill
-          className="object-cover opacity-50"
+          alt="Dark honeycomb close-up"
           priority
+          sizes="100vw"
+          style={{ objectFit: 'cover' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-midnight/30 via-transparent to-midnight/60" />
-        <div className="relative h-full flex items-center justify-center text-center px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <p className="font-satoshi text-honey-300 text-sm uppercase tracking-[0.2em] mb-4">Our Story</p>
-            <h1 className="font-clash text-cream font-bold" style={{ fontSize: 'clamp(3rem, 7vw, 6rem)', lineHeight: 1.1 }}>
-              Born from the Hustle.<br />Perfected by Nature.
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(26,21,14,0.35), rgba(26,21,14,0.2) 45%, rgba(26,21,14,0.75))' }} />
+        <div style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 24px', paddingTop: '108px' }}>
+          <div data-reveal>
+            <p style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#FFCC66', fontWeight: 700, margin: '0 0 16px' }}>Our Story</p>
+            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2.6rem,7vw,5.5rem)', lineHeight: 1.08, color: '#FFFDF8', margin: 0 }}>
+              Nature&apos;s Golden<br />Promise
             </h1>
-          </motion.div>
+          </div>
         </div>
       </div>
 
-      {/* Story Sections */}
-      <div className="max-w-[1400px] mx-auto px-6 md:px-12 py-20">
-        {STORY_SECTIONS.map((section, i) => (
-          <div key={i}>
-            <div className={`grid md:grid-cols-2 gap-12 lg:gap-20 items-center py-16 ${i > 0 ? 'border-t border-sand' : ''}`}>
-              <RevealOnScroll variant={section.imageRight ? 'slideInLeft' : 'slideInRight'}>
-                <div className={`order-1 ${section.imageRight ? 'md:order-2' : 'md:order-1'}`}>
-                  <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-honey-100 relative">
-                    <Image
-                      src={section.image}
-                      alt={section.imageAlt}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                </div>
-              </RevealOnScroll>
-
-              <RevealOnScroll variant={section.imageRight ? 'slideInRight' : 'slideInLeft'}>
-                <div className={`order-2 ${section.imageRight ? 'md:order-1' : 'md:order-2'}`}>
-                  <p className="font-satoshi text-honey-500 text-xs uppercase tracking-[0.15em] mb-4">{section.eyebrow}</p>
-                  <h2 className="font-clash text-charcoal font-bold mb-6" style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)' }}>
-                    {section.headline}
-                  </h2>
-                  {section.body.split('\n\n').map((para, j) => (
-                    <p key={j} className={`font-satoshi text-bark leading-relaxed ${j > 0 ? 'mt-4' : ''}`}>
-                      {para}
-                    </p>
-                  ))}
-                </div>
-              </RevealOnScroll>
+      {/* Story sections */}
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '80px 24px' }}>
+        {STORY_SECTIONS.map((s, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px', marginBottom: i < STORY_SECTIONS.length - 1 ? '80px' : 0 }} className="sum-story-row">
+            <div data-reveal style={{ order: s.imageRight ? 2 : 1 }}>
+              <div style={{ aspectRatio: '4/3', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
+                <Image
+                  src={s.image}
+                  fill
+                  alt={s.imageAlt}
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  style={{ objectFit: 'cover' }}
+                />
+              </div>
+            </div>
+            <div data-reveal style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', order: s.imageRight ? 1 : 2 }}>
+              <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 16px' }}>{s.eyebrow}</p>
+              <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.75rem,3vw,2.5rem)', color: '#2C2417', margin: '0 0 24px' }}>{s.headline}</h2>
+              {s.paragraphs.map((para, pi) => (
+                <p key={pi} style={{ fontSize: '15px', lineHeight: 1.8, color: '#5C4A32', margin: pi < s.paragraphs.length - 1 ? '0 0 16px' : 0 }}>{para}</p>
+              ))}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Meet the Founders */}
-      <section className="bg-cream-warm border-t border-b border-sand py-24 px-6 relative overflow-hidden" id="founders">
-        {/* Soft radial backdrops */}
-        <div className="absolute right-0 top-0 w-80 h-80 bg-honey-100/10 rounded-full filter blur-3xl pointer-events-none" />
-        <div className="absolute left-0 bottom-0 w-80 h-80 bg-honey-200/10 rounded-full filter blur-3xl pointer-events-none" />
-
-        <div className="max-w-5xl mx-auto relative z-10">
-          {/* Header */}
-          <div className="text-center mb-16">
-            <RevealOnScroll variant="fadeUp">
-              <span className="font-satoshi text-honey-500 text-xs uppercase tracking-[0.22em] block mb-3 font-bold">
-                Meet the Founders
-              </span>
-            </RevealOnScroll>
-            <RevealOnScroll variant="fadeUp" delay={0.1}>
-              <h2 className="font-clash text-charcoal font-bold mb-4 text-3xl md:text-4xl">
-                Meet the Heavyweights Behind the Honey.
-              </h2>
-            </RevealOnScroll>
-            <RevealOnScroll variant="fadeUp" delay={0.2}>
-              <p className="font-satoshi text-bark text-sm max-w-2xl mx-auto leading-relaxed">
-                When a Gujarati and a Marwari team up to launch a food brand, two things are absolutely guaranteed: the numbers will always balance, and the food will always taste phenomenal. We stepped into the SUMOSTA ring to prove that you can conquer the modern daily hustle without giving up the joy of eating.
-              </p>
-            </RevealOnScroll>
-          </div>
-
-          {/* Founders Grid */}
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-start">
-            {/* Founder 1: Yatin */}
-            <RevealOnScroll variant="slideInLeft">
-              <div className="bg-cream border border-sand p-8 rounded-2xl shadow-honey flex flex-col items-center">
-                <div className="relative w-40 h-40 rounded-full overflow-hidden border-2 border-honey-200 shadow-md mb-4 bg-honey-50">
-                  <Image
-                    src="/images/brand/yatin.jpg"
-                    alt="Yatin Narechania"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <h3 className="font-clash font-bold text-charcoal text-xl mb-1 mt-4">Yatin Narechania</h3>
-                <p className="font-satoshi text-honey-600 text-xs uppercase tracking-wider mb-6 font-semibold">
-                  Founder & CEO | The Brain of SUMOSTA
-                </p>
-                <div className="w-full space-y-4 font-satoshi text-bark text-sm leading-relaxed text-justify">
-                  <p>
-                    <strong>The Sumo Stance:</strong> Handling the heavy lifting behind Strategy, Product Development, and Finance.
-                  </p>
-                  <p>
-                    <strong>The Profile:</strong> If SUMOSTA were a perfectly balanced recipe, Yatin is the master chef holding the measuring spoons. As the strategic brain, he is the one who refuses to compromise on lab-tested purity, obsesses over product formulations, and ensures our unit economics are as clean as our ingredient labels (a classic Gujarati superpower). He channels the true Sumo mindset by bringing absolute calm, focus, and structural vision to our product roadmap.
-                  </p>
-                  <p className="text-xs text-honey-600 font-semibold bg-honey-50 px-3 py-2 rounded-lg border border-honey-100 mt-2 leading-relaxed">
-                    💡 <strong>Fueled By:</strong> A morning ritual of raw wild forest honey and big strategic visions.
-                  </p>
-                </div>
-              </div>
-            </RevealOnScroll>
-
-            {/* Founder 2: Rishabh */}
-            <RevealOnScroll variant="slideInRight">
-              <div className="bg-cream border border-sand p-8 rounded-2xl shadow-honey flex flex-col items-center">
-                <div className="relative w-40 h-40 rounded-full overflow-hidden border-2 border-honey-200 shadow-md mb-4 bg-honey-50">
-                  <Image
-                    src="/images/brand/rishabh.png"
-                    alt="Rishabh Makharia"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <h3 className="font-clash font-bold text-charcoal text-xl mb-1 mt-4">Rishabh Makharia</h3>
-                <p className="font-satoshi text-honey-600 text-xs uppercase tracking-wider mb-6 font-semibold">
-                  Co-Founder & COO | The Soul of SUMOSTA
-                </p>
-                <div className="w-full space-y-4 font-satoshi text-bark text-sm leading-relaxed text-justify">
-                  <p>
-                    <strong>The Sumo Stance:</strong> Dominating the ring in Business Operations, Logistics, and Sales.
-                  </p>
-                  <p>
-                    <strong>The Profile:</strong> If Yatin is the blueprint, Rishabh is the engine that drives it forward. As the living soul of the brand, Rishabh turns grand ideas into reality, manages the wild logistics of sourcing from India's most remote forests, and makes sure a jar of SUMOSTA lands seamlessly on your dining table. With an inherent Marwari drive for relentless hustle and relationship-building, he’s the energetic force making sure our "indulgence that cares" reaches every corner of the country.
-                  </p>
-                  <p className="text-xs text-honey-600 font-semibold bg-honey-50 px-3 py-2 rounded-lg border border-honey-100 mt-2 leading-relaxed">
-                    ⚡ <strong>Fueled By:</strong> Pure adrenaline, unstoppable sales hustle, and a guilt-free sweet tooth.
-                  </p>
-                </div>
-              </div>
-            </RevealOnScroll>
-          </div>
-
-          {/* Footer Quote */}
-          <div className="mt-16 text-center bg-cream border border-sand p-8 rounded-2xl max-w-3xl mx-auto shadow-sm">
-            <p className="font-bespoke italic text-charcoal text-lg md:text-xl leading-relaxed">
-              &ldquo;We don't just run the company; we are our own biggest customers. We built SUMOSTA because our own sweet teeth demanded an indulgence that actually looks out for our health. Welcome to the ring!&rdquo;
-            </p>
-            <p className="font-satoshi text-earth-light text-xs uppercase tracking-wider mt-4 font-semibold">
-              — Yatin & Rishabh
-            </p>
-          </div>
+      {/* Pull quote */}
+      <div style={{ background: '#FDF6EC', padding: '96px 24px' }}>
+        <div data-reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#D4891A', fontSize: '56px', lineHeight: 1, margin: '0 0 12px' }}>&ldquo;</p>
+          <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#2C2417', fontSize: 'clamp(1.2rem,2.4vw,1.7rem)', lineHeight: 1.6, margin: 0 }}>
+            Honey is the only food that never spoils. Egyptian honey found in 3,000-year-old tombs was still perfectly edible. We believe honey that&apos;s been processed, heated, and stripped of its life deserves a different name entirely.
+          </p>
+          <p style={{ fontSize: '13px', color: '#8B7355', margin: '24px 0 0' }}>— SUMOSTA Founders</p>
         </div>
-      </section>
+      </div>
 
-      {/* Philosophy Beliefs */}
-      <div className="bg-midnight py-20 px-6">
-        <div className="max-w-[1000px] mx-auto">
-          <RevealOnScroll variant="fadeUp">
-            <p className="font-satoshi text-honey-400 text-xs uppercase tracking-[0.2em] text-center mb-4">Our Beliefs</p>
-            <h2 className="font-clash text-cream font-bold text-center mb-12" style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
-              What Guides Everything We Create
-            </h2>
-          </RevealOnScroll>
-          <div className="grid gap-6">
-            {[
-              { icon: '✦', text: 'Wellness should be enjoyable, never a compromise.' },
-              { icon: '✦', text: 'Small daily rituals create lasting wellbeing.' },
-              { icon: '✦', text: 'Nature, in its most authentic form, knows best.' },
-              { icon: '✦', text: 'Balance is more powerful than extremes.' },
-              { icon: '✦', text: 'Every indulgence has the potential to become an act of care.' },
-            ].map((belief, i) => (
-              <RevealOnScroll key={i} variant="fadeUp" delay={i * 0.1}>
-                <div className="flex items-start gap-4 bg-charcoal/40 rounded-xl px-6 py-5 border border-bark/20">
-                  <span className="text-honey-400 text-lg mt-0.5">{belief.icon}</span>
-                  <p className="font-satoshi text-cream/90 text-base leading-relaxed">{belief.text}</p>
+      {/* Stats */}
+      <div style={{ padding: '96px 24px' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          {/* Golden divider */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '56px' }}>
+            <span style={{ width: '64px', height: '1px', background: '#F0E6D3' }} />
+            <span style={{ width: '6px', height: '6px', background: '#F5A623', transform: 'rotate(45deg)' }} />
+            <span style={{ width: '64px', height: '1px', background: '#F0E6D3' }} />
+          </div>
+          <div ref={statsRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '32px' }} className="sum-stats-grid">
+            {STATS.map((st, i) => (
+              <div key={st.label} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, color: '#F5A623', fontSize: 'clamp(2.2rem,4.5vw,3.8rem)', margin: '0 0 8px' }}>
+                  {statDisplays[i]}
                 </div>
-              </RevealOnScroll>
+                <p style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8B7355', margin: 0 }}>{st.label}</p>
+              </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Pull Quote */}
-      <div className="bg-cream-warm py-20 px-6">
-        <RevealOnScroll variant="fadeIn">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="font-bespoke italic text-honey-500 text-5xl mb-4">&quot;</p>
-            <p className="font-bespoke italic text-charcoal leading-relaxed" style={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)' }}>
-              We believe wellbeing isn&apos;t created through restriction or perfection. It grows through simple choices made consistently, products crafted thoughtfully, and everyday moments that nourish both body and mind.
-            </p>
-            <p className="font-satoshi text-earth text-sm mt-6">— SUMOSTA Philosophy</p>
+      {/* Team */}
+      <div style={{ background: '#FDF6EC', padding: '96px 24px' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <div data-reveal style={{ textAlign: 'center', marginBottom: '56px' }}>
+            <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,4vw,3.2rem)', color: '#2C2417', margin: '0 0 16px' }}>The People Behind the Hive</h2>
+            <p style={{ fontSize: '15px', color: '#8B7355', maxWidth: '520px', margin: '0 auto' }}>A small, passionate team of food scientists, foragers, and storytellers — united by an obsession with purity.</p>
           </div>
-        </RevealOnScroll>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }} className="sum-team-grid">
+            {TEAM.map((m) => (
+              <div key={m.name} data-reveal style={{ textAlign: 'center' }}>
+                <div style={{ width: '80px', height: '80px', borderRadius: '999px', background: '#FFE0A8', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, color: '#A66A10', fontSize: '24px' }}>{m.initials}</span>
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#2C2417', margin: '0 0 2px' }}>{m.name}</h3>
+                <p style={{ fontSize: '13px', color: '#D4891A', fontWeight: 600, margin: '0 0 12px' }}>{m.role}</p>
+                <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#8B7355', margin: '0 auto', maxWidth: '280px' }}>{m.bio}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="py-20 px-6">
-        <RevealOnScroll variant="fadeUp">
-          <div className="max-w-[1400px] mx-auto">
-            <div className="text-center mb-12">
-              <GoldenDivider />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {STATS.map((stat) => (
-                <StatCounter key={stat.label} {...stat} />
-              ))}
-            </div>
-          </div>
-        </RevealOnScroll>
+      {/* CTA */}
+      <div style={{ background: '#2C2417', padding: '80px 24px', textAlign: 'center' }}>
+        <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', color: '#FFFDF8', margin: '0 0 20px' }}>Ready to taste the difference?</h2>
+        <p style={{ fontSize: '16px', color: '#C4B39A', margin: '0 0 32px' }}>Explore our collection of raw, single-origin honeys.</p>
+        <Link href="/shop" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '15px', padding: '17px 34px', borderRadius: '8px', boxShadow: '0 12px 34px rgba(245,166,35,0.35)', textDecoration: 'none', fontFamily: 'var(--font-bricolage), sans-serif' }}>
+          Shop the Collection →
+        </Link>
       </div>
+
+      <style>{`
+        @media (min-width: 768px) {
+          .sum-team-grid { grid-template-columns: repeat(3,1fr) !important; }
+          .sum-story-row { grid-template-columns: 1fr 1fr !important; gap: 64px !important; }
+        }
+      `}</style>
     </div>
   );
 }

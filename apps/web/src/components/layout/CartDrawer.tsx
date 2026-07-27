@@ -1,174 +1,218 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
-import { drawerVariants, overlayVariants } from '@/lib/animations';
 import { useCartStore } from '@/stores/cart-store';
 import { formatPrice } from '@/lib/utils';
 
 export default function CartDrawer() {
-  const { isOpen, items, itemCount, subtotal, shipping, total, closeCart, updateQuantity, removeItem } =
+  const { isOpen, items, itemCount, subtotal, shipping, closeCart, updateQuantity, removeItem } =
     useCartStore();
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Overlay */}
-          <motion.div
-            className="fixed inset-0 z-50 bg-overlay"
-            variants={overlayVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
+    <>
+      {/* Overlay */}
+      <div
+        onClick={closeCart}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 90,
+          background: 'rgba(26,21,14,0.5)',
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? 'auto' : 'none',
+          transition: 'opacity 0.35s ease',
+        }}
+      />
+
+      {/* Drawer */}
+      <aside
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 91,
+          width: 'min(420px, 100%)',
+          background: '#FFFDF8',
+          display: 'flex',
+          flexDirection: 'column',
+          transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.35s cubic-bezier(0.25,0.1,0.25,1)',
+          boxShadow: '-8px 0 40px rgba(26,21,14,0.12)',
+          fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif',
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '20px 24px',
+            borderBottom: '1px solid rgba(139,115,85,0.15)',
+          }}
+        >
+          <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '18px', color: '#2C2417', margin: 0 }}>
+            Cart
+            {itemCount > 0 && (
+              <span style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 400, fontSize: '14px', color: '#8B7355', marginLeft: '8px' }}>
+                ({itemCount})
+              </span>
+            )}
+          </h2>
+          <button
             onClick={closeCart}
-          />
-
-          {/* Drawer */}
-          <motion.aside
-            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-cream flex flex-col shadow-lg"
-            variants={drawerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
+            aria-label="Close cart"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#5C4A32', lineHeight: 1, padding: '4px' }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-sand">
-              <h2 className="font-clash text-charcoal font-semibold text-lg">
-                Your Cart {itemCount > 0 && <span className="text-earth-light font-satoshi text-sm font-normal">({itemCount})</span>}
-              </h2>
-              <button onClick={closeCart} className="text-bark hover:text-charcoal transition-colors" aria-label="Close cart">
-                <X size={20} />
-              </button>
+            ×
+          </button>
+        </div>
+
+        {/* Items */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {items.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '48px', opacity: 0.2 }}>🛍</div>
+              <p style={{ color: '#8B7355', fontSize: '15px', margin: 0 }}>Your cart is empty</p>
+              <Link
+                href="/shop"
+                onClick={closeCart}
+                style={{
+                  display: 'inline-block',
+                  padding: '10px 24px',
+                  background: '#D4891A',
+                  color: '#FFFDF8',
+                  borderRadius: '4px',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                Shop Now
+              </Link>
             </div>
-
-            {/* Items */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-                  <ShoppingBag size={48} className="text-sand" />
-                  <p className="font-satoshi text-earth text-base">Your cart is empty</p>
-                  <Link
-                    href="/shop"
-                    onClick={closeCart}
-                    className="bg-honey-400 text-midnight font-satoshi font-semibold text-sm px-6 py-3 rounded-md hover:bg-honey-500 transition-colors"
-                  >
-                    Shop Now
-                  </Link>
+          ) : (
+            items.map((item) => (
+              <div
+                key={`${item.productId}-${item.variantId}`}
+                style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
+              >
+                {/* Image */}
+                <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', background: '#FDF6EC', flexShrink: 0 }}>
+                  {item.product.images?.[0]?.url && (
+                    <Image
+                      src={item.product.images[0].url}
+                      alt={item.product.name}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                    />
+                  )}
                 </div>
-              ) : (
-                <ul className="flex flex-col gap-4">
-                  <AnimatePresence>
-                    {items.map((item) => (
-                      <motion.li
-                        key={`${item.productId}-${item.variantId}`}
-                        layout
-                        exit={{ x: -40, opacity: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="flex gap-3 items-start"
-                      >
-                        {/* Image */}
-                        <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-cream-warm shrink-0">
-                          {item.product.images?.[0]?.url && (
-                            <Image
-                              src={item.product.images[0].url}
-                              alt={item.product.name}
-                              fill
-                              className="object-cover"
-                            />
-                          )}
-                        </div>
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-satoshi text-charcoal text-sm font-medium truncate">
-                            {item.product.name}
-                          </p>
-                          {item.variant && (
-                            <p className="text-earth-light text-xs font-satoshi">{item.variant.name}</p>
-                          )}
-                          <p className="font-satoshi text-honey-500 text-sm font-semibold mt-1">
-                            {formatPrice(item.unitPrice)}
-                          </p>
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: '#2C2417', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.product.name}
+                  </p>
+                  {item.variant && (
+                    <p style={{ fontSize: '12px', color: '#8B7355', margin: '0 0 6px' }}>{item.variant.name}</p>
+                  )}
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#D4891A', margin: '0 0 8px' }}>
+                    {formatPrice(item.unitPrice)}
+                  </p>
 
-                          {/* Qty */}
-                          <div className="flex items-center gap-2 mt-2">
-                            <button
-                              onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - 1)}
-                              className="w-6 h-6 rounded border border-sand flex items-center justify-center text-bark hover:border-honey-400 transition-colors"
-                            >
-                              <Minus size={10} />
-                            </button>
-                            <span className="font-satoshi text-charcoal text-sm w-6 text-center">{item.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)}
-                              className="w-6 h-6 rounded border border-sand flex items-center justify-center text-bark hover:border-honey-400 transition-colors"
-                            >
-                              <Plus size={10} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Line total + remove */}
-                        <div className="flex flex-col items-end gap-2 shrink-0">
-                          <span className="font-satoshi text-charcoal text-sm font-semibold">
-                            {formatPrice(item.lineTotal)}
-                          </span>
-                          <button
-                            onClick={() => removeItem(item.productId, item.variantId)}
-                            className="text-earth-light hover:text-terracotta transition-colors"
-                            aria-label="Remove item"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </motion.li>
-                    ))}
-                  </AnimatePresence>
-                </ul>
-              )}
-            </div>
-
-            {/* Footer summary */}
-            {items.length > 0 && (
-              <div className="border-t border-sand px-6 py-5 flex flex-col gap-3">
-                <div className="flex justify-between font-satoshi text-sm text-bark">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(subtotal)}</span>
+                  {/* Qty */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - 1)}
+                      style={{ width: '24px', height: '24px', border: '1px solid rgba(139,115,85,0.3)', borderRadius: '4px', background: 'none', cursor: 'pointer', fontSize: '14px', color: '#5C4A32', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      −
+                    </button>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#2C2417', minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)}
+                      style={{ width: '24px', height: '24px', border: '1px solid rgba(139,115,85,0.3)', borderRadius: '4px', background: 'none', cursor: 'pointer', fontSize: '14px', color: '#5C4A32', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-between font-satoshi text-sm text-bark">
-                  <span>Shipping</span>
-                  <span className={shipping === 0 ? 'text-sage font-medium' : ''}>
-                    {shipping === 0 ? 'FREE' : formatPrice(shipping)}
+
+                {/* Line total + remove */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#2C2417' }}>
+                    {formatPrice(item.lineTotal)}
                   </span>
-                </div>
-                <div className="flex justify-between font-clash text-charcoal text-lg font-semibold border-t border-sand pt-3">
-                  <span>Total</span>
-                  <span>{formatPrice(total)}</span>
-                </div>
-
-                <div className="flex flex-col gap-2 mt-2">
-                  <Link
-                    href="/checkout"
-                    onClick={closeCart}
-                    className="bg-honey-400 text-midnight font-satoshi font-semibold text-sm px-6 py-3.5 rounded-md hover:bg-honey-500 transition-colors text-center"
+                  <button
+                    onClick={() => removeItem(item.productId, item.variantId)}
+                    aria-label="Remove item"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#C4B39A', lineHeight: 1 }}
                   >
-                    Checkout
-                  </Link>
-                  <Link
-                    href="/cart"
-                    onClick={closeCart}
-                    className="border border-sand text-bark font-satoshi text-sm px-6 py-3 rounded-md hover:border-honey-300 transition-colors text-center"
-                  >
-                    View Cart
-                  </Link>
+                    ×
+                  </button>
                 </div>
               </div>
-            )}
-          </motion.aside>
-        </>
-      )}
-    </AnimatePresence>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        {items.length > 0 && (
+          <div style={{ borderTop: '1px solid rgba(139,115,85,0.15)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#5C4A32' }}>
+              <span>Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#5C4A32' }}>
+              <span>Shipping</span>
+              <span style={{ color: shipping === 0 ? '#7C9A6E' : undefined, fontWeight: shipping === 0 ? 600 : undefined }}>
+                {shipping === 0 ? 'FREE' : formatPrice(shipping)}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <Link
+                href="/checkout"
+                onClick={closeCart}
+                style={{
+                  display: 'block',
+                  padding: '14px 24px',
+                  background: '#D4891A',
+                  color: '#FFFDF8',
+                  borderRadius: '4px',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  letterSpacing: '0.02em',
+                  fontFamily: 'var(--font-bricolage), sans-serif',
+                }}
+              >
+                Proceed to Checkout
+              </Link>
+              <Link
+                href="/cart"
+                onClick={closeCart}
+                style={{
+                  display: 'block',
+                  padding: '12px 24px',
+                  background: 'transparent',
+                  color: '#5C4A32',
+                  border: '1px solid rgba(139,115,85,0.3)',
+                  borderRadius: '4px',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  textAlign: 'center',
+                }}
+              >
+                View Cart
+              </Link>
+            </div>
+          </div>
+        )}
+      </aside>
+    </>
   );
 }

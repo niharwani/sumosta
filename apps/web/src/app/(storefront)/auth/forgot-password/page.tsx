@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cream flex items-center justify-center p-4 py-20">
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-4 py-20">
       <motion.div
         initial="hidden"
         animate="visible"
@@ -52,12 +52,12 @@ export default function ForgotPasswordPage() {
       >
         <Link
           href="/auth/login"
-          className="inline-flex items-center gap-2 font-satoshi text-earth text-sm hover:text-bark transition-colors mb-8"
+          className="inline-flex items-center gap-2 font-jakarta text-gray-600 text-sm hover:text-charcoal transition-colors mb-8"
         >
           <ArrowLeft size={16} /> Back to login
         </Link>
 
-        <div className="bg-white rounded-2xl border border-sand p-8 shadow-sm">
+        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm">
           {sent ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -65,19 +65,19 @@ export default function ForgotPasswordPage() {
               transition={{ duration: 0.5, ease: HONEY_EASE_OUT }}
               className="text-center py-4"
             >
-              <div className="w-16 h-16 bg-honey-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail size={28} className="text-honey-500" />
+              <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail size={28} className="text-[#F97316]" />
               </div>
-              <h2 className="font-satoshi text-gray-800 font-semibold text-lg mb-2">Check your email</h2>
-              <p className="font-satoshi text-earth text-sm leading-relaxed">
+              <h2 className="font-jakarta font-semibold text-charcoal text-lg mb-2">Check your email</h2>
+              <p className="font-jakarta text-gray-600 text-sm leading-relaxed">
                 We sent a password reset link to{' '}
-                <span className="font-medium text-bark">{getValues('email')}</span>
+                <span className="font-medium text-charcoal">{getValues('email')}</span>
               </p>
-              <p className="font-satoshi text-earth-light text-xs mt-4">
-                Didn't receive it? Check your spam folder or{' '}
+              <p className="font-jakarta text-gray-400 text-xs mt-4">
+                Didn&apos;t receive it? Check your spam folder or{' '}
                 <button
                   onClick={() => setSent(false)}
-                  className="text-honey-500 hover:text-honey-600 underline"
+                  className="text-[#F97316] hover:text-[#EA580C] underline"
                 >
                   try again
                 </button>
@@ -85,40 +85,40 @@ export default function ForgotPasswordPage() {
             </motion.div>
           ) : (
             <>
-              <h1 className="font-satoshi text-gray-800 font-semibold text-lg mb-2">Forgot password?</h1>
-              <p className="font-satoshi text-earth text-sm mb-6">
-                Enter your email address and we'll send you a link to reset your password.
+              <h1 className="font-jakarta font-semibold text-charcoal text-lg mb-2">Forgot password?</h1>
+              <p className="font-jakarta text-gray-600 text-sm mb-6">
+                Enter your email address and we&apos;ll send you a link to reset your password.
               </p>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                  <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">
+                  <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
                     Email address
                   </label>
                   <input
                     type="email"
                     {...register('email')}
-                    className={`w-full border rounded-lg px-4 py-3 text-sm font-satoshi text-bark focus:outline-none transition-colors ${
-                      errors.email ? 'border-terracotta/50 focus:border-terracotta' : 'border-sand focus:border-honey-400'
+                    className={`w-full border rounded-lg px-4 py-3 text-sm font-jakarta text-charcoal focus:outline-none transition-colors ${
+                      errors.email ? 'border-red-400 focus:border-red-500' : 'border-[#E5E7EB] focus:border-[#F97316]'
                     }`}
                     placeholder="you@example.com"
                     autoComplete="email"
                   />
                   {errors.email && (
-                    <p className="font-satoshi text-terracotta text-xs mt-1">{errors.email.message}</p>
+                    <p className="font-jakarta text-red-600 text-xs mt-1">{errors.email.message}</p>
                   )}
                 </div>
 
                 {error && (
-                  <div className="bg-terracotta-light border border-terracotta/20 rounded-lg px-4 py-3">
-                    <p className="font-satoshi text-terracotta text-sm">{error}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                    <p className="font-jakarta text-red-600 text-sm">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full flex items-center justify-center gap-2 bg-honey-400 hover:bg-honey-500 disabled:opacity-60 text-midnight font-satoshi font-semibold text-sm py-3 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-center gap-2 btn-pill-orange disabled:opacity-60"
                 >
                   {submitting ? <HoneycombLoader size="sm" /> : null}
                   {submitting ? 'Sending...' : 'Send reset link'}

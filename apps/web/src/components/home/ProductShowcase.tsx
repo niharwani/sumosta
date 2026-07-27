@@ -1,34 +1,63 @@
 'use client';
-import RevealOnScroll from '@/components/shared/RevealOnScroll';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import ProductCard from '@/components/product/ProductCard';
 import { STATIC_PRODUCTS } from '@/lib/content';
 
 export default function ProductShowcase() {
-  // Use static products that are active (current products, not coming soon)
   const products = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon);
+  const featured = products[0];
+  const rest     = products.slice(1, 5);
 
   return (
-    <section className="py-20 lg:py-32 bg-cream overflow-hidden">
-      <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12">
-        <div className="text-center mb-16">
-          <RevealOnScroll variant="fadeUp">
-            <h2 className="font-clash text-charcoal font-bold text-center" style={{ fontSize: 'clamp(2.3rem, 4vw, 3.5rem)' }}>
+    <section className="py-20 md:py-28 bg-[#FDF6EC]" id="collection">
+      <div className="max-w-content mx-auto px-6 md:px-10">
+
+        {/* Section header */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-12 md:mb-16">
+          <div>
+            <span className="block font-jakarta text-[11px] uppercase tracking-[0.2em] text-earth mb-3">
               The Collection
+            </span>
+            <h2 className="font-clash font-bold text-charcoal text-[clamp(2rem,4vw,3.5rem)] leading-[1.0] tracking-tight">
+              Our Natural Honey
             </h2>
-          </RevealOnScroll>
-          <RevealOnScroll variant="fadeUp" delay={0.1}>
-            <p className="font-bespoke italic text-earth text-lg mt-1 text-center">Taste the terroir</p>
-          </RevealOnScroll>
+          </div>
+          <Link
+            href="/shop"
+            className="group hidden md:inline-flex items-center gap-2 font-jakarta text-[13px] tracking-wide text-earth hover:text-charcoal transition-colors"
+          >
+            View all products
+            <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+          </Link>
         </div>
 
-        {/* Centered 5-Column Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mt-10 justify-center">
-          {products.map((product, i) => (
-            <div key={product.id} className="w-full shrink-0">
-              <ProductCard product={product} index={i} />
+        {/* Editorial grid:
+            Desktop: 1 featured (2 cols) on left + 2×2 grid on right
+            Mobile:  single column stacked */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+
+          {/* Featured card — spans 1 extra row on large screens */}
+          {featured && (
+            <div className="md:col-span-1 lg:col-span-1 lg:row-span-2">
+              <ProductCard product={featured} featured index={0} className="h-full" />
             </div>
+          )}
+
+          {/* Standard cards */}
+          {rest.map((product, i) => (
+            <ProductCard key={product.id} product={product} index={i + 1} />
           ))}
         </div>
+
+        {/* Mobile "view all" */}
+        <div className="mt-10 flex md:hidden justify-center">
+          <Link href="/shop" className="btn-outline inline-flex items-center gap-2">
+            View all products
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+
       </div>
     </section>
   );

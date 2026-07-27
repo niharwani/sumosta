@@ -29,14 +29,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cream flex items-center justify-center px-6 py-20">
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center px-6 py-20">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <h1 className="font-clash text-charcoal font-bold text-3xl mb-2">Welcome Back</h1>
-          <p className="font-satoshi text-earth text-sm">Sign in to your SUMOSTA account</p>
+          <h1 className="font-jakarta font-bold text-charcoal text-3xl mb-2">Welcome Back</h1>
+          <p className="font-jakarta text-gray-600 text-sm">Sign in to your SUMOSTA account</p>
         </div>
 
-        <div className="bg-cream-warm rounded-2xl p-8 border border-sand">
+        <div className="bg-white rounded-2xl p-8 border border-[#E5E7EB] shadow-sm">
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
             <Field label="Email" error={errors.email?.message}>
               <input {...register('email')} type="email" placeholder="you@example.com" className={inputClass} />
@@ -46,25 +46,25 @@ export default function LoginPage() {
             </Field>
 
             <div className="flex justify-end">
-              <Link href="/auth/forgot-password" className="font-satoshi text-honey-500 text-xs hover:text-honey-600">
+              <Link href="/auth/forgot-password" className="font-jakarta text-[#F97316] text-xs hover:text-[#EA580C]">
                 Forgot password?
               </Link>
             </div>
 
-            {error && <p className="font-satoshi text-terracotta text-sm text-center">{error}</p>}
+            {error && <p className="font-jakarta text-red-600 text-sm text-center">{error}</p>}
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-honey-400 text-midnight font-satoshi font-semibold py-3.5 rounded-md hover:bg-honey-500 transition-colors disabled:opacity-60"
+              className="btn-pill-orange disabled:opacity-60"
             >
               {isSubmitting ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
-          <p className="font-satoshi text-earth text-sm text-center mt-6">
+          <p className="font-jakarta text-gray-600 text-sm text-center mt-6">
             Don&apos;t have an account?{' '}
-            <Link href="/auth/register" className="text-honey-500 font-medium hover:text-honey-600">Register</Link>
+            <Link href="/auth/register" className="text-[#F97316] font-medium hover:text-[#EA580C]">Register</Link>
           </p>
         </div>
       </div>
@@ -75,11 +75,11 @@ export default function LoginPage() {
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="font-satoshi text-charcoal text-xs font-medium block mb-1.5">{label}</label>
+      <label className="font-jakarta text-charcoal text-xs font-medium block mb-1.5">{label}</label>
       {children}
-      {error && <p className="font-satoshi text-terracotta text-xs mt-1">{error}</p>}
+      {error && <p className="font-jakarta text-red-600 text-xs mt-1">{error}</p>}
     </div>
   );
 }
 
-const inputClass = 'w-full border border-sand rounded-md px-4 py-3 font-satoshi text-sm text-charcoal bg-cream focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-100 transition-all';
+const inputClass = 'w-full border border-[#E5E7EB] rounded-lg px-4 py-3 font-jakarta text-sm text-charcoal bg-white focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 transition-all';

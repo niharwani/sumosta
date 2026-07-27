@@ -41,7 +41,8 @@ app.post('/upload', async (c) => {
     customMetadata: { originalName: file.name },
   });
 
-  const publicUrl = `${new URL(c.env.BASE_URL).origin}/api/media/${key}`;
+  const workerUrl = c.env.WORKER_URL ?? c.env.BASE_URL;
+  const publicUrl = `${workerUrl}/api/media/${key}`;
 
   return c.json({ success: true, data: { key, publicUrl, contentType: file.type, size: file.size } }, 201);
 });
@@ -78,10 +79,11 @@ app.post('/upload-url', zValidator('json', uploadUrlSchema), async (c) => {
       uploadUrl = `${c.env.BASE_URL}/api/admin/media/upload-direct?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;
     }
   } catch {
-    uploadUrl = `${c.env.BASE_URL}/api/admin/media/upload-direct?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;
+    uploadUrl = `${c.env.WORKER_URL ?? c.env.BASE_URL}/api/admin/media/upload-direct?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;
   }
 
-  const publicUrl = `${c.env.BASE_URL.replace('api.', 'assets.')}/r2/${key}`;
+  const workerUrl = c.env.WORKER_URL ?? c.env.BASE_URL;
+  const publicUrl = `${workerUrl}/api/media/${key}`;
 
   return c.json({
     success: true,
@@ -110,18 +112,19 @@ app.get('/', async (c) => {
     limit,
   });
 
-  const objects = listed.objects.map((obj) => ({
+  const workerUrl = c.env.WORKER_URL ?? c.env.BASE_URL;
+  const files = listed.objects.map((obj) => ({
     key:          obj.key,
     size:         obj.size,
     uploaded:     obj.uploaded,
     etag:         obj.etag,
-    publicUrl:    `${c.env.BASE_URL.replace('api.', 'assets.')}/r2/${obj.key}`,
+    publicUrl:    `${workerUrl}/api/media/${obj.key}`,
   }));
 
   return c.json({
     success: true,
     data: {
-      objects,
+      files,
       truncated:   listed.truncated,
       cursor:      listed.truncated ? listed.cursor : null,
     },

@@ -27,18 +27,18 @@ export default function OrderConfirmationPage() {
   }, [clearCart]);
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-6 text-center py-20">
+    <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center px-6 text-center py-20">
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-20 h-20 rounded-full bg-sage-light flex items-center justify-center mb-8"
+        className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-8"
       >
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
           <path
             ref={checkRef}
             d="M8 20 L17 29 L32 12"
-            stroke="#7C9A6E"
+            stroke="#16a34a"
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -51,25 +51,19 @@ export default function OrderConfirmationPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.6 }}
       >
-        <h1 className="font-clash text-charcoal font-bold text-4xl mb-3">Order Confirmed!</h1>
-        <p className="font-satoshi text-earth text-base mb-2">
+        <h1 className="font-jakarta font-black text-charcoal text-4xl mb-3">Order Confirmed!</h1>
+        <p className="font-jakarta text-gray-600 text-base mb-2">
           Your order <span className="font-semibold text-charcoal">{id}</span> has been placed.
         </p>
-        <p className="font-satoshi text-earth-light text-sm mb-10">
+        <p className="font-jakarta text-gray-400 text-sm mb-10">
           You&apos;ll receive a confirmation email shortly with tracking details.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/account/orders"
-            className="bg-honey-400 text-midnight font-satoshi font-semibold px-8 py-3.5 rounded-md hover:bg-honey-500 transition-colors"
-          >
+          <Link href="/account/orders" className="btn-pill-orange">
             Track Order
           </Link>
-          <Link
-            href="/shop"
-            className="border border-sand text-bark font-satoshi font-semibold px-8 py-3.5 rounded-md hover:border-honey-300 transition-colors"
-          >
+          <Link href="/shop" className="btn-pill-white">
             Continue Shopping
           </Link>
         </div>

@@ -1,14 +1,28 @@
 'use client';
-import { motion } from 'framer-motion';
-import { fadeUp, fadeIn, scaleIn, slideInLeft, slideInRight } from '@/lib/animations';
+import { useAnimeReveal } from '@/hooks/useAnimeReveal';
 import { cn } from '@/lib/utils';
 
-const variants = { fadeUp, fadeIn, scaleIn, slideInLeft, slideInRight };
+type VariantMap = {
+  fadeUp: 'fadeUp';
+  fadeIn: 'fadeIn';
+  scaleIn: 'scaleIn';
+  slideInLeft: 'slideLeft';
+  slideInRight: 'slideRight';
+};
+
+const mapVariant: Record<string, 'fadeUp' | 'fadeIn' | 'scaleIn' | 'slideLeft' | 'slideRight'> = {
+  fadeUp: 'fadeUp',
+  fadeIn: 'fadeIn',
+  scaleIn: 'scaleIn',
+  slideInLeft: 'slideLeft',
+  slideInRight: 'slideRight',
+};
 
 interface RevealOnScrollProps {
   children: React.ReactNode;
-  variant?: keyof typeof variants;
+  variant?: keyof VariantMap;
   delay?: number;
+  duration?: number;
   className?: string;
   once?: boolean;
 }
@@ -17,29 +31,21 @@ export default function RevealOnScroll({
   children,
   variant = 'fadeUp',
   delay = 0,
+  duration = 800,
   className,
   once = true,
 }: RevealOnScrollProps) {
-  const selected = variants[variant];
-  const prefersReduced =
-    typeof window !== 'undefined'
-      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      : false;
-
-  if (prefersReduced) {
-    return <div className={className}>{children}</div>;
-  }
+  const animeVariant = mapVariant[variant] || 'fadeUp';
+  const ref = useAnimeReveal<HTMLDivElement>({
+    variant: animeVariant,
+    delay: delay * 1000, // convert seconds to ms
+    duration,
+    once,
+  });
 
   return (
-    <motion.div
-      className={cn(className)}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once, amount: 0.2 }}
-      variants={selected}
-      transition={{ delay }}
-    >
+    <div ref={ref} className={cn(className)}>
       {children}
-    </motion.div>
+    </div>
   );
 }

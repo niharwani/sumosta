@@ -41,31 +41,24 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
     setAllProducts((prev) => (page === 1 ? data.products : [...prev, ...data.products]));
   }, [data, page]);
 
-  // Sync state when URL category parameter changes
   useEffect(() => {
     setCategory(initialCategory ?? '');
   }, [initialCategory]);
 
-  // Reset subtab when category changes
   useEffect(() => {
     if (category !== 'raw-honey') {
       setSubTab('single');
     }
   }, [category]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
   }, [category, sort]);
 
   const filteredProducts = allProducts.filter((p) => {
     if (category === 'raw-honey') {
-      if (subTab === 'single') {
-        return p.id !== 'prod_trial_box_60g';
-      }
-      if (subTab === 'trial') {
-        return p.id === 'prod_trial_box_60g';
-      }
+      if (subTab === 'single') return p.id !== 'prod_trial_box_60g';
+      if (subTab === 'trial')  return p.id === 'prod_trial_box_60g';
     }
     return true;
   });
@@ -75,16 +68,16 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
   return (
     <div>
       {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-sand">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-[#E5E7EB]">
         {/* Category pills */}
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setCategory('')}
             className={cn(
-              'px-4 py-1.5 rounded-full font-satoshi text-sm transition-colors border',
+              'px-4 py-1.5 rounded-full font-jakarta text-sm transition-colors border',
               !category
-                ? 'bg-honey-400 text-midnight border-honey-400'
-                : 'border-sand text-bark hover:border-honey-300',
+                ? 'bg-[#F97316] text-white border-[#F97316]'
+                : 'border-[#E5E7EB] text-gray-700 hover:border-[#F97316]/50',
             )}
           >
             All
@@ -94,10 +87,10 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
               key={cat.slug}
               onClick={() => setCategory(cat.slug)}
               className={cn(
-                'px-4 py-1.5 rounded-full font-satoshi text-sm transition-colors border',
+                'px-4 py-1.5 rounded-full font-jakarta text-sm transition-colors border',
                 category === cat.slug
-                  ? 'bg-honey-400 text-midnight border-honey-400'
-                  : 'border-sand text-bark hover:border-honey-300',
+                  ? 'bg-[#F97316] text-white border-[#F97316]'
+                  : 'border-[#E5E7EB] text-gray-700 hover:border-[#F97316]/50',
               )}
             >
               {cat.label}
@@ -109,7 +102,7 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="font-satoshi text-sm text-bark border border-sand rounded-md px-3 py-1.5 bg-cream focus:outline-none focus:border-honey-400 cursor-pointer"
+          className="font-jakarta text-sm text-charcoal border border-[#E5E7EB] rounded-full px-4 py-1.5 bg-white focus:outline-none focus:border-[#F97316] cursor-pointer"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -119,12 +112,12 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
 
       {/* Sub-tabs under Raw Honey */}
       {category === 'raw-honey' && (
-        <div className="flex gap-6 mb-8 border-b border-sand pb-3 -mt-4">
+        <div className="flex gap-6 mb-8 border-b border-[#E5E7EB] pb-3 -mt-4">
           <button
             onClick={() => setSubTab('single')}
             className={cn(
-              "font-satoshi text-sm pb-1.5 border-b-2 transition-all font-medium",
-              subTab === 'single' ? "border-honey-500 text-charcoal font-semibold" : "border-transparent text-bark hover:text-charcoal"
+              "font-jakarta text-sm pb-1.5 border-b-2 transition-all font-medium",
+              subTab === 'single' ? "border-[#F97316] text-charcoal font-semibold" : "border-transparent text-gray-600 hover:text-charcoal"
             )}
           >
             Single Origin Jars
@@ -132,8 +125,8 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
           <button
             onClick={() => setSubTab('trial')}
             className={cn(
-              "font-satoshi text-sm pb-1.5 border-b-2 transition-all font-medium",
-              subTab === 'trial' ? "border-honey-500 text-charcoal font-semibold" : "border-transparent text-bark hover:text-charcoal"
+              "font-jakarta text-sm pb-1.5 border-b-2 transition-all font-medium",
+              subTab === 'trial' ? "border-[#F97316] text-charcoal font-semibold" : "border-transparent text-gray-600 hover:text-charcoal"
             )}
           >
             5 Elements Trial Box
@@ -149,10 +142,10 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
       ) : filteredProducts.length === 0 ? (
         <div className="flex flex-col items-center py-20 gap-4 text-center">
           <span className="text-6xl">🫙</span>
-          <p className="font-clash text-charcoal text-2xl">No products found</p>
+          <p className="font-jakarta font-bold text-charcoal text-2xl">No products found</p>
           <button
             onClick={() => { setCategory(''); setSort('featured'); }}
-            className="font-satoshi text-honey-500 text-sm underline hover:text-honey-600"
+            className="font-jakarta text-[#F97316] text-sm underline hover:text-[#EA580C]"
           >
             Clear filters
           </button>
@@ -180,7 +173,7 @@ export default function ProductGrid({ initialCategory, initialSort = 'featured',
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={isFetching}
-                className="flex items-center gap-3 font-satoshi text-bark border border-sand px-8 py-3 rounded-md hover:border-honey-400 transition-colors disabled:opacity-60"
+                className="flex items-center gap-3 btn-pill-white disabled:opacity-60"
               >
                 {isFetching ? <HoneycombLoader size="sm" /> : null}
                 {isFetching ? 'Loading...' : 'Load More'}

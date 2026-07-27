@@ -30,10 +30,9 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
   return (
     <div className="relative flex items-start justify-between mt-8">
-      {/* Progress Line */}
-      <div className="absolute top-4 left-0 right-0 h-0.5 bg-sand" />
+      <div className="absolute top-4 left-0 right-0 h-0.5 bg-[#E5E7EB]" />
       <div
-        className="absolute top-4 left-0 h-0.5 bg-honey-400 transition-all duration-1000"
+        className="absolute top-4 left-0 h-0.5 bg-[#F97316] transition-all duration-1000"
         style={{ width: `${(Math.max(0, currentIndex) / (STATUS_STEPS.length - 1)) * 100}%` }}
       />
 
@@ -45,11 +44,11 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
         return (
           <div key={step} className="flex flex-col items-center gap-2 relative z-10">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-              done ? 'bg-honey-400' : 'bg-sand'
-            } ${active ? 'ring-4 ring-honey-100' : ''}`}>
-              <Icon size={15} className={done ? 'text-midnight' : 'text-earth-light'} />
+              done ? 'bg-[#F97316]' : 'bg-[#E5E7EB]'
+            } ${active ? 'ring-4 ring-orange-100' : ''}`}>
+              <Icon size={15} className={done ? 'text-white' : 'text-gray-400'} />
             </div>
-            <span className={`font-satoshi text-xs capitalize ${done ? 'text-bark font-medium' : 'text-earth-light'}`}>
+            <span className={`font-jakarta text-xs capitalize ${done ? 'text-charcoal font-medium' : 'text-gray-400'}`}>
               {step}
             </span>
           </div>
@@ -85,33 +84,33 @@ export default function TrackPage() {
   };
 
   const inputClass = (hasError: boolean) =>
-    `w-full border rounded-lg px-4 py-3 text-sm font-satoshi text-bark bg-white focus:outline-none transition-colors ${
-      hasError ? 'border-terracotta/50 focus:border-terracotta' : 'border-sand focus:border-honey-400'
+    `w-full border rounded-lg px-4 py-3 text-sm font-jakarta text-charcoal bg-white focus:outline-none transition-colors ${
+      hasError ? 'border-red-400 focus:border-red-500' : 'border-[#E5E7EB] focus:border-[#F97316]'
     }`;
 
   return (
-    <div className="max-w-[1400px] mx-auto px-6 py-20">
+    <div className="max-w-7xl mx-auto px-6 pt-[148px] pb-20">
       <motion.div initial="hidden" animate="visible" variants={fadeUp} className="max-w-lg mx-auto">
         <div className="text-center mb-10">
-          <Truck size={36} className="text-honey-400 mx-auto mb-4" />
-          <h1 className="font-clash text-charcoal font-bold text-3xl mb-2">Track Your Order</h1>
-          <p className="font-satoshi text-earth text-sm">Enter your order number and email to check the status</p>
+          <Truck size={36} className="text-[#F97316] mx-auto mb-4" />
+          <h1 className="font-jakarta font-bold text-charcoal text-3xl mb-2">Track Your Order</h1>
+          <p className="font-jakarta text-gray-600 text-sm">Enter your order number and email to check the status</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl border border-sand p-8 shadow-sm space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm space-y-4">
           <div>
-            <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">Order Number</label>
+            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Order Number</label>
             <input
               {...register('orderNumber')}
               className={inputClass(!!errors.orderNumber)}
               placeholder="SUMO-000001"
             />
             {errors.orderNumber && (
-              <p className="font-satoshi text-terracotta text-xs mt-1">{errors.orderNumber.message}</p>
+              <p className="font-jakarta text-red-600 text-xs mt-1">{errors.orderNumber.message}</p>
             )}
           </div>
           <div>
-            <label className="block font-satoshi text-bark text-sm font-medium mb-1.5">Email Address</label>
+            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Email Address</label>
             <input
               type="email"
               {...register('email')}
@@ -119,20 +118,20 @@ export default function TrackPage() {
               placeholder="you@example.com"
             />
             {errors.email && (
-              <p className="font-satoshi text-terracotta text-xs mt-1">{errors.email.message}</p>
+              <p className="font-jakarta text-red-600 text-xs mt-1">{errors.email.message}</p>
             )}
           </div>
 
           {error && (
-            <div className="bg-terracotta-light border border-terracotta/20 rounded-lg px-4 py-3">
-              <p className="font-satoshi text-terracotta text-sm">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="font-jakarta text-red-600 text-sm">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 bg-honey-400 hover:bg-honey-500 disabled:opacity-60 text-midnight font-satoshi font-semibold text-sm py-3 rounded-xl transition-colors"
+            className="w-full flex items-center justify-center gap-2 btn-pill-orange disabled:opacity-60"
           >
             {submitting ? <HoneycombLoader size="sm" /> : null}
             {submitting ? 'Looking up...' : 'Track Order'}
@@ -145,25 +144,25 @@ export default function TrackPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-6 bg-white rounded-2xl border border-sand p-8 shadow-sm"
+              className="mt-6 bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm"
             >
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="font-satoshi text-earth text-xs uppercase tracking-wider">Order</p>
-                  <p className="font-satoshi text-charcoal font-bold text-lg">{order.order_number}</p>
+                  <p className="font-jakarta text-gray-600 text-xs uppercase tracking-wider">Order</p>
+                  <p className="font-jakarta text-charcoal font-bold text-lg">{order.order_number}</p>
                 </div>
-                <span className={`text-xs font-satoshi font-medium px-3 py-1 rounded-full capitalize ${
+                <span className={`text-xs font-jakarta font-medium px-3 py-1 rounded-full capitalize ${
                   order.status === 'delivered' ? 'bg-green-50 text-green-700' :
                   order.status === 'cancelled' ? 'bg-red-50 text-red-700' :
-                  'bg-honey-50 text-honey-700'
+                  'bg-orange-50 text-[#F97316]'
                 }`}>
                   {order.status}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between text-sm font-satoshi text-earth mb-6">
+              <div className="flex items-center justify-between text-sm font-jakarta text-gray-600 mb-6">
                 <span>Placed {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                <span className="font-medium text-bark">{formatPrice(order.total)}</span>
+                <span className="font-medium text-charcoal">{formatPrice(order.total)}</span>
               </div>
 
               {!['cancelled', 'refunded'].includes(order.status) && (
@@ -171,11 +170,11 @@ export default function TrackPage() {
               )}
 
               {order.tracking_number && (
-                <div className="mt-6 p-4 bg-cream-warm rounded-xl border border-sand">
-                  <p className="font-satoshi text-earth text-xs uppercase tracking-wider mb-1">Tracking Number</p>
-                  <p className="font-satoshi text-bark font-medium">{order.tracking_number}</p>
+                <div className="mt-6 p-4 bg-[#FAF7F2] rounded-xl border border-[#E5E7EB]">
+                  <p className="font-jakarta text-gray-600 text-xs uppercase tracking-wider mb-1">Tracking Number</p>
+                  <p className="font-jakarta text-charcoal font-medium">{order.tracking_number}</p>
                   {order.tracking_url && (
-                    <a href={order.tracking_url} target="_blank" rel="noopener noreferrer" className="font-satoshi text-honey-500 text-sm hover:underline mt-1 inline-block">
+                    <a href={order.tracking_url} target="_blank" rel="noopener noreferrer" className="font-jakarta text-[#F97316] text-sm hover:underline mt-1 inline-block">
                       Track on courier website →
                     </a>
                   )}
@@ -183,16 +182,16 @@ export default function TrackPage() {
               )}
 
               {order.items?.length > 0 && (
-                <div className="mt-6 border-t border-sand pt-6">
-                  <p className="font-satoshi text-bark font-semibold text-sm mb-3">Items</p>
+                <div className="mt-6 border-t border-[#E5E7EB] pt-6">
+                  <p className="font-jakarta text-charcoal font-semibold text-sm mb-3">Items</p>
                   <div className="space-y-2">
                     {order.items.map((item: any) => (
                       <div key={item.id} className="flex items-center justify-between">
                         <div>
-                          <p className="font-satoshi text-bark text-sm">{item.product_name}</p>
-                          <p className="font-satoshi text-earth text-xs">Qty: {item.quantity}</p>
+                          <p className="font-jakarta text-charcoal text-sm">{item.product_name}</p>
+                          <p className="font-jakarta text-gray-400 text-xs">Qty: {item.quantity}</p>
                         </div>
-                        <p className="font-satoshi text-bark text-sm font-medium">{formatPrice(item.total)}</p>
+                        <p className="font-jakarta text-charcoal text-sm font-medium">{formatPrice(item.total)}</p>
                       </div>
                     ))}
                   </div>

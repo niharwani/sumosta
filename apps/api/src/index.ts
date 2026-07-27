@@ -18,32 +18,35 @@ import paymentsRoute    from './routes/payments';
 import analyticsRoute   from './routes/analytics';
 import contactRoute     from './routes/contact';
 import newsletterRoute  from './routes/newsletter';
-import addressesRoute  from './routes/addresses';
+import addressesRoute   from './routes/addresses';
 
-import adminDashboardRoute  from './routes/admin/dashboard';
-import adminProductsRoute   from './routes/admin/products';
-import adminOrdersRoute     from './routes/admin/orders';
-import adminCustomersRoute  from './routes/admin/customers';
-import adminCouponsRoute    from './routes/admin/coupons';
-import adminReviewsRoute    from './routes/admin/reviews';
-import adminAnalyticsRoute  from './routes/admin/analytics';
-import adminMediaRoute      from './routes/admin/media';
-import adminSettingsRoute   from './routes/admin/settings';
+import adminDashboardRoute   from './routes/admin/dashboard';
+import adminProductsRoute    from './routes/admin/products';
+import adminOrdersRoute      from './routes/admin/orders';
+import adminCustomersRoute   from './routes/admin/customers';
+import adminCouponsRoute     from './routes/admin/coupons';
+import adminReviewsRoute     from './routes/admin/reviews';
+import adminAnalyticsRoute   from './routes/admin/analytics';
+import adminMediaRoute       from './routes/admin/media';
+import adminSettingsRoute    from './routes/admin/settings';
+import adminMarketingRoute   from './routes/admin/marketing';
+import adminAbandonmentRoute from './routes/admin/abandonment';
 
 export type Bindings = {
-  DB:                  D1Database;
-  R2:                  R2Bucket | undefined;
-  KV_SESSIONS:         KVNamespace;
-  KV_CACHE:            KVNamespace;
-  ANALYTICS:           AnalyticsEngineDataset | undefined;
-  PHONEPE_MERCHANT_ID: string;
-  PHONEPE_SALT_KEY:    string;
-  PHONEPE_SALT_INDEX:  string;
-  PHONEPE_ENV:         string;
-  JWT_SECRET:          string;
+  DB:                   D1Database;
+  R2:                   R2Bucket | undefined;
+  KV_SESSIONS:          KVNamespace;
+  KV_CACHE:             KVNamespace;
+  ANALYTICS:            AnalyticsEngineDataset | undefined;
+  PHONEPE_MERCHANT_ID:  string;
+  PHONEPE_SALT_KEY:     string;
+  PHONEPE_SALT_INDEX:   string;
+  PHONEPE_ENV:          string;
+  JWT_SECRET:           string;
   REFRESH_TOKEN_SECRET: string;
-  RESEND_API_KEY:      string;
-  BASE_URL:            string;
+  RESEND_API_KEY:       string;
+  BASE_URL:             string;
+  WORKER_URL:           string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -104,6 +107,8 @@ app.route('/api/admin/reviews',            adminReviewsRoute);
 app.route('/api/admin/analytics',          adminAnalyticsRoute);
 app.route('/api/admin/media',              adminMediaRoute);
 app.route('/api/admin/settings',           adminSettingsRoute);
+app.route('/api/admin/marketing',          adminMarketingRoute);
+app.route('/api/admin/abandonment',        adminAbandonmentRoute);
 
 // ============================================================
 // GLOBAL ERROR HANDLER

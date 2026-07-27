@@ -1,96 +1,108 @@
 import Link from 'next/link';
-import { Instagram, Twitter, Facebook } from 'lucide-react';
-import { FOOTER_LINKS, SITE_CONFIG } from '@/lib/constants';
+
+const SHOP_LINKS = [
+  { label: 'All Products',  href: '/shop' },
+  { label: 'Honey Sticks',  href: '/shop/honey-sticks' },
+  { label: 'Spreads',       href: '/shop/honey-spreads' },
+  { label: 'Gift Boxes',    href: '/shop/gift-boxes' },
+];
+
+const COMPANY_LINKS = [
+  { label: 'Our Story',   href: '/about' },
+  { label: 'Sourcing',    href: '/about' },
+  { label: 'Contact',     href: '/contact' },
+];
+
+const HELP_LINKS = [
+  { label: 'Track Order',     href: '/track' },
+  { label: 'Shipping Policy', href: '/policies/shipping' },
+  { label: 'Privacy Policy',  href: '/policies/privacy' },
+];
+
+const linkStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: '#C4B39A',
+  textDecoration: 'none',
+};
+
+const headingStyle: React.CSSProperties = {
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.15em',
+  color: '#FFCC66',
+  fontWeight: 700,
+  margin: '0 0 16px',
+};
 
 export default function Footer() {
   return (
-    <footer className="bg-midnight">
-      <div className="max-w-content mx-auto px-6 md:px-8 lg:px-12 pt-16 pb-8">
-        {/* 4-column grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-          {/* Brand */}
+    <footer
+      style={{
+        background: '#1A150E',
+        padding: '64px 24px 32px',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif',
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          mixBlendMode: 'overlay',
+          opacity: 0.35,
+          pointerEvents: 'none',
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E")`,
+        }}
+      />
+
+      <div style={{ maxWidth: '1400px', margin: '0 auto', position: 'relative' }}>
+        <div className="sum-footer-grid" style={{ marginBottom: '48px' }}>
           <div>
-            <span className="font-clash text-cream font-bold text-xl">SUMOSTA</span>
-            <p className="font-bespoke italic text-earth-light text-sm mt-2 mb-5">
-              {SITE_CONFIG.tagline}
+            <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '20px', color: '#FFFDF8' }}>
+              SUMOSTA
+            </span>
+            <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#C4B39A', fontSize: '14px', margin: '8px 0 16px' }}>
+              Nature&apos;s Golden Promise
             </p>
-            <p className="font-satoshi text-earth-light text-xs leading-relaxed mb-5">
-              Raw, unprocessed honey sourced from India&rsquo;s wildest apiaries. From hive to home, nothing added, nothing taken.
+            <p style={{ fontSize: '12px', lineHeight: 1.7, color: '#C4B39A', margin: 0 }}>
+              Raw, unprocessed honey sourced from India&apos;s wildest apiaries.
             </p>
-            <div className="flex gap-4">
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-earth-light hover:text-honey-300 transition-colors">
-                <Instagram size={18} />
-              </a>
-              <a href="https://twitter.com/sumosta" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="text-earth-light hover:text-honey-300 transition-colors">
-                <Twitter size={18} />
-              </a>
-              <a href="https://facebook.com/sumosta" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-earth-light hover:text-honey-300 transition-colors">
-                <Facebook size={18} />
-              </a>
+          </div>
+
+          <div>
+            <h3 style={headingStyle}>Shop</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {SHOP_LINKS.map((l) => <Link key={l.label} href={l.href} style={linkStyle}>{l.label}</Link>)}
             </div>
           </div>
 
-          {/* Shop */}
           <div>
-            <h3 className="font-satoshi uppercase tracking-widest text-honey-300 text-xs font-semibold mb-4">Shop</h3>
-            <ul className="flex flex-col gap-3">
-              {FOOTER_LINKS.shop.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} className="font-satoshi text-earth-light text-sm hover:text-honey-300 transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <h3 style={headingStyle}>Company</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {COMPANY_LINKS.map((l) => <Link key={l.label} href={l.href} style={linkStyle}>{l.label}</Link>)}
+            </div>
           </div>
 
-          {/* Company */}
           <div>
-            <h3 className="font-satoshi uppercase tracking-widest text-honey-300 text-xs font-semibold mb-4">Company</h3>
-            <ul className="flex flex-col gap-3">
-              {FOOTER_LINKS.company.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} className="font-satoshi text-earth-light text-sm hover:text-honey-300 transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Help */}
-          <div>
-            <h3 className="font-satoshi uppercase tracking-widest text-honey-300 text-xs font-semibold mb-4">Help</h3>
-            <ul className="flex flex-col gap-3">
-              {FOOTER_LINKS.help.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} className="font-satoshi text-earth-light text-sm hover:text-honey-300 transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <h3 style={headingStyle}>Help</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {HELP_LINKS.map((l) => <Link key={l.label} href={l.href} style={linkStyle}>{l.label}</Link>)}
+            </div>
           </div>
         </div>
 
-        {/* Address and Compliance details */}
-        <div className="border-t border-earth/20 pt-6 pb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="font-satoshi text-[11px] text-earth-light text-left leading-relaxed max-w-lg">
-            <span className="font-medium text-cream">Brand Owner & Packer: Yatris NutriFoods Pvt Ltd</span>
-          </div>
-          <div className="font-satoshi text-[10px] text-earth-light md:text-right text-left leading-relaxed max-w-xl">
-            <strong>Registered Address:</strong> 603, Om Residency, Murar Road, Mulund West, Mumbai, Maharashtra, India - 400080<br />
-            <strong>Business Address:</strong> Office no. 6, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai - 400009, India
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="border-t border-earth/20 pt-6 text-center sm:text-left">
-          <p className="font-satoshi text-earth-light text-xs">
-            &copy; {new Date().getFullYear()} SUMOSTA. All rights reserved.
-          </p>
+        <div style={{ borderTop: '1px solid rgba(139,115,85,0.2)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <p style={{ fontSize: '12px', color: '#C4B39A', margin: 0 }}>© 2026 SUMOSTA. All rights reserved.</p>
+          <p style={{ fontSize: '12px', color: '#C4B39A', margin: 0 }}>UPI &bull; Visa &bull; Mastercard &bull; RuPay</p>
         </div>
       </div>
+
+      <style>{`
+        .sum-footer-grid { display:grid; grid-template-columns:1fr; gap:36px; }
+        @media(min-width:1024px){ .sum-footer-grid{ grid-template-columns:repeat(4,1fr) !important; } }
+      `}</style>
     </footer>
   );
 }

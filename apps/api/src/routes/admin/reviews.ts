@@ -53,6 +53,25 @@ app.get('/', async (c) => {
   });
 });
 
+// ─── PATCH /api/admin/reviews/:id ────────────────────────────
+app.patch('/:id', async (c) => {
+  const reviewId = c.req.param('id');
+  const body     = await c.req.json<{ is_approved?: boolean }>().catch(() => ({} as { is_approved?: boolean }));
+
+  const existing = await c.env.DB.prepare('SELECT id FROM reviews WHERE id = ?')
+    .bind(reviewId).first();
+  if (!existing) {
+    return c.json({ success: false, error: 'Review not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  if (body.is_approved !== undefined) {
+    await c.env.DB.prepare('UPDATE reviews SET is_approved = ? WHERE id = ?')
+      .bind(body.is_approved ? 1 : 0, reviewId).run();
+  }
+
+  return c.json({ success: true, data: { id: reviewId, is_approved: body.is_approved } });
+});
+
 // ─── PATCH /api/admin/reviews/:id/approve ────────────────────
 app.patch('/:id/approve', async (c) => {
   const reviewId = c.req.param('id');
@@ -63,9 +82,8 @@ app.patch('/:id/approve', async (c) => {
     return c.json({ success: false, error: 'Review not found', code: 'NOT_FOUND' }, 404);
   }
 
-  await c.env.DB.prepare(
-    'UPDATE reviews SET is_approved = 1 WHERE id = ?',
-  ).bind(reviewId).run();
+  await c.env.DB.prepare('UPDATE reviews SET is_approved = 1 WHERE id = ?')
+    .bind(reviewId).run();
 
   return c.json({ success: true, data: { id: reviewId, isApproved: true } });
 });

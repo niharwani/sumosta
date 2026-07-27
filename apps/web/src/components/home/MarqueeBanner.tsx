@@ -1,15 +1,27 @@
-import { MARQUEE_TEXT } from '@/lib/constants';
+const ITEMS = [
+  'Raw & Unprocessed',
+  'Single-Origin',
+  'Lab Certified',
+  'Western Ghats',
+  'Sundarbans',
+  'Himalayan Foothills',
+  'Zero Additives',
+  'Hive to Home',
+];
 
 export default function MarqueeBanner() {
+  const repeated = [...ITEMS, ...ITEMS, ...ITEMS];
+
   return (
-    <div className="bg-honey-100 py-3 overflow-hidden pause-on-hover">
+    <div className="bg-midnight border-y border-[#2C2010] overflow-hidden pause-on-hover py-3.5">
       <div className="flex whitespace-nowrap animate-marquee">
-        {[0, 1].map((i) => (
+        {repeated.map((item, i) => (
           <span
             key={i}
-            className="font-clash text-honey-400 text-sm uppercase tracking-[0.2em] mx-8 inline-flex items-center gap-8 shrink-0"
+            className="inline-flex items-center gap-4 shrink-0 font-jakarta text-[11px] uppercase tracking-[0.22em] text-earth mx-6"
           >
-            {MARQUEE_TEXT}
+            <span>{item}</span>
+            <span className="w-1 h-1 rounded-full bg-honey-600 shrink-0" />
           </span>
         ))}
       </div>

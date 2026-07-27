@@ -29,14 +29,14 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cream flex items-center justify-center px-6 py-20">
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center px-6 py-20">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <h1 className="font-clash text-charcoal font-bold text-3xl mb-2">Create Account</h1>
-          <p className="font-satoshi text-earth text-sm">Join SUMOSTA and get 10% off your first order</p>
+          <h1 className="font-jakarta font-bold text-charcoal text-3xl mb-2">Create Account</h1>
+          <p className="font-jakarta text-gray-600 text-sm">Join SUMOSTA and get 10% off your first order</p>
         </div>
 
-        <div className="bg-cream-warm rounded-2xl p-8 border border-sand">
+        <div className="bg-white rounded-2xl p-8 border border-[#E5E7EB] shadow-sm">
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
             <Field label="Full Name" error={errors.name?.message}>
               <input {...register('name')} placeholder="Your name" className={inputClass} />
@@ -51,20 +51,20 @@ export default function RegisterPage() {
               <input {...register('password')} type="password" placeholder="Minimum 8 characters" className={inputClass} />
             </Field>
 
-            {error && <p className="font-satoshi text-terracotta text-sm text-center">{error}</p>}
+            {error && <p className="font-jakarta text-red-600 text-sm text-center">{error}</p>}
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-honey-400 text-midnight font-satoshi font-semibold py-3.5 rounded-md hover:bg-honey-500 transition-colors disabled:opacity-60"
+              className="btn-pill-orange disabled:opacity-60"
             >
               {isSubmitting ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
 
-          <p className="font-satoshi text-earth text-sm text-center mt-6">
+          <p className="font-jakarta text-gray-600 text-sm text-center mt-6">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-honey-500 font-medium hover:text-honey-600">Sign In</Link>
+            <Link href="/auth/login" className="text-[#F97316] font-medium hover:text-[#EA580C]">Sign In</Link>
           </p>
         </div>
       </div>
@@ -75,11 +75,11 @@ export default function RegisterPage() {
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="font-satoshi text-charcoal text-xs font-medium block mb-1.5">{label}</label>
+      <label className="font-jakarta text-charcoal text-xs font-medium block mb-1.5">{label}</label>
       {children}
-      {error && <p className="font-satoshi text-terracotta text-xs mt-1">{error}</p>}
+      {error && <p className="font-jakarta text-red-600 text-xs mt-1">{error}</p>}
     </div>
   );
 }
 
-const inputClass = 'w-full border border-sand rounded-md px-4 py-3 font-satoshi text-sm text-charcoal bg-cream focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-100 transition-all';
+const inputClass = 'w-full border border-[#E5E7EB] rounded-lg px-4 py-3 font-jakarta text-sm text-charcoal bg-white focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 transition-all';

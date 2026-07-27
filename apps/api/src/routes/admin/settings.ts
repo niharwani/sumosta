@@ -41,10 +41,10 @@ const DEFAULT_SETTINGS: SiteSettings = {
   tagline:               "Nature's Golden Promise",
   supportEmail:          'support@sumosta.com',
   supportPhone:          '',
-  announcementBar:       'Free shipping on orders over ₹500 🍯',
+  announcementBar:       'Free delivery on orders above ₹499 | Use WELCOME10 for 10% off your first order',
   announcementBarActive: true,
-  freeShippingThreshold: 500,
-  defaultShippingRate:   60,
+  freeShippingThreshold: 499,
+  defaultShippingRate:   49,
   taxRate:               5,
   maintenanceMode:       false,
   socialLinks: {
@@ -54,8 +54,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
     youtube:   '',
   },
   seo: {
-    metaTitle:       'SUMOSTA — Premium Wild Honey',
-    metaDescription: "Raw, unprocessed honey from India's wildest apiaries. Western Ghats, Sundarbans, Himalayan foothills.",
+    metaTitle:       'SUMOSTA — Pure Wild Forest Honey',
+    metaDescription: "Single-origin wild forest honeys from India's most pristine ecosystems. NPOP & APEDA certified, cold-extracted, and completely unprocessed.",
     ogImage:         '/og-image.jpg',
   },
 };

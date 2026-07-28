@@ -1,48 +1,69 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-const STORY_SECTIONS = [
+const STORY_CHAPTERS = [
   {
-    eyebrow: 'OUR ORIGIN',
-    headline: 'Born from a Love of Pure Honey',
+    number: '01',
+    eyebrow: 'THE SWEET TOOTH & THE CORPORATE TOLL',
+    headline: 'Born from the Hustle.\nPerfected by Nature.',
+    paragraphs: [
+      "Two founders. One Gujarati, one Marwari. Both with an intense love of sugar, a corporate grind eating them alive, and a growing realisation that the sweet things in life were slowly working against them.",
+      'Yatin and Rishabh met in the trenches of the startup world — long hours, late nights, and more processed snacks than either would like to admit. Like millions of urban Indians, they were consuming honey from supermarket shelves, assuming it was doing them good. It wasn\'t.',
+    ],
     imageRight: false,
-    imageAlt: 'Wild honeybee pollinating a flower',
     image: '/images/home/story-bees-flower.jpg',
-    paragraphs: [
-      'SUMOSTA began with a simple conviction: honey in its natural state is one of nature\'s most perfect foods. Our founders, having grown up near the forests of the Western Ghats, watched as commercial honey became increasingly processed, heated, and adulterated. They set out to change that.',
-      'The name SUMOSTA derives from the Sanskrit root for sweetness — and our mission is to preserve it, exactly as nature intended.',
-    ],
+    imageAlt: 'Wild honeybee on flower',
   },
   {
-    eyebrow: 'HOW WE SOURCE',
-    headline: "From Wild Hives, Across India's Most Remote Forests",
+    number: '02',
+    eyebrow: 'THE SUMO INSPIRATION',
+    headline: 'Strength through\nwhat you eat.',
+    paragraphs: [
+      'Sumo wrestlers — the pinnacle of controlled power and disciplined mass — have historically consumed raw honey as a staple of their diet. Not processed sugar syrups. Not industrial blends. Raw, wild honey, exactly as it comes from the hive.',
+      'That image stuck. Here were athletes at the apex of physical performance, fuelling themselves with something ancient, unprocessed, and honest. If raw honey was good enough for sumo champions, it was good enough to build a brand around.',
+    ],
     imageRight: true,
-    imageAlt: 'Beekeeper inspecting honeycomb frame',
     image: '/images/home/story-wild-hives.jpg',
-    paragraphs: [
-      'We work directly with traditional beekeepers and forest tribes across three distinct ecosystems — the Western Ghats, the Sundarbans mangroves, and the Himalayan foothills. Each ecosystem produces honey with its own distinctive terroir, flavor profile, and medicinal properties.',
-      'Our beekeepers are not industrialists. They are custodians — families who have harvested honey from the same forests for generations. We pay them above market rates and ensure their livelihoods are protected.',
-    ],
+    imageAlt: 'Sumo-inspired strength through natural food',
   },
   {
-    eyebrow: 'OUR PROMISE',
-    headline: 'Raw, Unprocessed, and Fully Traceable',
-    imageRight: false,
-    imageAlt: 'Honey dripping from a dipper — raw and unfiltered',
-    image: '/images/home/story-raw-honey.jpg',
+    number: '03',
+    eyebrow: 'THE SUPERMARKET ILLUSION VS WILD REALITY',
+    headline: 'What you think\nyou\'re buying.',
     paragraphs: [
-      'Every jar of SUMOSTA honey is raw — never heated above hive temperature, never ultra-filtered. This preserves the pollen, enzymes, and antioxidants that make honey genuinely beneficial.',
-      'We test every batch at a third-party FSSAI-approved laboratory for purity, moisture content, and adulteration markers. The batch ID on every jar can be traced back to its specific apiary and harvest month.',
+      'Most commercial honey is a ghost of what honey should be — heated past 40°C (destroying enzymes and antioxidants), ultra-filtered (stripping pollen and traceability), often blended, sometimes adulterated with corn syrup. It\'s shelf-stable, photogenic, and nutritionally hollow.',
+      'Wild raw honey from forest apiaries is fundamentally different. It\'s alive with pollen, propolis, beeswax traces, and a full complement of enzymes. It crystallises naturally (a sign of purity). It has a distinct terroir — the forest, the flowers, the altitude all leave their signature in every jar.',
     ],
+    imageRight: false,
+    image: '/images/home/story-raw-honey.jpg',
+    imageAlt: 'Raw honey comparison',
   },
-];
-
-const STATS = [
-  { value: 12, suffix: '', label: 'Wild Apiaries' },
-  { value: 0, suffix: '', label: 'Additives' },
-  { value: 100, suffix: '%', label: 'Traceable' },
+  {
+    number: '04',
+    eyebrow: 'SOURCING FROM INDIA\'S UNTAMED ECOSYSTEMS',
+    headline: 'Five forests.\nFive honeys.',
+    paragraphs: [
+      'India is home to some of the world\'s most biodiverse forests — and the honeys produced within them are unlike anything found on supermarket shelves. SUMOSTA sources exclusively from wild and semi-wild apiaries across these ecosystems, working directly with traditional beekeepers and forest-dwelling communities who have harvested honey for generations.',
+      'From the rare Dammer bees of the Western Ghats to the Bloodseed forests of tribal Madhya Pradesh, every honey in our range is single-origin, traceable, and harvested in small batches. We pay above-market rates. We never adulterate. We never compromise.',
+    ],
+    imageRight: true,
+    image: '/images/home/about-hero-honeycomb.jpg',
+    imageAlt: 'Indian forest ecosystem',
+  },
+  {
+    number: '05',
+    eyebrow: 'THE BIRTH OF A DAILY RITUAL',
+    headline: 'Welcome to\nSUMOSTA.',
+    paragraphs: [
+      'SUMOSTA was built for people who refuse to compromise — who want to indulge, but want that indulgence to work for them, not against them. We believe that eating well shouldn\'t mean eating joylessly. That sweetness can be guilt-free when it\'s honest.',
+      'Every jar we ship is NABL lab tested, NPOP APEDA organic certified, and traceable back to its specific apiary and harvest batch. From hive to home, nothing is added. Nothing is taken away. Just honey, exactly as nature made it.',
+    ],
+    imageRight: false,
+    image: '/images/home/story-bees-flower.jpg',
+    imageAlt: 'A jar of SUMOSTA honey',
+  },
 ];
 
 const FOUNDERS = [
@@ -71,11 +92,6 @@ const FOUNDERS = [
 ];
 
 export default function AboutPage() {
-  const [statDisplays, setStatDisplays] = useState(STATS.map(() => '0'));
-  const [statsTriggered, setStatsTriggered] = useState(false);
-  const statsRef = useRef<HTMLDivElement>(null);
-
-  // Reveal on scroll
   useEffect(() => {
     const reveal = () => {
       document.querySelectorAll('[data-reveal]').forEach((el) => {
@@ -89,32 +105,6 @@ export default function AboutPage() {
     reveal();
     return () => window.removeEventListener('scroll', reveal);
   }, []);
-
-  // Stats count-up
-  useEffect(() => {
-    if (statsTriggered) return;
-    const el = statsRef.current;
-    if (!el) return;
-    const check = () => {
-      const r = el.getBoundingClientRect();
-      if (r.top < window.innerHeight * 0.85) {
-        setStatsTriggered(true);
-        const duration = 1400;
-        const start = performance.now();
-        const tick = (now: number) => {
-          const t = Math.min(1, (now - start) / duration);
-          const ease = 1 - Math.pow(1 - t, 3);
-          setStatDisplays(STATS.map((s) => Math.round(s.value * ease) + s.suffix));
-          if (t < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-        window.removeEventListener('scroll', check);
-      }
-    };
-    window.addEventListener('scroll', check, { passive: true });
-    check();
-    return () => window.removeEventListener('scroll', check);
-  }, [statsTriggered]);
 
   return (
     <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
@@ -133,74 +123,59 @@ export default function AboutPage() {
         <div style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 24px', paddingTop: '108px' }}>
           <div data-reveal>
             <p style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#FFCC66', fontWeight: 700, margin: '0 0 16px' }}>Our Story</p>
-            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2.6rem,7vw,5.5rem)', lineHeight: 1.08, color: '#FFFDF8', margin: 0 }}>
-              Nature&apos;s Golden<br />Promise
+            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2.2rem,6vw,4.5rem)', lineHeight: 1.1, color: '#FFFDF8', margin: 0 }}>
+              Born from the Hustle.<br />Perfected by Nature.
             </h1>
           </div>
         </div>
       </div>
 
-      {/* Story sections */}
+      {/* Story chapters */}
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '80px 24px' }}>
-        {STORY_SECTIONS.map((s, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px', marginBottom: i < STORY_SECTIONS.length - 1 ? '80px' : 0 }} className="sum-story-row">
-            <div data-reveal style={{ order: s.imageRight ? 2 : 1 }}>
+        {STORY_CHAPTERS.map((ch, i) => (
+          <div
+            key={i}
+            style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px', marginBottom: i < STORY_CHAPTERS.length - 1 ? '96px' : 0 }}
+            className="sum-story-row"
+          >
+            <div data-reveal style={{ order: ch.imageRight ? 2 : 1 }}>
               <div style={{ aspectRatio: '4/3', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
                 <Image
-                  src={s.image}
+                  src={ch.image}
                   fill
-                  alt={s.imageAlt}
+                  alt={ch.imageAlt}
                   sizes="(min-width: 768px) 50vw, 100vw"
                   style={{ objectFit: 'cover' }}
                 />
               </div>
             </div>
-            <div data-reveal style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', order: s.imageRight ? 1 : 2 }}>
-              <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 16px' }}>{s.eyebrow}</p>
-              <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.75rem,3vw,2.5rem)', color: '#2C2417', margin: '0 0 24px' }}>{s.headline}</h2>
-              {s.paragraphs.map((para, pi) => (
-                <p key={pi} style={{ fontSize: '15px', lineHeight: 1.8, color: '#5C4A32', margin: pi < s.paragraphs.length - 1 ? '0 0 16px' : 0 }}>{para}</p>
+            <div data-reveal style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', order: ch.imageRight ? 1 : 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '48px', color: '#F0E6D3', lineHeight: 1 }}>{ch.number}</span>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: 0 }}>{ch.eyebrow}</p>
+              </div>
+              <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.75rem,3vw,2.5rem)', color: '#2C2417', margin: '0 0 24px', whiteSpace: 'pre-line' }}>{ch.headline}</h2>
+              {ch.paragraphs.map((para, pi) => (
+                <p key={pi} style={{ fontSize: '15px', lineHeight: 1.8, color: '#5C4A32', margin: pi < ch.paragraphs.length - 1 ? '0 0 16px' : 0 }}>{para}</p>
               ))}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Pull quote */}
-      <div style={{ background: '#FDF6EC', padding: '96px 24px' }}>
+      {/* Pull quote — compact */}
+      <div style={{ background: '#FDF6EC', padding: '48px 24px' }}>
         <div data-reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#D4891A', fontSize: '56px', lineHeight: 1, margin: '0 0 12px' }}>&ldquo;</p>
-          <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#2C2417', fontSize: 'clamp(1.2rem,2.4vw,1.7rem)', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ color: '#D4891A', fontSize: '48px', lineHeight: 1, margin: '0 0 8px', fontWeight: 700 }}>&ldquo;</p>
+          <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 500, color: '#2C2417', fontSize: 'clamp(1.05rem,2vw,1.35rem)', lineHeight: 1.7, margin: 0 }}>
             Honey is the only food that never spoils. Egyptian honey found in 3,000-year-old tombs was still perfectly edible. We believe honey that&apos;s been processed, heated, and stripped of its life deserves a different name entirely.
           </p>
-          <p style={{ fontSize: '13px', color: '#8B7355', margin: '24px 0 0' }}>— SUMOSTA Founders</p>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div style={{ padding: '96px 24px' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          {/* Golden divider */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '56px' }}>
-            <span style={{ width: '64px', height: '1px', background: '#F0E6D3' }} />
-            <span style={{ width: '6px', height: '6px', background: '#F5A623', transform: 'rotate(45deg)' }} />
-            <span style={{ width: '64px', height: '1px', background: '#F0E6D3' }} />
-          </div>
-          <div ref={statsRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '32px' }} className="sum-stats-grid">
-            {STATS.map((st, i) => (
-              <div key={st.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, color: '#F5A623', fontSize: 'clamp(2.2rem,4.5vw,3.8rem)', margin: '0 0 8px' }}>
-                  {statDisplays[i]}
-                </div>
-                <p style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8B7355', margin: 0 }}>{st.label}</p>
-              </div>
-            ))}
-          </div>
+          <p style={{ fontSize: '13px', color: '#8B7355', margin: '16px 0 0', fontWeight: 600 }}>— SUMOSTA Founders</p>
         </div>
       </div>
 
       {/* Founders */}
-      <div style={{ background: '#FDF6EC', padding: '96px 24px' }}>
+      <div style={{ background: '#FFFDF8', padding: '80px 24px' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
           <div data-reveal style={{ textAlign: 'center', marginBottom: '64px' }}>
             <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 16px' }}>Meet the Founders</p>
@@ -210,8 +185,7 @@ export default function AboutPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }} className="sum-founders-grid">
             {FOUNDERS.map((f) => (
-              <div key={f.name} data-reveal style={{ background: '#FFFDF8', borderRadius: '20px', border: '1px solid #F0E6D3', padding: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Avatar + name */}
+              <div key={f.name} data-reveal style={{ background: '#FDF6EC', borderRadius: '20px', border: '1px solid #F0E6D3', padding: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   <div style={{ width: '80px', height: '80px', borderRadius: '999px', overflow: 'hidden', flexShrink: 0, border: '2px solid #F5A623', position: 'relative', background: '#FFE0A8' }}>
                     <Image src={f.image} fill alt={f.name} sizes="80px" style={{ objectFit: f.imageFit, objectPosition: f.imagePosition }} />
@@ -222,14 +196,11 @@ export default function AboutPage() {
                     <span style={{ display: 'inline-block', background: '#FFF0D6', color: '#A66A10', fontSize: '11px', fontWeight: 700, padding: '2px 10px', borderRadius: '999px', letterSpacing: '0.05em' }}>{f.badge}</span>
                   </div>
                 </div>
-                {/* Sumo stance */}
-                <div style={{ background: '#FFF9F0', borderRadius: '10px', padding: '14px 18px', borderLeft: '3px solid #F5A623' }}>
+                <div style={{ background: '#FFFDF8', borderRadius: '10px', padding: '14px 18px', borderLeft: '3px solid #F5A623' }}>
                   <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#D4891A', fontWeight: 700, margin: '0 0 4px' }}>The Sumo Stance</p>
                   <p style={{ fontSize: '14px', color: '#5C4A32', margin: 0, lineHeight: 1.6 }}>{f.stance}</p>
                 </div>
-                {/* Profile */}
                 <p style={{ fontSize: '15px', color: '#5C4A32', lineHeight: 1.8, margin: 0 }}>{f.profile}</p>
-                {/* Fueled by */}
                 <p style={{ fontSize: '13px', color: '#8B7355', margin: 0 }}>
                   <span style={{ fontWeight: 700, color: '#2C2417' }}>Fueled By: </span>{f.fueledBy}
                 </p>
@@ -237,9 +208,8 @@ export default function AboutPage() {
             ))}
           </div>
 
-          {/* Footer quote */}
           <div data-reveal style={{ textAlign: 'center', marginTop: '56px', padding: '40px 24px', background: '#2C2417', borderRadius: '20px' }}>
-            <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: 'clamp(1.1rem,2vw,1.4rem)', color: '#FFFDF8', lineHeight: 1.7, maxWidth: '700px', margin: '0 auto' }}>
+            <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 500, fontSize: 'clamp(1rem,1.8vw,1.25rem)', color: '#FFFDF8', lineHeight: 1.75, maxWidth: '700px', margin: '0 auto' }}>
               &ldquo;We don&apos;t just run the company; we are our own biggest customers. We built SUMOSTA because our own sweet teeth demanded an indulgence that actually looks out for our health. Welcome to the ring!&rdquo;
             </p>
             <p style={{ fontSize: '13px', color: '#F5A623', margin: '20px 0 0', fontWeight: 600 }}>— Yatin &amp; Rishabh, Co-Founders</p>
@@ -257,6 +227,8 @@ export default function AboutPage() {
       </div>
 
       <style>{`
+        [data-reveal] { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
+        [data-reveal].revealed { opacity: 1; transform: none; }
         @media (min-width: 768px) {
           .sum-founders-grid { grid-template-columns: repeat(2,1fr) !important; }
           .sum-story-row { grid-template-columns: 1fr 1fr !important; gap: 64px !important; }

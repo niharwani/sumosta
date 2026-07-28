@@ -330,28 +330,40 @@ export const couponsApi = {
   validate: async (code: string, cartTotal: number) => {
     await new Promise((r) => setTimeout(r, 150));
     const c = code.toUpperCase();
-    
-    if (c === 'SUMOSTA10') {
+
+    if (c === 'WELCOME10') {
       if (cartTotal < 499) {
-        return { valid: false, error: 'Minimum order amount for SUMOSTA10 is ₹499' };
+        return { valid: false, error: 'Minimum order amount for WELCOME10 is ₹499' };
       }
       const discount = Math.round(cartTotal * 0.1);
       return {
         valid: true,
         discount,
-        coupon: { id: 'coup_10', code: 'SUMOSTA10', type: 'percentage' as const, value: 10, minOrderAmount: 499, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
+        coupon: { id: 'coup_w10', code: 'WELCOME10', type: 'percentage' as const, value: 10, minOrderAmount: 499, maxUsage: null, usageCount: 0, isFirstOrderOnly: true, isActive: true, expiresAt: null },
       };
     }
-    
-    if (c === 'GOLDEN20') {
-      if (cartTotal < 999) {
-        return { valid: false, error: 'Minimum order amount for GOLDEN20 is ₹999' };
+
+    if (c === 'COMBO10') {
+      if (cartTotal < 499) {
+        return { valid: false, error: 'Minimum order amount for COMBO10 is ₹499' };
       }
-      const discount = Math.round(cartTotal * 0.2);
+      const discount = Math.round(cartTotal * 0.1);
       return {
         valid: true,
         discount,
-        coupon: { id: 'coup_20', code: 'GOLDEN20', type: 'percentage' as const, value: 20, minOrderAmount: 999, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
+        coupon: { id: 'coup_c10', code: 'COMBO10', type: 'percentage' as const, value: 10, minOrderAmount: 499, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
+      };
+    }
+
+    if (c === 'PREPAID5') {
+      if (cartTotal < 299) {
+        return { valid: false, error: 'Minimum order amount for PREPAID5 is ₹299' };
+      }
+      const discount = Math.round(cartTotal * 0.05);
+      return {
+        valid: true,
+        discount,
+        coupon: { id: 'coup_p5', code: 'PREPAID5', type: 'percentage' as const, value: 5, minOrderAmount: 299, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
       };
     }
 
@@ -365,8 +377,8 @@ export const couponsApi = {
         coupon: { id: 'coup_49', code: 'FREE49', type: 'fixed' as const, value: 49, minOrderAmount: 299, maxUsage: null, usageCount: 0, isFirstOrderOnly: false, isActive: true, expiresAt: null },
       };
     }
-    
-    return { valid: false, error: 'Invalid coupon code. Try SUMOSTA10 or GOLDEN20!' };
+
+    return { valid: false, error: 'Invalid coupon code. Try WELCOME10 or COMBO10!' };
   },
 };
 

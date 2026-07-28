@@ -1,22 +1,24 @@
 import Link from 'next/link';
 
 const SHOP_LINKS = [
-  { label: 'All Products',  href: '/shop' },
-  { label: 'Honey Sticks',  href: '/shop/honey-sticks' },
-  { label: 'Spreads',       href: '/shop/honey-spreads' },
-  { label: 'Gift Boxes',    href: '/shop/gift-boxes' },
+  { label: 'All Products',       href: '/shop' },
+  { label: 'Gift Boxes & Combos', href: '/shop/gift-boxes' },
 ];
 
 const COMPANY_LINKS = [
-  { label: 'Our Story',   href: '/about' },
-  { label: 'Sourcing',    href: '/about' },
-  { label: 'Contact',     href: '/contact' },
+  { label: 'Our Story',    href: '/about' },
+  { label: 'Know About Us', href: '/about#philosophy' },
+  { label: 'Evidence Hub', href: '/evidence-hub' },
+  { label: 'Contact',      href: '/contact' },
 ];
 
 const HELP_LINKS = [
-  { label: 'Track Order',     href: '/track' },
-  { label: 'Shipping Policy', href: '/policies/shipping' },
-  { label: 'Privacy Policy',  href: '/policies/privacy' },
+  { label: 'Track Order',      href: '/track' },
+  { label: 'Shipping Policy',  href: '/policies/shipping' },
+  { label: 'Returns',          href: '/policies/refund' },
+  { label: 'Terms of Service', href: '/policies/terms' },
+  { label: 'Privacy Policy',   href: '/policies/privacy' },
+  { label: 'FAQs',             href: '/#faq' },
 ];
 
 const linkStyle: React.CSSProperties = {
@@ -59,18 +61,20 @@ export default function Footer() {
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', position: 'relative' }}>
         <div className="sum-footer-grid" style={{ marginBottom: '48px' }}>
+          {/* Brand */}
           <div>
             <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '20px', color: '#FFFDF8' }}>
               SUMOSTA
             </span>
             <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#C4B39A', fontSize: '14px', margin: '8px 0 16px' }}>
-              Nature&apos;s Golden Promise
+              Indulgence that cares
             </p>
             <p style={{ fontSize: '12px', lineHeight: 1.7, color: '#C4B39A', margin: 0 }}>
               Raw, unprocessed honey sourced from India&apos;s wildest apiaries.
             </p>
           </div>
 
+          {/* Shop */}
           <div>
             <h3 style={headingStyle}>Shop</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -78,6 +82,7 @@ export default function Footer() {
             </div>
           </div>
 
+          {/* Company */}
           <div>
             <h3 style={headingStyle}>Company</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -85,6 +90,7 @@ export default function Footer() {
             </div>
           </div>
 
+          {/* Help */}
           <div>
             <h3 style={headingStyle}>Help</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -93,9 +99,28 @@ export default function Footer() {
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(139,115,85,0.2)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-          <p style={{ fontSize: '12px', color: '#C4B39A', margin: 0 }}>© 2026 SUMOSTA. All rights reserved.</p>
-          <p style={{ fontSize: '12px', color: '#C4B39A', margin: 0 }}>UPI &bull; Visa &bull; Mastercard &bull; RuPay</p>
+        {/* Certification logos row */}
+        <div style={{ borderTop: '1px solid rgba(139,115,85,0.2)', paddingTop: '24px', marginBottom: '20px' }}>
+          <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8B7355', fontWeight: 600, margin: '0 0 12px' }}>Certified & Compliant</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
+            {[
+              { label: 'FSSAI', desc: 'Food Safety Certified' },
+              { label: 'Make in India', desc: '🇮🇳 Proudly Indian' },
+              { label: 'NPOP APEDA', desc: 'Organic Certified' },
+              { label: 'NABL', desc: 'Lab Tested' },
+            ].map((cert) => (
+              <div key={cert.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFCC66', letterSpacing: '0.06em', border: '1px solid rgba(255,204,102,0.3)', borderRadius: '4px', padding: '3px 8px' }}>{cert.label}</span>
+                <span style={{ fontSize: '9px', color: '#8B7355', letterSpacing: '0.04em' }}>{cert.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div style={{ borderTop: '1px solid rgba(139,115,85,0.2)', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <p style={{ fontSize: '12px', color: '#C4B39A', margin: 0 }}>© 2026 SUMOSTA · Yatris NutriFoods Pvt Ltd. All rights reserved.</p>
+          <p style={{ fontSize: '12px', color: '#C4B39A', margin: 0 }}>UPI &bull; Visa &bull; Mastercard &bull; RuPay &bull; COD</p>
         </div>
       </div>
 

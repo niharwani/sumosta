@@ -1,17 +1,62 @@
+'use client';
+
+const ITEMS = [
+  '🚚  Free delivery on orders above ₹499',
+  '🎁  10% discount on your first order',
+  '📦  10% discount on Bundles & Combos',
+  '💳  5% discount on pre-paid orders',
+];
+
 export default function AnnouncementBar() {
+  const repeated = [...ITEMS, ...ITEMS];
+
   return (
     <div
       style={{
         background: '#7A4D0B',
         color: '#FFF9F0',
-        textAlign: 'center',
-        padding: '8px 16px',
-        fontSize: '12px',
-        letterSpacing: '0.04em',
-        fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif',
+        overflow: 'hidden',
+        height: '36px',
+        display: 'flex',
+        alignItems: 'center',
       }}
     >
-      Free shipping across India on orders over ₹500&nbsp;&nbsp;&bull;&nbsp;&nbsp;Raw, single-origin honey
+      <div
+        className="sum-announce-track"
+        style={{
+          display: 'flex',
+          whiteSpace: 'nowrap',
+          width: 'max-content',
+        }}
+      >
+        {repeated.map((item, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: '12px',
+              letterSpacing: '0.04em',
+              fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif',
+              padding: '0 40px',
+              flexShrink: 0,
+            }}
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes sum-announce-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .sum-announce-track {
+          animation: sum-announce-scroll 22s linear infinite;
+        }
+        .sum-announce-track:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
     </div>
   );
 }

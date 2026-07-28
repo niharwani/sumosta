@@ -8,10 +8,11 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useUIStore } from '@/stores/ui-store';
 
 const NAV_LINKS = [
-  { label: 'Home',      href: '/' },
-  { label: 'Shop',      href: '/shop' },
-  { label: 'Gift Boxes', href: '/shop/gift-boxes' },
-  { label: 'Our Story', href: '/about' },
+  { label: 'Home',         href: '/' },
+  { label: 'Shop',         href: '/shop' },
+  { label: 'Gift Boxes',   href: '/shop/gift-boxes' },
+  { label: 'Our Story',    href: '/about' },
+  { label: 'Evidence Hub', href: '/evidence-hub' },
 ];
 
 export default function Navbar() {
@@ -58,16 +59,33 @@ export default function Navbar() {
         <Link
           href="/"
           style={{
+            display: 'flex',
+            flexDirection: 'column',
+            textDecoration: 'none',
+            flexShrink: 0,
+          }}
+        >
+          <span style={{
             fontFamily: 'var(--font-bricolage), sans-serif',
             fontWeight: 700,
             fontSize: '20px',
             color: '#2C2417',
             letterSpacing: '0.02em',
-            textDecoration: 'none',
-            flexShrink: 0,
-          }}
-        >
-          SUMOSTA
+            lineHeight: 1,
+          }}>
+            SUMOSTA
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-instrument), serif',
+            fontStyle: 'italic',
+            fontSize: '10px',
+            color: '#8B7355',
+            letterSpacing: '0.06em',
+            marginTop: '2px',
+            lineHeight: 1,
+          }}>
+            indulgence that cares
+          </span>
         </Link>
 
         {/* Desktop nav */}

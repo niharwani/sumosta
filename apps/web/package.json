@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:prod": "NEXT_PUBLIC_API_URL=https://sumosta-api.sumosta-dev.workers.dev NEXT_PUBLIC_SITE_URL=https://sumosta.com next build",
+    "build:prod": "cross-env NEXT_PUBLIC_API_URL=https://sumosta-api.sumosta-dev.workers.dev NEXT_PUBLIC_SITE_URL=https://sumosta.com next build",
     "deploy": "pnpm build:prod && wrangler pages deploy out --project-name sumosta-web --commit-dirty=true",
     "build:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
     "deploy:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion && wrangler deploy",
@@ -52,6 +52,7 @@
     "@types/react-dom": "^18.3.4",
     "@types/three": "^0.170.0",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.18",
     "postcss": "^8.4.49",

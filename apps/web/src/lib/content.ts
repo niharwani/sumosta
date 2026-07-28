@@ -18,6 +18,14 @@ export interface FAQItem {
   answer: string;
 }
 
+export interface SourcingHighlights {
+  forestName: string;
+  location: string;
+  harvestedBy: string;
+  beeSpecies: string;
+  tasteProfile?: string;
+}
+
 export interface BatchCertificate {
   batchNo: string;
   testingDate: string;
@@ -335,12 +343,7 @@ export const STATIC_PRODUCTS: (Product & {
   sourcingStory?: string;
   nutritionalBenefits?: string[];
   batchCertificate?: BatchCertificate;
-  sourcingHighlights?: {
-    forestName: string;
-    location: string;
-    harvestedBy: string;
-    beeSpecies: string;
-  };
+  sourcingHighlights?: SourcingHighlights;
   faqs?: {
     question: string;
     answer: string;
@@ -378,8 +381,8 @@ export const STATIC_PRODUCTS: (Product & {
       'Skin care routines: DIY natural face masks of honey & turmeric, honey & aloevera which may help support hydrated & healthy-looking skin.',
     ],
     trustBadges: ['NPOP APEDA Organic', 'NABL Lab Tested', 'Ethically Harvested', 'Free Shipping ₹499+'],
-    price: 499,
-    compareAtPrice: 599,
+    price: 599,
+    compareAtPrice: 699,
     costPrice: 220,
     stock: 120,
     lowStockThreshold: 10,
@@ -394,7 +397,7 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_wf_2', url: '/images/products/wild-forest-2.png', altText: 'Forest Sourcing Honey', sortOrder: 2, isPrimary: false }
     ],
     variants: [
-      { id: 'var_wf_250g', name: '250g Glass Jar', sku: 'SM-WF-250', priceAdjust: -200, stock: 50 },
+      { id: 'var_wf_250g', name: '250g Glass Jar', sku: 'SM-WF-250', priceAdjust: -250, stock: 50 },
       { id: 'var_wf_500g', name: '500g Glass Jar', sku: 'SM-WF-500', priceAdjust: 0, stock: 100 }
     ],
     averageRating: 4.8,
@@ -406,7 +409,8 @@ export const STATIC_PRODUCTS: (Product & {
       forestName: 'Central India Deciduous Forests',
       location: 'Madhya Pradesh, Uttar Pradesh & Chhattisgarh, India',
       harvestedBy: 'Tharu Tribe',
-      beeSpecies: 'Apis dorsata (Giant Rock Bees)'
+      beeSpecies: 'Apis dorsata (Giant Rock Bees)',
+      tasteProfile: 'Gentle Woody, Warm Floral Sweetness',
     },
     faqs: []
   },
@@ -436,8 +440,8 @@ export const STATIC_PRODUCTS: (Product & {
       'The Pre-Meditation Clarity Draught: Stir a teaspoon into a cup of lukewarm (never hot) blue pea tea or pure lotus infusion before a breathwork or meditation session. The slow-releasing trehalulose keeps your brain fueled and focused without any physical restlessness or jitters.',
     ],
     trustBadges: ['NABL Lab Tested', 'Ethically Harvested', 'Limited Batch', 'Ultra-Rare', 'Free Shipping ₹499+'],
-    price: 1299,
-    compareAtPrice: 1499,
+    price: 1399,
+    compareAtPrice: 1699,
     costPrice: 600,
     stock: 25,
     lowStockThreshold: 5,
@@ -452,8 +456,8 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_st_2', url: '/images/products/stingless-2.png', altText: 'Small Stingless Dammer Bee Hives', sortOrder: 2, isPrimary: false }
     ],
     variants: [
-      { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: 0, stock: 15 },
-      { id: 'var_st_500g', name: '500g Glass Jar', sku: 'SM-STB-500', priceAdjust: 1100, stock: 10 }
+      { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: -600, stock: 15 },
+      { id: 'var_st_500g', name: '500g Glass Jar', sku: 'SM-STB-500', priceAdjust: 0, stock: 10 }
     ],
     averageRating: 4.9,
     reviewCount: 18,
@@ -461,10 +465,11 @@ export const STATIC_PRODUCTS: (Product & {
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['stingless'],
     sourcingHighlights: {
-      forestName: 'Pristine Mountain Forest Blocks',
+      forestName: 'Nagaland Forests',
       location: 'Nagaland, India',
       harvestedBy: 'Indigenous Angami Tribe',
-      beeSpecies: 'Meliponini (Stingless Dammer Bees)'
+      beeSpecies: 'Meliponini (Stingless Dammer Bees)',
+      tasteProfile: 'Tangy-Sour-Sweet',
     },
     faqs: []
   },
@@ -498,8 +503,8 @@ export const STATIC_PRODUCTS: (Product & {
       'Heritage Skin Soother: Use it as a gentle, purifying base for traditional DIY face masks. Mix equal parts honey and organic chickpea flour (besan) with a splash of rose water for a deeply cleansing, hydrating ritual that leaves the skin feeling soft and naturally radiant.',
     ],
     trustBadges: ['Raw & Unfiltered', 'NABL Lab Tested', 'Ethically Harvested', 'Free Shipping ₹499+'],
-    price: 549,
-    compareAtPrice: 649,
+    price: 699,
+    compareAtPrice: 799,
     costPrice: 240,
     stock: 80,
     lowStockThreshold: 10,
@@ -513,7 +518,7 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_tb_1', url: '/images/products/tribal-1.png', altText: 'Artisanal Heritage Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
-      { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -220, stock: 40 },
+      { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -300, stock: 40 },
       { id: 'var_tb_500g', name: '500g Glass Jar', sku: 'SM-TF-500', priceAdjust: 0, stock: 40 }
     ],
     averageRating: 4.7,
@@ -522,10 +527,11 @@ export const STATIC_PRODUCTS: (Product & {
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['tribal'],
     sourcingHighlights: {
-      forestName: 'Kandhamal Forest Reserves',
+      forestName: 'Kandhamal Forest, Odisha',
       location: 'Odisha, India',
       harvestedBy: 'Kondha Tribe',
-      beeSpecies: 'Apis dorsata (Giant Rock Bees)'
+      beeSpecies: 'Apis dorsata (Giant Rock Bees)',
+      tasteProfile: 'Rustic Sweet',
     },
     faqs: []
   },
@@ -554,8 +560,8 @@ export const STATIC_PRODUCTS: (Product & {
       'Warming Botanical Infusions: Its earthy, complex nature stands up remarkably well to strong, spicy botanicals. Pair it with fresh ginger slices, cinnamon bark, or crushed peppercorns in warm water for a deeply grounding afternoon wellness ritual. Wellness Guardrail: Never mix raw honey into rolling, boiling water. Let your water or tea cool down to a comfortable warm drinking temperature before stirring it in to preserve the alive forest enzymes.',
     ],
     trustBadges: ['NABL Lab Tested', 'Ethically Harvested', 'Mineral Rich', 'Free Shipping ₹499+'],
-    price: 599,
-    compareAtPrice: 699,
+    price: 699,
+    compareAtPrice: 799,
     costPrice: 260,
     stock: 45,
     lowStockThreshold: 5,
@@ -569,7 +575,7 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_hd_1', url: '/images/products/honeydew-1.png', altText: 'Canopy Dew Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
-      { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -250, stock: 25 },
+      { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -300, stock: 25 },
       { id: 'var_hd_500g', name: '500g Glass Jar', sku: 'SM-HD-500', priceAdjust: 0, stock: 20 }
     ],
     averageRating: 4.6,
@@ -578,10 +584,11 @@ export const STATIC_PRODUCTS: (Product & {
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['honeydew'],
     sourcingHighlights: {
-      forestName: 'Saranda Forest Reserve (Asia\'s Largest Sal Forest)',
+      forestName: 'Saranda Forest, Jharkhand',
       location: 'Jharkhand, India',
       harvestedBy: 'Native Ho & Munda Tribes',
-      beeSpecies: 'Apis dorsata (Giant Rock Bees)'
+      beeSpecies: 'Apis dorsata (Giant Rock Bees)',
+      tasteProfile: 'Dark Earthy & Mineral Warmth',
     },
     faqs: []
   },
@@ -639,10 +646,11 @@ export const STATIC_PRODUCTS: (Product & {
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['raktbeej'],
     sourcingHighlights: {
-      forestName: 'Abujhmarh Forest Blocks (Protected Reserve)',
+      forestName: 'Abujhmarh Forest, Chhattisgarh',
       location: 'Chhattisgarh, India',
       harvestedBy: 'Indigenous Madia & Muria Gonds',
-      beeSpecies: 'Apis dorsata (Giant Rock Bees) foraging on red silk cotton flowers and iron-rich herbal flora'
+      beeSpecies: 'Apis dorsata (Giant Rock Bees)',
+      tasteProfile: 'Smoky Flavor, Earthy Aroma',
     },
     faqs: []
   },
@@ -843,8 +851,8 @@ export const STATIC_COMBOS: (ComboBundle & {
     name: 'The Heritage Trio',
     slug: 'heritage-trio',
     description: 'Three of India\'s most storied forest honeys, united in one extraordinary set. The Heritage Trio brings together Organic Wild Forest Honey (250g), Artisanal Heritage Forest Honey (250g), and Bloodseed Forest Honey (250g) — each harvested from ancient indigenous forest ecosystems by tribal communities who have practiced sustainable honey gathering for generations. These are not interchangeable products: each carries a distinct terroir, a unique color, a specific medicinal character, and a story rooted in place. Together, they represent the full depth of India\'s wild honey heritage.',
-    price: 1399,
-    compareAtPrice: 1647,
+    price: 999,
+    compareAtPrice: 1299,
     image: '/images/products/combo-essentials.png',
     products: ['prod_wf_honey_500', 'prod_tribal_500', 'prod_raktbeej_500'],
     benefitsLabel: 'Why this Trio',
@@ -864,8 +872,8 @@ export const STATIC_COMBOS: (ComboBundle & {
     name: 'The Forest Alchemy Duo',
     slug: 'forest-alchemy-duo',
     description: 'Two of India\'s rarest forest honeys, brought together for those who seek the extraordinary. The Forest Alchemy Duo pairs Rare Dammer Bee Honey (250g) — harvested from stingless Meliponini bees in Kerala\'s ancient rainforests — with Canopy Dew Forest Honey (250g) — a remarkable honeydew variety collected from the forest canopy of Kandhamal\'s pristine sal and teak forests. Both are among the most unusual and sought-after raw honeys in India, prized by healers, chefs, and connoisseurs alike.',
-    price: 1799,
-    compareAtPrice: 1998,
+    price: 999,
+    compareAtPrice: 1299,
     image: '/images/products/combo-medicinal.png',
     products: ['prod_stingless_250', 'prod_honeydew_500'],
     benefitsLabel: 'Why this Duo',

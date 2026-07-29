@@ -4,7 +4,7 @@ compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-BASE_URL = "https://sumosta.com"
+BASE_URL = "https://master.sumosta-web.pages.dev"
 WORKER_URL = "https://sumosta-api.sumosta-dev.workers.dev"
 PHONEPE_ENV = "sandbox"
 

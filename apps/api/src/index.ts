@@ -20,6 +20,8 @@ import contactRoute     from './routes/contact';
 import newsletterRoute  from './routes/newsletter';
 import addressesRoute   from './routes/addresses';
 
+import googleAuthRoute       from './routes/google-auth';
+
 import adminDashboardRoute   from './routes/admin/dashboard';
 import adminProductsRoute    from './routes/admin/products';
 import adminOrdersRoute      from './routes/admin/orders';
@@ -47,6 +49,8 @@ export type Bindings = {
   RESEND_API_KEY:       string;
   BASE_URL:             string;
   WORKER_URL:           string;
+  GOOGLE_CLIENT_ID:     string;
+  GOOGLE_CLIENT_SECRET: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -69,7 +73,8 @@ app.get('/', (c) => c.json({ ok: true, service: 'SUMOSTA API', version: '1.0.0' 
 // ============================================================
 app.route('/api/products',   productsRoute);
 app.route('/api/categories', categoriesRoute);
-app.route('/api/auth',       authRoute);
+app.route('/api/auth',        authRoute);
+app.route('/api/auth/google', googleAuthRoute);
 app.route('/api/cart',       cartRoute);
 app.route('/api/checkout',   checkoutRoute);
 app.route('/api/orders',     ordersRoute);

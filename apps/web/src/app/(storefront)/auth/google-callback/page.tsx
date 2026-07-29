@@ -1,9 +1,9 @@
 'use client';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackInner() {
   const router     = useRouter();
   const params     = useSearchParams();
   const loginStore = useAuthStore((s) => s.login);
@@ -20,10 +20,12 @@ export default function GoogleCallbackPage() {
 
     loginStore(
       {
-        id:    params.get('userId')!,
-        name:  params.get('userName')!,
-        email: params.get('userEmail')!,
-        role:  params.get('userRole')!,
+        id:        params.get('userId')!,
+        name:      params.get('userName')!,
+        email:     params.get('userEmail')!,
+        role:      params.get('userRole')! as 'customer' | 'admin' | 'superadmin',
+        phone:     '',
+        createdAt: '',
       },
       accessToken,
       refreshToken,
@@ -39,5 +41,17 @@ export default function GoogleCallbackPage() {
         <p className="font-jakarta text-sm text-gray-500">Signing you in with Google…</p>
       </div>
     </div>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#F97316] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <GoogleCallbackInner />
+    </Suspense>
   );
 }

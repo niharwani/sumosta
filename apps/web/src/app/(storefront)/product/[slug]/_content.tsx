@@ -23,7 +23,12 @@ export default function ProductContent({ slug }: { slug: string }) {
   const currentPrice = variants.length > 0
     ? basePrice + (variants[activeVariant]?.priceAdjust ?? 0)
     : basePrice;
-  const compareAt = product?.compareAtPrice ?? combo?.compareAtPrice ?? null;
+  const baseCompareAt = product?.compareAtPrice ?? combo?.compareAtPrice ?? null;
+  // Use variant-specific MRP if available (compareAtPriceAdjust), otherwise fall back to base MRP
+  const variantCompareAtAdj = variants.length > 0 ? ((variants[activeVariant] as any)?.compareAtPriceAdjust ?? null) : null;
+  const compareAt = variantCompareAtAdj != null && baseCompareAt != null
+    ? baseCompareAt + variantCompareAtAdj
+    : baseCompareAt;
   const savePercent = compareAt && compareAt > currentPrice
     ? Math.round(((compareAt - currentPrice) / compareAt) * 100)
     : null;
@@ -76,6 +81,40 @@ export default function ProductContent({ slug }: { slug: string }) {
     fontFamily: 'var(--font-bricolage), sans-serif',
     letterSpacing: '0.01em',
   };
+
+  function getBenefitIcon(text: string): string {
+    const t = text.toLowerCase();
+    if (t.includes('gut') || t.includes('digest') || t.includes('stomach') || t.includes('microbiome') || t.includes('probiotic')) return '🌿';
+    if (t.includes('energy') || t.includes('fuel') || t.includes('metabol') || t.includes('blood sugar') || t.includes('glycaemic')) return '⚡';
+    if (t.includes('sleep') || t.includes('bedtime') || t.includes('rest') || t.includes('relax')) return '🌙';
+    if (t.includes('respiratory') || t.includes('throat') || t.includes('lung') || t.includes('seasonal')) return '💧';
+    if (t.includes('skin') || t.includes('moistur') || t.includes('humect') || t.includes('face')) return '✨';
+    if (t.includes('immun') || t.includes('defense') || t.includes('antimicrobial') || t.includes('antibacter')) return '🛡️';
+    if (t.includes('antioxidant') || t.includes('phenol') || t.includes('polyphen') || t.includes('orac')) return '🔬';
+    if (t.includes('iron') || t.includes('blood') || t.includes('hematic') || t.includes('hemato')) return '💪';
+    if (t.includes('mineral') || t.includes('magnesium') || t.includes('potassium') || t.includes('copper')) return '💎';
+    if (t.includes('sweetener') || t.includes('sugar') || t.includes('alternative')) return '🍯';
+    if (t.includes('oral') || t.includes('tooth') || t.includes('dental') || t.includes('acariogenic')) return '🦷';
+    if (t.includes('propolis') || t.includes('cellular') || t.includes('enzyme')) return '🧬';
+    if (t.includes('inflam')) return '❄️';
+    return '✦';
+  }
+
+  function getHowToUseIcon(text: string): string {
+    const t = text.toLowerCase();
+    if (t.includes('morning') || t.includes('wak') || t.includes('first thing') || t.includes('empty stomach')) return '🌅';
+    if (t.includes('breakfast') || t.includes('oatmeal') || t.includes('yogurt') || t.includes('smoothie')) return '🍽️';
+    if (t.includes('tea') || t.includes('herbal') || t.includes('infus') || t.includes('kadha') || t.includes('tulsi')) return '🍵';
+    if (t.includes('coffee') || t.includes('espresso') || t.includes('matcha') || t.includes('latte')) return '☕';
+    if (t.includes('skin') || t.includes('face') || t.includes('topical') || t.includes('mask')) return '💆';
+    if (t.includes('workout') || t.includes('exercise') || t.includes('recovery') || t.includes('active')) return '💪';
+    if (t.includes('evening') || t.includes('bedtime') || t.includes('night') || t.includes('sleep') || t.includes('wind-down')) return '🌙';
+    if (t.includes('sweetener') || t.includes('sugar') || t.includes('baking') || t.includes('recipe')) return '🍯';
+    if (t.includes('drizzle') || t.includes('pour') || t.includes('drip')) return '🍯';
+    if (t.includes('cheese') || t.includes('chocolate') || t.includes('dessert') || t.includes('epicurean')) return '🧀';
+    if (t.includes('sublingual') || t.includes('purist') || t.includes('dose') || t.includes('directly')) return '💊';
+    return '→';
+  }
 
   if (!product && !combo) {
     return (
@@ -233,9 +272,17 @@ export default function ProductContent({ slug }: { slug: string }) {
                     </button>
                     <div style={{ overflow: 'hidden', maxHeight: open ? '1200px' : '0', transition: 'max-height 0.5s cubic-bezier(0.25,0.1,0.25,1)' }}>
                       {Array.isArray(a.body) ? (
-                        <ul style={{ paddingLeft: '18px', margin: '0 0 16px', fontSize: '14px', lineHeight: 1.7, color: '#5C4A32' }}>
-                          {(a.body as string[]).map((item, idx) => <li key={idx} style={{ marginBottom: '8px' }}>{item}</li>)}
-                        </ul>
+                        <div style={{ margin: '0 0 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {(a.body as string[]).map((item, idx) => {
+                            const icon = isBenefits ? getBenefitIcon(item) : isHowToUse ? getHowToUseIcon(item) : '→';
+                            return (
+                              <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                <span style={{ fontSize: icon === '→' ? '14px' : '16px', lineHeight: 1.4, flexShrink: 0, marginTop: '2px' }}>{icon}</span>
+                                <span style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32' }}>{item}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32', margin: '0 0 16px' }}>{a.body as string}</p>
                       )}

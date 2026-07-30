@@ -141,17 +141,17 @@ const CERTIFICATIONS = [
   {
     name: 'NABL Accredited Lab Testing',
     icon: '🧪',
-    desc: 'Every production batch is independently tested at a National Accreditation Board for Testing and Calibration Laboratories (NABL) accredited facility for purity, moisture content (≤18%), HMF levels, adulteration markers, and absence of antibiotics. The batch certificate is tied to the Batch ID printed on every jar.',
+    desc: 'Every production batch is independently tested at a National Accreditation Board for Testing and Calibration Laboratories (NABL) accredited facility for purity, moisture content, HMF levels, adulteration markers, and absence of antibiotics. Lab test reports are available in the respective product section.',
   },
   {
     name: 'NPOP APEDA Organic Certification',
     icon: '🌿',
-    desc: 'Our sourcing practices and apiaries are certified under the National Programme for Organic Production (NPOP), governed by APEDA (Agricultural and Processed Food Products Export Development Authority). This certifies that our honeys are free from synthetic pesticides, antibiotics, and chemical treatments at both the apiary and processing level.',
+    desc: 'Our sourcing practices and apiaries are certified under the National Programme for Organic Production (NPOP), governed by APEDA (Agricultural and Processed Food Products Export Development Authority). This certifies that our wild forest honeys are free from synthetic pesticides, antibiotics, and chemical treatments.',
   },
   {
     name: 'FSSAI Registered',
     icon: '✅',
-    desc: 'SUMOSTA is registered with the Food Safety and Standards Authority of India (FSSAI). Our products meet all mandated quality parameters including diastase activity, moisture content, sucrose limits, and HMF thresholds prescribed under Indian food safety law.',
+    desc: 'SUMOSTA is registered with the Food Safety and Standards Authority of India (FSSAI). Our products meet all mandated quality parameters & thresholds prescribed under Indian Food Safety law.',
   },
 ];
 

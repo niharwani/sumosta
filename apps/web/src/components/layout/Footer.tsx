@@ -7,7 +7,6 @@ const SHOP_LINKS = [
 
 const COMPANY_LINKS = [
   { label: 'Our Story',    href: '/about' },
-  { label: 'Know About Us', href: '/about#philosophy' },
   { label: 'Evidence Hub', href: '/evidence-hub' },
   { label: 'Contact',      href: '/contact' },
 ];
@@ -18,7 +17,6 @@ const HELP_LINKS = [
   { label: 'Returns',          href: '/policies/refund' },
   { label: 'Terms of Service', href: '/policies/terms' },
   { label: 'Privacy Policy',   href: '/policies/privacy' },
-  { label: 'FAQs',             href: '/#faq' },
 ];
 
 const linkStyle: React.CSSProperties = {

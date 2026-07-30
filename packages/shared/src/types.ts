@@ -29,11 +29,12 @@ export interface ProductImage {
 }
 
 export interface ProductVariant {
-  id:            string;
-  name:          string;
-  sku:           string;
-  priceAdjust:   number;
-  stock:         number;
+  id:                    string;
+  name:                  string;
+  sku:                   string;
+  priceAdjust:           number;
+  compareAtPriceAdjust?: number;
+  stock:                 number;
 }
 
 export interface Product {

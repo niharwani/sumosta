@@ -46,7 +46,7 @@ const STORY_CHAPTERS = [
     headline: 'Five forests.\nFive honeys.',
     paragraphs: [
       'India is home to some of the world\'s most biodiverse forests — and the honeys produced within them are unlike anything found on supermarket shelves. SUMOSTA sources exclusively from wild and semi-wild apiaries across these ecosystems, working directly with traditional beekeepers and forest-dwelling communities who have harvested honey for generations.',
-      'From the rare Dammer bees of the Western Ghats to the Bloodseed forests of tribal Madhya Pradesh, every honey in our range is single-origin, traceable, and harvested in small batches. We pay above-market rates. We never adulterate. We never compromise.',
+      'From the rare Dammer bees of the pristine Nagaland forests to the Bloodseed forests of Abujhmarh, Chhattisgarh, every honey in our range is single-origin, traceable, and harvested in small batches. We pay above-market rates. We never adulterate. We never compromise.',
     ],
     imageRight: true,
     image: '/images/home/about-hero-honeycomb.jpg',
@@ -61,8 +61,8 @@ const STORY_CHAPTERS = [
       'Every jar we ship is NABL lab tested, NPOP APEDA organic certified, and traceable back to its specific apiary and harvest batch. From hive to home, nothing is added. Nothing is taken away. Just honey, exactly as nature made it.',
     ],
     imageRight: false,
-    image: '/images/home/story-bees-flower.jpg',
-    imageAlt: 'A jar of SUMOSTA honey',
+    image: '/images/products/wild-forest-1.png',
+    imageAlt: 'SUMOSTA wild forest honey jar — your daily ritual',
   },
 ];
 
@@ -73,7 +73,7 @@ const FOUNDERS = [
     badge: 'The Brain of SUMOSTA',
     image: '/images/brand/yatin.jpg',
     imageFit: 'cover' as const,
-    imagePosition: 'center 70%',
+    imagePosition: 'center 20%',
     stance: 'Handling the heavy lifting behind Strategy, Product Development, and Finance.',
     profile: 'If SUMOSTA were a perfectly balanced recipe, Yatin is the master chef holding the measuring spoons. As the strategic brain, he refuses to compromise on lab-tested purity, obsesses over product formulations, and ensures unit economics are as clean as the ingredient labels — a classic Gujarati superpower. He channels the true Sumo mindset by bringing absolute calm, focus, and structural vision to the product roadmap.',
     fueledBy: 'A morning ritual of raw wild forest honey and big strategic visions.',

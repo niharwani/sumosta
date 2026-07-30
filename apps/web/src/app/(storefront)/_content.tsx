@@ -7,11 +7,11 @@ import { STATIC_PRODUCTS, BRAND_CONTENT } from '@/lib/content';
 const PRODUCTS = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon);
 
 const QUALITY_CLAIMS = [
-  '100% Raw & Un-processed',
-  '100% Pure, No Additives',
-  'Un-heated, Minimally Filtered',
-  'NABL Lab Tested & NPOP APEDA Organic Certified',
-  'Ethically Sourced from Pristine Indian Reserves',
+  { icon: '🍃', text: '100% Raw & Un-processed' },
+  { icon: '✓', text: '100% Pure, No Additives' },
+  { icon: '❄', text: 'Un-heated, Minimally Filtered' },
+  { icon: '🔬', text: 'NABL Lab Tested & NPOP APEDA Organic Certified' },
+  { icon: '🌳', text: 'Ethically Sourced from Pristine Indian Reserves' },
 ];
 
 const HERO_SLIDES = [
@@ -153,7 +153,7 @@ export default function HomeContent() {
             <span key={i} style={{ position: 'absolute', left: h.left, top: h.top, width: '40px', height: '46px', clipPath: 'polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)', background: '#F5A623', animation: `sum-pulse-gold 1.2s ease-in-out infinite`, animationDelay: h.delay }} />
           ))}
         </div>
-        <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', color: '#8B7355', fontSize: '14px', letterSpacing: '0.02em', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, color: '#2C2417', fontSize: '14px', letterSpacing: '0.04em', margin: 0 }}>
           Indulgence that cares
         </p>
       </div>
@@ -190,8 +190,7 @@ export default function HomeContent() {
         >
           {/* Text side */}
           <div className="sum-hero-text" key={slide.id} style={{ animation: 'sum-slide-in 0.6s cubic-bezier(0.25,0.1,0.25,1) both' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #FFCC66', borderRadius: '999px', padding: '6px 14px', marginBottom: '20px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '999px', background: slide.accent, flexShrink: 0 }} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid #FFCC66', borderRadius: '999px', padding: '6px 16px', marginBottom: '20px' }}>
               <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A66A10', fontWeight: 700 }}>{slide.eyebrow}</span>
             </div>
             <h1 style={{ margin: '0 0 20px', lineHeight: 1.05 }}>
@@ -254,22 +253,23 @@ export default function HomeContent() {
       </section>
 
       {/* ===== BRAND STATEMENT (below hero) ===== */}
-      <section style={{ background: '#FFF9F0', padding: '40px 24px', borderTop: '1px solid #F0E6D3', borderBottom: '1px solid #F0E6D3' }}>
+      <section style={{ background: '#FFF9F0', padding: '36px 24px', borderTop: '1px solid #F0E6D3', borderBottom: '1px solid #F0E6D3' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: 'clamp(1.05rem,2vw,1.35rem)', color: '#5C4A32', lineHeight: 1.75, margin: 0 }}>
-            At SUMOSTA, we believe sweetness should do more than delight. That&apos;s why we&apos;re introducing raw, unprocessed honeys from India&apos;s pristine forests — not as something you reach for only when you&apos;re unwell, but as a <strong style={{ color: '#2C2417', fontStyle: 'normal' }}>delicious daily indulgence that cares.</strong>
+          <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 500, fontSize: 'clamp(1rem,1.8vw,1.25rem)', color: '#5C4A32', lineHeight: 1.8, margin: 0 }}>
+            At SUMOSTA, we believe sweetness should do more than delight. That&apos;s why we&apos;re introducing raw, unprocessed honeys from India&apos;s pristine forests — not as something you reach for only when you&apos;re unwell, but as a <strong style={{ color: '#2C2417', fontWeight: 700 }}>delicious daily indulgence that cares.</strong>
           </p>
         </div>
       </section>
 
       {/* ===== QUALITY CLAIMS MARQUEE ===== */}
-      <div style={{ background: '#FFF0D6', padding: '14px 0', overflow: 'hidden', borderBottom: '1px solid #FFE0A8' }}>
+      <div style={{ background: '#D4891A', padding: '13px 0', overflow: 'hidden', borderBottom: '1px solid #A66A10' }}>
         <div className="animate-sum-marquee" style={{ display: 'flex', whiteSpace: 'nowrap', width: 'max-content' }}>
           {[0, 1].map((r) =>
             QUALITY_CLAIMS.map((claim, i) => (
-              <span key={`${r}-${i}`} style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, color: '#A66A10', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.15em', padding: '0 32px', display: 'inline-flex', alignItems: 'center', gap: '16px' }}>
-                {claim}
-                <span style={{ width: '4px', height: '4px', background: '#F5A623', borderRadius: '50%', flexShrink: 0 }} />
+              <span key={`${r}-${i}`} style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 600, color: '#FFFDF8', fontSize: '13px', letterSpacing: '0.04em', padding: '0 28px', display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '15px', lineHeight: 1 }}>{claim.icon}</span>
+                {claim.text}
+                <span style={{ width: '3px', height: '3px', background: 'rgba(255,253,248,0.5)', borderRadius: '50%', flexShrink: 0, marginLeft: '4px' }} />
               </span>
             ))
           )}
@@ -277,7 +277,7 @@ export default function HomeContent() {
       </div>
 
       {/* ===== PRODUCT SHOWCASE ===== */}
-      <section style={{ padding: '96px 0', background: '#FFFDF8', overflow: 'hidden' }}>
+      <section style={{ padding: '60px 0', background: '#FFFDF8', overflow: 'hidden' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px', gap: '16px', flexWrap: 'wrap' }}>
           <div data-reveal>
             <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2.4rem,5vw,4rem)', margin: 0, color: '#2C2417', letterSpacing: '-0.01em' }}>The Collection</h2>
@@ -290,28 +290,41 @@ export default function HomeContent() {
           </div>
         </div>
         <div ref={carouselRef} className="sum-noscroll" style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingLeft: 'max(24px, calc((100vw - 1400px) / 2 + 24px))', paddingBottom: '12px', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', scrollPaddingLeft: 'max(24px, calc((100vw - 1400px) / 2 + 24px))' }}>
-          {PRODUCTS.map((p) => (
+          {PRODUCTS.map((p) => {
+            // Show 250g (smallest) variant price if available — more attractive for cost-conscious buyers
+            const smallVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
+            const displayPrice = smallVariant ? p.price + (smallVariant as any).priceAdjust : p.price;
+            const displayMrp = smallVariant && (smallVariant as any).compareAtPriceAdjust != null
+              ? (p.compareAtPrice ?? 0) + (smallVariant as any).compareAtPriceAdjust
+              : (p.compareAtPrice && p.variants && p.variants.length > 0 ? null : p.compareAtPrice);
+            const displaySave = displayMrp && displayMrp > displayPrice
+              ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100)
+              : null;
+            const sizeLabel = smallVariant ? (smallVariant as any).name : null;
+            return (
             <div key={p.id} style={{ minWidth: '280px', maxWidth: '280px', scrollSnapAlign: 'start', flexShrink: 0 }}>
               <Link href={`/product/${p.slug}`} style={{ textDecoration: 'none' }}>
                 <div style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '14px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 14px,#FFF9F0 14px,#FFF9F0 28px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '14px' }}>
                   <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '10px', letterSpacing: '0.06em', color: '#8B7355', textTransform: 'uppercase', padding: '0 16px' }}>product photo<br />{p.name}</span>
                 </div>
-                <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#2C2417', margin: '0 0 8px' }}>{p.name}</h3>
+                <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#2C2417', margin: '0 0 6px' }}>{p.name}</h3>
+                {sizeLabel && <p style={{ fontSize: '11px', color: '#8B7355', margin: '0 0 6px' }}>{sizeLabel}</p>}
                 {/* MRP strikethrough + Selling price */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {p.compareAtPrice && p.compareAtPrice > p.price && (
-                    <span style={{ fontSize: '13px', color: '#C4B39A', textDecoration: 'line-through' }}>₹{p.compareAtPrice}</span>
+                  {displayMrp && displayMrp > displayPrice && (
+                    <span style={{ fontSize: '13px', color: '#C4B39A', textDecoration: 'line-through' }}>₹{displayMrp}</span>
                   )}
-                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#D4891A' }}>₹{p.price}</span>
-                  {p.compareAtPrice && p.compareAtPrice > p.price && (
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#D4891A' }}>₹{displayPrice}</span>
+                  {displaySave && (
                     <span style={{ fontSize: '10px', background: '#FFF0D6', color: '#A66A10', borderRadius: '4px', padding: '2px 6px', fontWeight: 700 }}>
-                      SAVE {Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100)}%
+                      SAVE {displaySave}%
                     </span>
                   )}
                 </div>
               </Link>
             </div>
-          ))}
+            );
+          })}
           <div style={{ minWidth: '48px', flexShrink: 0 }} aria-hidden />
         </div>
       </section>
@@ -360,9 +373,9 @@ export default function HomeContent() {
               &ldquo;We don&apos;t manage bees. We visit them, and take only what the forest can spare.&rdquo;
             </p>
             <p style={{ fontSize: '15px', lineHeight: 1.8, color: '#C4B39A', margin: '0 0 8px', maxWidth: '440px' }}>
-              Our network of 40+ traditional beekeeping families climbs cliff faces in the Western Ghats and wades into Sundarbans mangroves to harvest from colonies that have never known a commercial hive box.
+              Our network of 40+ traditional beekeeping families ventures deep into India&apos;s most remote and pristine forest reserves to harvest from colonies that have never known a commercial hive box.
             </p>
-            <p style={{ fontSize: '13px', letterSpacing: '0.04em', color: '#8B7355', margin: '24px 0 0' }}>— Third-generation apiary partners, Western Ghats</p>
+            <p style={{ fontSize: '13px', letterSpacing: '0.04em', color: '#8B7355', margin: '24px 0 0' }}>— Third-generation apiary partners</p>
           </div>
           {/* Image */}
           <div style={{ position: 'relative', minHeight: '340px', overflow: 'hidden', order: 1 }}>
@@ -378,7 +391,7 @@ export default function HomeContent() {
       </section>
 
       {/* ===== NEWSLETTER ===== */}
-      <section style={{ padding: '96px 24px', background: '#FFF9F0', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '72px 24px', background: '#FFF9F0', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: honeycombSvg, backgroundSize: '56px 100px', opacity: 0.04 }} />
         <div style={{ maxWidth: '560px', margin: '0 auto', position: 'relative' }}>
           <h2 data-reveal style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,4vw,3.2rem)', color: '#2C2417', margin: '0 0 16px' }}>Join the Colony</h2>
@@ -404,7 +417,7 @@ export default function HomeContent() {
       </section>
 
       {/* ===== VISION / MISSION / PHILOSOPHY ===== */}
-      <section style={{ padding: '96px 24px', background: '#1A150E' }}>
+      <section style={{ padding: '72px 24px', background: '#1A150E' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
           <div data-reveal style={{ textAlign: 'center', marginBottom: '64px' }}>
             <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#F5A623', fontWeight: 700, margin: '0 0 16px' }}>The SUMOSTA Way</p>
@@ -425,7 +438,7 @@ export default function HomeContent() {
             ].map((item) => (
               <div key={item.label} style={{ background: 'rgba(255,253,248,0.04)', border: '1px solid rgba(139,115,85,0.25)', borderRadius: '16px', padding: '28px 32px' }}>
                 <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#F5A623', fontWeight: 700, margin: '0 0 12px' }}>{item.icon}  {item.label}</p>
-                <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: 'clamp(1rem,1.8vw,1.25rem)', color: '#FFF0D6', lineHeight: 1.65, margin: 0 }}>{item.text}</p>
+                <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 400, fontSize: 'clamp(0.95rem,1.6vw,1.1rem)', color: '#FFF0D6', lineHeight: 1.7, margin: 0 }}>{item.text}</p>
               </div>
             ))}
           </div>

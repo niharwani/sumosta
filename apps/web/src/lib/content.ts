@@ -397,8 +397,8 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_wf_2', url: '/images/products/wild-forest-2.png', altText: 'Forest Sourcing Honey', sortOrder: 2, isPrimary: false }
     ],
     variants: [
-      { id: 'var_wf_250g', name: '250g Glass Jar', sku: 'SM-WF-250', priceAdjust: -250, stock: 50 },
-      { id: 'var_wf_500g', name: '500g Glass Jar', sku: 'SM-WF-500', priceAdjust: 0, stock: 100 }
+      { id: 'var_wf_250g', name: '250g Glass Jar', sku: 'SM-WF-250', priceAdjust: -250, compareAtPriceAdjust: -300, stock: 50 },
+      { id: 'var_wf_500g', name: '500g Glass Jar', sku: 'SM-WF-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 100 }
     ],
     averageRating: 4.8,
     reviewCount: 43,
@@ -456,8 +456,8 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_st_2', url: '/images/products/stingless-2.png', altText: 'Small Stingless Dammer Bee Hives', sortOrder: 2, isPrimary: false }
     ],
     variants: [
-      { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: -600, stock: 15 },
-      { id: 'var_st_500g', name: '500g Glass Jar', sku: 'SM-STB-500', priceAdjust: 0, stock: 10 }
+      { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: -600, compareAtPriceAdjust: -700, stock: 15 },
+      { id: 'var_st_500g', name: '500g Glass Jar', sku: 'SM-STB-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 10 }
     ],
     averageRating: 4.9,
     reviewCount: 18,
@@ -518,8 +518,8 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_tb_1', url: '/images/products/tribal-1.png', altText: 'Artisanal Heritage Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
-      { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -300, stock: 40 },
-      { id: 'var_tb_500g', name: '500g Glass Jar', sku: 'SM-TF-500', priceAdjust: 0, stock: 40 }
+      { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -300, compareAtPriceAdjust: -300, stock: 40 },
+      { id: 'var_tb_500g', name: '500g Glass Jar', sku: 'SM-TF-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 40 }
     ],
     averageRating: 4.7,
     reviewCount: 31,
@@ -575,8 +575,8 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_hd_1', url: '/images/products/honeydew-1.png', altText: 'Canopy Dew Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
-      { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -300, stock: 25 },
-      { id: 'var_hd_500g', name: '500g Glass Jar', sku: 'SM-HD-500', priceAdjust: 0, stock: 20 }
+      { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -300, compareAtPriceAdjust: -300, stock: 25 },
+      { id: 'var_hd_500g', name: '500g Glass Jar', sku: 'SM-HD-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 20 }
     ],
     averageRating: 4.6,
     reviewCount: 22,
@@ -637,8 +637,8 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_rk_1', url: '/images/products/raktbeej-1.png', altText: 'Bloodseed Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
-      { id: 'var_rb_250g', name: '250g Glass Jar', sku: 'SM-RB-250', priceAdjust: -300, stock: 25 },
-      { id: 'var_rb_500g', name: '500g Glass Jar', sku: 'SM-RB-500', priceAdjust: 0, stock: 10 }
+      { id: 'var_rb_250g', name: '250g Glass Jar', sku: 'SM-RB-250', priceAdjust: -300, compareAtPriceAdjust: -300, stock: 25 },
+      { id: 'var_rb_500g', name: '500g Glass Jar', sku: 'SM-RB-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 10 }
     ],
     averageRating: 4.9,
     reviewCount: 14,

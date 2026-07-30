@@ -13,7 +13,7 @@ export default function AnnouncementBar() {
   return (
     <div
       style={{
-        background: '#7A4D0B',
+        background: '#C68642',
         color: '#FFF9F0',
         overflow: 'hidden',
         height: '36px',

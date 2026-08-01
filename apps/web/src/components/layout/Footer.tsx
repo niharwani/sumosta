@@ -104,7 +104,7 @@ export default function Footer() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '28px', alignItems: 'center' }}>
             {[
               { src: '/images/brand/fssai-logo-freelogovectors.net_.png',          alt: 'FSSAI Registered',           desc: 'Food Safety Certified', w: 80, h: 36 },
-              { src: '/images/brand/make-in-india-logo-png_seeklogo-379725.png',   alt: 'Make in India',              desc: 'Proudly Indian',         w: 80, h: 36 },
+              { src: '/images/brand/makeinindia.png',                               alt: 'Make in India',              desc: 'Proudly Indian',         w: 80, h: 36 },
               { src: '/images/brand/Jaivik_Bharat_eng.png',                        alt: 'Jaivik Bharat / NPOP APEDA', desc: 'Organic Certified',       w: 56, h: 56 },
               { src: '/images/brand/nabl-india-logo-png_seeklogo-96699.png',       alt: 'NABL ISO/IEC 17025',         desc: 'Lab Tested',              w: 56, h: 56 },
             ].map((cert) => (

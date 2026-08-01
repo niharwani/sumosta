@@ -26,7 +26,10 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (user) reset({ name: user.name, phone: user.phone ?? '' });
+    if (user) {
+      const phone = user.phone?.startsWith('google:') ? '' : (user.phone ?? '');
+      reset({ name: user.name, phone });
+    }
   }, [user, reset]);
 
   const onSubmit = async (data: FormData) => {

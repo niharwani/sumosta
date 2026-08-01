@@ -51,6 +51,7 @@ export type Bindings = {
   WORKER_URL:           string;
   GOOGLE_CLIENT_ID:     string;
   GOOGLE_CLIENT_SECRET: string;
+  RESEND_FROM:          string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();

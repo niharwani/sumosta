@@ -7,6 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 BASE_URL = "https://master.sumosta-web.pages.dev"
 WORKER_URL = "https://sumosta-api.sumosta-dev.workers.dev"
 PHONEPE_ENV = "sandbox"
+RESEND_FROM = "onboarding@resend.dev"
 
 [[d1_databases]]
 binding = "DB"

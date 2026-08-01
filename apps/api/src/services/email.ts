@@ -32,7 +32,6 @@ interface OrderEmailData {
 }
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const FROM_ADDRESS   = 'SUMOSTA <orders@sumosta.com>';
 
 function formatPrice(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -168,6 +167,7 @@ function buildOrderConfirmationHtml(order: OrderEmailData): string {
 export async function sendOrderConfirmation(
   order: OrderEmailData,
   apiKey: string,
+  fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
 ): Promise<boolean> {
   const toEmail = order.guestEmail ?? order.userEmail;
   if (!toEmail) {
@@ -183,7 +183,7 @@ export async function sendOrderConfirmation(
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        from:    FROM_ADDRESS,
+        from:    fromAddress,
         to:      [toEmail],
         subject: `Order Confirmed — ${order.orderNumber} | SUMOSTA`,
         html:    buildOrderConfirmationHtml(order),
@@ -207,6 +207,7 @@ export async function sendPasswordReset(
   email: string,
   resetUrl: string,
   apiKey: string,
+  fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
 ): Promise<boolean> {
   const html = `
 <!DOCTYPE html>
@@ -273,7 +274,7 @@ export async function sendPasswordReset(
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        from:    FROM_ADDRESS,
+        from:    fromAddress,
         to:      [email],
         subject: 'Reset Your SUMOSTA Password',
         html,

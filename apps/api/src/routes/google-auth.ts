@@ -55,7 +55,7 @@ app.get('/callback', async (c) => {
 
     if (tokens.error || !tokens.id_token) {
       console.error('[Google OAuth] Token exchange failed:', tokens.error, tokens.error_description);
-      return c.redirect(`${c.env.BASE_URL}/auth/login?error=google_failed`);
+      return c.redirect(`${c.env.BASE_URL}/auth/login?error=google_failed&reason=${encodeURIComponent(tokens.error ?? 'no_id_token')}&desc=${encodeURIComponent(tokens.error_description ?? '')}`);
     }
 
     // Decode the id_token JWT payload (we trust Google's signature — token came directly from their server)
@@ -87,8 +87,8 @@ app.get('/callback', async (c) => {
       // New user — create account (no password_hash needed for Google users)
       const id = generateId('usr');
       await c.env.DB.prepare(
-        'INSERT INTO users (id, name, email, google_id, role) VALUES (?, ?, ?, ?, ?)'
-      ).bind(id, name ?? email.split('@')[0], email, googleId, 'customer').run();
+        'INSERT INTO users (id, name, email, phone, password_hash, google_id, role) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(id, name ?? email.split('@')[0], email, `google:${googleId}`, '', googleId, 'customer').run();
       user = { id, name: name ?? email.split('@')[0], email, role: 'customer' };
     } else {
       // Existing email/password user — link their Google account
@@ -124,7 +124,7 @@ app.get('/callback', async (c) => {
     return c.redirect(`${c.env.BASE_URL}/auth/google-callback?${redirectParams}`);
   } catch (err) {
     console.error('[Google OAuth] Unexpected error:', err);
-    return c.redirect(`${c.env.BASE_URL}/auth/login?error=google_failed`);
+    return c.redirect(`${c.env.BASE_URL}/auth/login?error=google_failed&reason=${encodeURIComponent(String(err))}`);
   }
 });
 

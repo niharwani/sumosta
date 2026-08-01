@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 const SHOP_LINKS = [
   { label: 'All Products',       href: '/shop' },
@@ -99,16 +100,22 @@ export default function Footer() {
 
         {/* Certification logos row */}
         <div style={{ borderTop: '1px solid rgba(139,115,85,0.2)', paddingTop: '24px', marginBottom: '20px' }}>
-          <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8B7355', fontWeight: 600, margin: '0 0 12px' }}>Certified & Compliant</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
+          <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8B7355', fontWeight: 600, margin: '0 0 16px' }}>Certified & Compliant</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '28px', alignItems: 'center' }}>
             {[
-              { label: 'FSSAI', desc: 'Food Safety Certified' },
-              { label: 'Make in India', desc: '🇮🇳 Proudly Indian' },
-              { label: 'NPOP APEDA', desc: 'Organic Certified' },
-              { label: 'NABL', desc: 'Lab Tested' },
+              { src: '/images/brand/fssai-logo-freelogovectors.net_.png',          alt: 'FSSAI Registered',           desc: 'Food Safety Certified', w: 80, h: 36 },
+              { src: '/images/brand/make-in-india-logo-png_seeklogo-379725.png',   alt: 'Make in India',              desc: 'Proudly Indian',         w: 80, h: 36 },
+              { src: '/images/brand/Jaivik_Bharat_eng.png',                        alt: 'Jaivik Bharat / NPOP APEDA', desc: 'Organic Certified',       w: 56, h: 56 },
+              { src: '/images/brand/nabl-india-logo-png_seeklogo-96699.png',       alt: 'NABL ISO/IEC 17025',         desc: 'Lab Tested',              w: 56, h: 56 },
             ].map((cert) => (
-              <div key={cert.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFCC66', letterSpacing: '0.06em', border: '1px solid rgba(255,204,102,0.3)', borderRadius: '4px', padding: '3px 8px' }}>{cert.label}</span>
+              <div key={cert.alt} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                <Image
+                  src={cert.src}
+                  alt={cert.alt}
+                  width={cert.w}
+                  height={cert.h}
+                  style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.8 }}
+                />
                 <span style={{ fontSize: '9px', color: '#8B7355', letterSpacing: '0.04em' }}>{cert.desc}</span>
               </div>
             ))}

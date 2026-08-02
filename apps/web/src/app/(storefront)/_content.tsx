@@ -2,16 +2,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Leaf, ShieldCheck, Thermometer, BadgeCheck, Globe } from 'lucide-react';
 import { STATIC_PRODUCTS, BRAND_CONTENT } from '@/lib/content';
 
 const PRODUCTS = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon);
 
-const QUALITY_CLAIMS = [
-  { icon: '🍃', text: '100% Raw & Un-processed' },
-  { icon: '✓', text: '100% Pure, No Additives' },
-  { icon: '❄', text: 'Un-heated, Minimally Filtered' },
-  { icon: '🔬', text: 'NABL Lab Tested & NPOP APEDA Organic Certified' },
-  { icon: '🌳', text: 'Ethically Sourced from Pristine Indian Reserves' },
+const QUALITY_CLAIMS: { icon: React.ReactNode; text: string }[] = [
+  { icon: <Leaf size={14} strokeWidth={2.2} />, text: '100% Raw & Un-processed' },
+  { icon: <ShieldCheck size={14} strokeWidth={2.2} />, text: '100% Pure, No Additives' },
+  { icon: <Thermometer size={14} strokeWidth={2.2} />, text: 'Un-heated, Minimally Filtered' },
+  { icon: <BadgeCheck size={14} strokeWidth={2.2} />, text: 'NABL Lab Tested & NPOP APEDA Organic Certified' },
+  { icon: <Globe size={14} strokeWidth={2.2} />, text: 'Ethically Sourced from Pristine Indian Reserves' },
 ];
 
 const HERO_SLIDES = [
@@ -266,10 +267,9 @@ export default function HomeContent() {
         <div className="animate-sum-marquee" style={{ display: 'flex', whiteSpace: 'nowrap', width: 'max-content' }}>
           {[0, 1].map((r) =>
             QUALITY_CLAIMS.map((claim, i) => (
-              <span key={`${r}-${i}`} style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 600, color: '#FFFDF8', fontSize: '13px', letterSpacing: '0.04em', padding: '0 28px', display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '15px', lineHeight: 1 }}>{claim.icon}</span>
+              <span key={`${r}-${i}`} style={{ fontFamily: 'var(--font-satoshi), ui-sans-serif, system-ui, sans-serif', fontWeight: 600, color: '#FFFDF8', fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 24px', display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+                {claim.icon}
                 {claim.text}
-                <span style={{ width: '3px', height: '3px', background: 'rgba(255,253,248,0.5)', borderRadius: '50%', flexShrink: 0, marginLeft: '4px' }} />
               </span>
             ))
           )}
@@ -310,11 +310,16 @@ export default function HomeContent() {
                 <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#2C2417', margin: '0 0 6px' }}>{p.name}</h3>
                 {sizeLabel && <p style={{ fontSize: '11px', color: '#8B7355', margin: '0 0 6px' }}>{sizeLabel}</p>}
                 {/* MRP strikethrough + Selling price */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   {displayMrp && displayMrp > displayPrice && (
                     <span style={{ fontSize: '13px', color: '#C4B39A', textDecoration: 'line-through' }}>₹{displayMrp}</span>
                   )}
-                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#D4891A' }}>₹{displayPrice}</span>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#D4891A' }}>
+                    ₹{displayPrice}
+                    {p.variants && p.variants.length > 1 && (
+                      <span style={{ fontSize: '11px', fontWeight: 500, color: '#8B7355', marginLeft: '3px' }}>onwards</span>
+                    )}
+                  </span>
                   {displaySave && (
                     <span style={{ fontSize: '10px', background: '#FFF0D6', color: '#A66A10', borderRadius: '4px', padding: '2px 6px', fontWeight: 700 }}>
                       SAVE {displaySave}%

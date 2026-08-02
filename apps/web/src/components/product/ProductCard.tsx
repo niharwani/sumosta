@@ -16,10 +16,17 @@ interface ProductCardProps {
 export default function ProductCard({ product, index = 0, className, featured = false }: ProductCardProps) {
   const isOutOfStock  = product.stock === 0;
   const primaryImage  = product.images?.find((img) => img.isPrimary)?.url ?? product.images?.[0]?.url;
-  const hasDiscount   = product.compareAtPrice != null && product.compareAtPrice > product.price;
-  const discountPct   = hasDiscount
-    ? Math.round(100 - (product.price / product.compareAtPrice!) * 100)
+
+  const lowestVariant   = product.variants?.length ? product.variants[0] : null;
+  const displayPrice    = lowestVariant ? product.price + lowestVariant.priceAdjust : product.price;
+  const displayMrp      = lowestVariant && (lowestVariant as any).compareAtPriceAdjust != null
+    ? (product.compareAtPrice ?? 0) + (lowestVariant as any).compareAtPriceAdjust
+    : product.compareAtPrice;
+  const hasDiscount     = displayMrp != null && displayMrp > displayPrice;
+  const discountPct     = hasDiscount
+    ? Math.round(100 - (displayPrice / displayMrp!) * 100)
     : null;
+  const hasMultipleSizes = product.variants && product.variants.length > 1;
 
   return (
     <div className={`group flex flex-col h-full ${className ?? ''}`}>
@@ -96,15 +103,18 @@ export default function ProductCard({ product, index = 0, className, featured = 
           </h3>
 
           {/* Price row */}
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="font-clash font-medium text-honey-500 text-base">
-              {formatPrice(product.price)}
-            </span>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {hasDiscount && (
               <span className="font-jakarta text-earth-light text-xs line-through">
-                {formatPrice(product.compareAtPrice!)}
+                {formatPrice(displayMrp!)}
               </span>
             )}
+            <span className="font-clash font-medium text-honey-500 text-base">
+              {formatPrice(displayPrice)}
+              {hasMultipleSizes && (
+                <span className="font-jakarta text-earth text-[11px] font-normal ml-0.5">onwards</span>
+              )}
+            </span>
           </div>
 
         </div>

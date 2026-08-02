@@ -1,10 +1,24 @@
 import { create } from 'zustand';
 import type { CartItem, Coupon, Product, ProductVariant } from 'shared';
 
+// Coupon stacking rules:
+// - PREPAID5 (5% prepaid): always applicable, never blocked by count limits
+// - isFirstOrderOnly coupons (e.g. WELCOME10): validated server-side via order history
+// - With a first-order coupon applied: max 3 total; otherwise max 2
+
+export const MAX_COUPONS_DEFAULT = 2;
+export const MAX_COUPONS_WITH_FIRST_ORDER = 3;
+export const PREPAID_COUPON_CODE = 'PREPAID5';
+
+export interface CouponDiscount {
+  code: string;
+  amount: number;
+}
+
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
-  coupon: Coupon | null;
+  coupons: Coupon[];
 }
 
 interface CartDerived {
@@ -13,6 +27,7 @@ interface CartDerived {
   shipping: number;
   total: number;
   itemCount: number;
+  couponDiscounts: CouponDiscount[];
 }
 
 interface CartActions {
@@ -26,8 +41,8 @@ interface CartActions {
   removeItem: (productId: string, variantId?: string | null) => void;
   updateQuantity: (productId: string, variantId: string | null, quantity: number) => void;
   clearCart: () => void;
-  applyCoupon: (coupon: Coupon) => void;
-  removeCoupon: () => void;
+  addCoupon: (coupon: Coupon) => void;
+  removeCoupon: (code: string) => void;
   openCart: () => void;
   closeCart: () => void;
 }
@@ -39,41 +54,51 @@ function computeUnitPrice(
   return product.price + (variant?.priceAdjust ?? 0);
 }
 
-function computeDerived(items: CartItem[], coupon: Coupon | null): CartDerived {
+function computeDerived(items: CartItem[], coupons: Coupon[]): CartDerived {
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  let discount = 0;
-  if (coupon) {
-    if (coupon.type === 'percentage') {
-      discount = Math.round((subtotal * coupon.value) / 100);
-    } else {
-      discount = coupon.value;
-    }
-    if (coupon.minOrderAmount && subtotal < coupon.minOrderAmount) {
-      discount = 0;
-    }
+  const couponDiscounts: CouponDiscount[] = [];
+  let totalDiscount = 0;
+
+  for (const coupon of coupons) {
+    const meetsMinimum = !coupon.minOrderAmount || subtotal >= coupon.minOrderAmount;
+    if (!meetsMinimum) continue;
+
+    const amount =
+      coupon.type === 'percentage'
+        ? Math.round((subtotal * coupon.value) / 100)
+        : coupon.value;
+
+    couponDiscounts.push({ code: coupon.code, amount });
+    totalDiscount += amount;
   }
 
+  const discount = totalDiscount;
   const afterDiscount = Math.max(0, subtotal - discount);
-  const shipping = afterDiscount >= 499 ? 0 : 99;
+  const shipping = afterDiscount >= 499 ? 0 : 49;
   const total = afterDiscount + shipping;
 
-  return { subtotal, discount, shipping, total, itemCount };
+  return { subtotal, discount, shipping, total, itemCount, couponDiscounts };
 }
 
 type CartStore = CartState & CartDerived & CartActions;
 
+const DERIVED_ZERO: CartDerived = {
+  subtotal: 0,
+  discount: 0,
+  shipping: 49,
+  total: 49,
+  itemCount: 0,
+  couponDiscounts: [],
+};
+
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
   isOpen: false,
-  coupon: null,
+  coupons: [],
 
-  subtotal: 0,
-  discount: 0,
-  shipping: 99,
-  total: 99,
-  itemCount: 0,
+  ...DERIVED_ZERO,
 
   addItem: (productId, variantId, quantity, product, variant) => {
     set((state) => {
@@ -104,7 +129,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         newItems = [...state.items, newItem];
       }
 
-      return { items: newItems, ...computeDerived(newItems, state.coupon) };
+      return { items: newItems, ...computeDerived(newItems, state.coupons) };
     });
   },
 
@@ -113,7 +138,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       const newItems = state.items.filter(
         (i) => !(i.productId === productId && i.variantId === (variantId ?? null)),
       );
-      return { items: newItems, ...computeDerived(newItems, state.coupon) };
+      return { items: newItems, ...computeDerived(newItems, state.coupons) };
     });
   },
 
@@ -128,26 +153,27 @@ export const useCartStore = create<CartStore>((set, get) => ({
           ? { ...i, quantity, lineTotal: i.unitPrice * quantity }
           : i,
       );
-      return { items: newItems, ...computeDerived(newItems, state.coupon) };
+      return { items: newItems, ...computeDerived(newItems, state.coupons) };
     });
   },
 
   clearCart: () => {
-    set({ items: [], coupon: null, ...computeDerived([], null) });
+    set({ items: [], coupons: [], ...DERIVED_ZERO });
   },
 
-  applyCoupon: (coupon) => {
-    set((state) => ({
-      coupon,
-      ...computeDerived(state.items, coupon),
-    }));
+  addCoupon: (coupon) => {
+    set((state) => {
+      if (state.coupons.some((c) => c.code === coupon.code)) return state;
+      const newCoupons = [...state.coupons, coupon];
+      return { coupons: newCoupons, ...computeDerived(state.items, newCoupons) };
+    });
   },
 
-  removeCoupon: () => {
-    set((state) => ({
-      coupon: null,
-      ...computeDerived(state.items, null),
-    }));
+  removeCoupon: (code) => {
+    set((state) => {
+      const newCoupons = state.coupons.filter((c) => c.code !== code);
+      return { coupons: newCoupons, ...computeDerived(state.items, newCoupons) };
+    });
   },
 
   openCart: () => set({ isOpen: true }),

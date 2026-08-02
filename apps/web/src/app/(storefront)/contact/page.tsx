@@ -42,7 +42,7 @@ const CONTACT_INFO = [
   {
     icon: MapPin,
     label: 'Office & Storage',
-    value: 'Office no. 6, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai - 400009, India',
+    value: 'Office no. 49, 5th floor, Steel Yard House, 67F, Sant Tukaram Road, Masjid Bunder (East), Mumbai - 400009, India',
     href: null,
   },
 ];

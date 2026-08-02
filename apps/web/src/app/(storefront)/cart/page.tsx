@@ -15,7 +15,8 @@ export default function CartPage() {
     shipping,
     total,
     itemCount,
-    coupon,
+    coupons,
+    couponDiscounts,
     updateQuantity,
     removeItem,
   } = useCartStore();
@@ -395,21 +396,22 @@ export default function CartPage() {
                   <span>{formatPrice(subtotal)}</span>
                 </div>
 
-                {coupon && discount > 0 && (
+                {couponDiscounts.map((cd) => (
                   <div
+                    key={cd.code}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       fontFamily: 'var(--font-manrope), sans-serif',
                       fontSize: '14px',
-                      color: '#7C9A6E',
+                      color: '#4A8F4A',
                       fontWeight: 600,
                     }}
                   >
-                    <span>Discount ({coupon.code})</span>
-                    <span>−{formatPrice(discount)}</span>
+                    <span>Discount ({cd.code})</span>
+                    <span>−{formatPrice(cd.amount)}</span>
                   </div>
-                )}
+                ))}
 
                 <div
                   style={{

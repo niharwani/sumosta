@@ -46,7 +46,7 @@ export default function RefundPage() {
             <li>
               In case of returns, please note that returns will need to be sent to the following address:
               <div className="bg-white border border-[#E5E7EB] p-4 rounded-xl mt-2 font-mono text-xs">
-                Office no.6, 3rd Floor, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai – 400009.
+                Office no. 49, 5th floor, Steel Yard House, 67F, Sant Tukaram Road, Masjid Bunder (East), Mumbai - 400009.
               </div>
             </li>
           </ol>

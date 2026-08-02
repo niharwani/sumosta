@@ -13,7 +13,7 @@ export const SITE_CONFIG = {
 export const NAV_LINKS = [
   { href: '/',                  label: 'Home' },
   { href: '/shop',              label: 'Shop' },
-  { href: '/shop/gift-boxes',   label: 'Gift Boxes' },
+  { href: '/gifting',            label: 'Gift Bundles' },
   { href: '/about',             label: 'Our Story' },
   { href: '/evidence-hub',      label: 'Evidence Hub' },
 ] as const;
@@ -22,6 +22,7 @@ export const FOOTER_LINKS = {
   shop: [
     { href: '/shop/raw-honey',        label: 'Raw Honey' },
     { href: '/shop/gift-boxes',       label: 'Gift Boxes & Combos' },
+    { href: '/gifting',              label: 'Corporate Gifting' },
   ],
   company: [
     { href: '/about',   label: 'Our Story' },

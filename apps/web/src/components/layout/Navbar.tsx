@@ -6,14 +6,7 @@ import { ShoppingCart } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUIStore } from '@/stores/ui-store';
-
-const NAV_LINKS = [
-  { label: 'Home',         href: '/' },
-  { label: 'Shop',         href: '/shop' },
-  { label: 'Gift Boxes',   href: '/shop/gift-boxes' },
-  { label: 'Our Story',    href: '/about' },
-  { label: 'Evidence Hub', href: '/evidence-hub' },
-];
+import { NAV_LINKS } from '@/lib/constants';
 
 export default function Navbar() {
   const pathname = usePathname();

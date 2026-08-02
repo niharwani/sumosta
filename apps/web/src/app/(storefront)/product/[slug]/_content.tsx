@@ -266,7 +266,7 @@ export default function ProductContent({ slug }: { slug: string }) {
                   <div key={a.title} style={{ borderBottom: '1px solid #F0E6D3' }}>
                     <button onClick={() => toggleAccordion(i)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: '16px 0', cursor: 'pointer', textAlign: 'left' }}>
                       <span style={{ fontWeight: 700, fontSize: '14px', color: '#2C2417' }}>
-                        {isBenefits ? '✦ ' : isHowToUse ? '● ' : ''}{a.title}
+                        {a.title}
                       </span>
                       <span style={{ fontSize: '18px', color: '#8B7355', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease', display: 'inline-block' }}>›</span>
                     </button>
@@ -278,7 +278,14 @@ export default function ProductContent({ slug }: { slug: string }) {
                             return (
                               <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                                 <span style={{ fontSize: icon === '→' ? '14px' : '16px', lineHeight: 1.4, flexShrink: 0, marginTop: '2px' }}>{icon}</span>
-                                <span style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32' }}>{item}</span>
+                                <span style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32' }}>
+                                  {isHowToUse && item.includes(':') ? (
+                                    <>
+                                      <strong style={{ fontWeight: 700, color: '#2C2417' }}>{item.substring(0, item.indexOf(':'))}</strong>
+                                      {item.substring(item.indexOf(':'))}
+                                    </>
+                                  ) : item}
+                                </span>
                               </div>
                             );
                           })}

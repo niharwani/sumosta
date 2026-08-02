@@ -2,32 +2,52 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../index';
+import { verifyJwt } from '../lib/jwt';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
 const validateSchema = z.object({
   code:      z.string().min(1),
   cartTotal: z.number().positive(),
+  cartItems: z.array(z.object({ name: z.string(), quantity: z.number().int().positive() })).optional(),
 });
+
+const COMBO_KEYWORDS = ['duo', 'trio', 'pack', 'combo', 'gift', 'bundle', 'collection', 'set'];
+
+function isComboEligible(items: { name: string; quantity: number }[]): boolean {
+  if (items.length >= 2) return true;
+  return items.some((i) => COMBO_KEYWORDS.some((kw) => i.name.toLowerCase().includes(kw)));
+}
 
 // ─── POST /api/coupons/validate ──────────────────────────────
 app.post('/validate', zValidator('json', validateSchema), async (c) => {
-  const { code, cartTotal } = c.req.valid('json');
+  const { code, cartTotal, cartItems } = c.req.valid('json');
 
   const coupon = await c.env.DB.prepare(`
     SELECT id, code, type, value, min_order_amount, max_usage, usage_count,
-           is_first_order_only, expires_at
+           is_first_order_only, is_active, expires_at
     FROM coupons
     WHERE code = ? AND is_active = 1
   `).bind(code.toUpperCase())
     .first<{
       id: string; code: string; type: 'percentage' | 'fixed';
       value: number; min_order_amount: number | null; max_usage: number | null;
-      usage_count: number; is_first_order_only: number; expires_at: string | null;
+      usage_count: number; is_first_order_only: number; is_active: number;
+      expires_at: string | null;
     }>();
 
   if (!coupon) {
     return c.json({ success: true, data: { valid: false, error: 'Invalid or expired coupon code' } });
+  }
+
+  // Check expiry
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+    return c.json({ success: true, data: { valid: false, error: 'This coupon has expired' } });
+  }
+
+  // Check usage limit
+  if (coupon.max_usage && coupon.usage_count >= coupon.max_usage) {
+    return c.json({ success: true, data: { valid: false, error: 'Coupon has reached its usage limit' } });
   }
 
   // Check minimum order amount
@@ -36,35 +56,82 @@ app.post('/validate', zValidator('json', validateSchema), async (c) => {
       success: true,
       data: {
         valid: false,
-        error: `Minimum order of ₹${coupon.min_order_amount} required for this coupon`,
+        error: `Minimum order of ₹${coupon.min_order_amount} required for ${coupon.code}`,
       },
     });
   }
 
-  // Check usage limit
-  if (coupon.max_usage && coupon.usage_count >= coupon.max_usage) {
-    return c.json({ success: true, data: { valid: false, error: 'Coupon has reached its usage limit' } });
+  // Combo-only check
+  if (coupon.code === 'COMBO10') {
+    const items = cartItems ?? [];
+    if (!isComboEligible(items)) {
+      return c.json({
+        success: true,
+        data: {
+          valid: false,
+          error: 'COMBO10 applies to 2+ products or combo/gift products (Duo, Trio, Pack, etc.)',
+        },
+      });
+    }
   }
 
-  // Check expiry
-  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-    return c.json({ success: true, data: { valid: false, error: 'Coupon has expired' } });
+  // First-order-only check — requires authenticated user with no prior paid orders
+  if (coupon.is_first_order_only) {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({
+        success: true,
+        data: { valid: false, error: 'Please log in to use this coupon' },
+      });
+    }
+
+    let userId: string;
+    try {
+      const payload = await verifyJwt(authHeader.slice(7), c.env.JWT_SECRET);
+      userId = payload.sub as string;
+    } catch {
+      return c.json({
+        success: true,
+        data: { valid: false, error: 'Please log in to use this coupon' },
+      });
+    }
+
+    // Check if the user has any previously paid orders
+    const previousOrder = await c.env.DB.prepare(`
+      SELECT id FROM orders
+      WHERE user_id = ? AND payment_status = 'captured'
+      LIMIT 1
+    `).bind(userId).first<{ id: string }>();
+
+    if (previousOrder) {
+      return c.json({
+        success: true,
+        data: { valid: false, error: `${coupon.code} is for first-time customers only` },
+      });
+    }
   }
 
-  const discount = coupon.type === 'percentage'
-    ? Math.round(cartTotal * (coupon.value / 100) * 100) / 100
-    : Math.min(coupon.value, cartTotal);
+  const discount =
+    coupon.type === 'percentage'
+      ? Math.round((cartTotal * coupon.value) / 100)
+      : Math.min(coupon.value, cartTotal);
 
   return c.json({
     success: true,
     data: {
-      valid:    true,
+      valid: true,
       discount,
       coupon: {
-        id:    coupon.id,
-        code:  coupon.code,
-        type:  coupon.type,
-        value: coupon.value,
+        id:               coupon.id,
+        code:             coupon.code,
+        type:             coupon.type,
+        value:            coupon.value,
+        minOrderAmount:   coupon.min_order_amount,
+        maxUsage:         coupon.max_usage,
+        usageCount:       coupon.usage_count,
+        isFirstOrderOnly: coupon.is_first_order_only === 1,
+        isActive:         true,
+        expiresAt:        coupon.expires_at,
       },
     },
   });

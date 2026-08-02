@@ -60,7 +60,7 @@ export default function ConnectWithUs() {
                 <div className="pt-3 border-t border-sand/40">
                   <p className="text-earth-light uppercase text-[10px] tracking-wider font-semibold">Office & Storage POB</p>
                   <p className="mt-1 text-bark/90">
-                    Office no.6, Lalji Ramji Building, Bhat Bazar, Chinch Bunder, Mandvi, Mumbai - 400009
+                    Office no. 49, 5th floor, Steel Yard House, 67F, Sant Tukaram Road, Masjid Bunder (East), Mumbai - 400009
                   </p>
                 </div>
               </div>

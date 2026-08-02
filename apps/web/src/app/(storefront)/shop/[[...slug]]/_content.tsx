@@ -133,9 +133,18 @@ export default function ShopContent() {
                   </div>
                   <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B39A', margin: '0 0 4px' }}>{p.category?.name ?? ''}</p>
                   <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#2C2417', margin: '0 0 6px' }}>{p.name}</h3>
-                  <p style={{ fontSize: '14px', fontWeight: 700, color: '#D4891A', margin: 0 }}>
-                    ₹{p.price}
-                    {p.compareAtPrice && <span style={{ fontSize: '12px', color: '#C4B39A', textDecoration: 'line-through', fontWeight: 500, marginLeft: '6px' }}>₹{p.compareAtPrice}</span>}
+                  <p style={{ fontSize: '14px', fontWeight: 700, color: '#D4891A', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    {(() => {
+                      const v0 = p.variants?.[0];
+                      const sp = v0 ? p.price + (v0 as any).priceAdjust : p.price;
+                      const mrp = v0 && (v0 as any).compareAtPriceAdjust != null ? (p.compareAtPrice ?? 0) + (v0 as any).compareAtPriceAdjust : p.compareAtPrice;
+                      return (
+                        <>
+                          {mrp && mrp > sp && <span style={{ fontSize: '12px', color: '#C4B39A', textDecoration: 'line-through', fontWeight: 500 }}>₹{mrp}</span>}
+                          <span>₹{sp}{p.variants && p.variants.length > 1 && <span style={{ fontSize: '11px', color: '#8B7355', fontWeight: 500, marginLeft: '2px' }}>onwards</span>}</span>
+                        </>
+                      );
+                    })()}
                   </p>
                 </Link>
               );

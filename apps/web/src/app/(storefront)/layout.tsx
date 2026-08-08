@@ -8,6 +8,9 @@ import AuthInit from '@/components/providers/AuthInit';
 export default function StorefrontLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
       <AuthInit />
       <header className="fixed top-0 left-0 right-0 z-50">
         <AnnouncementBar />
@@ -15,7 +18,13 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       </header>
       <MobileMenu />
       <CartDrawer />
-      <main>{children}</main>
+      <main
+        id="main-content"
+        role="main"
+        className="pt-[var(--header-height)]"
+      >
+        {children}
+      </main>
       <Footer />
     </>
   );

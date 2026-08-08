@@ -1,83 +1,127 @@
 'use client';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useParams } from 'next/navigation';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Check, Package, ShoppingBag, X } from 'lucide-react';
 import { STATIC_PRODUCTS } from '@/lib/content';
+import { useProductImages, resolveProductImage } from '@/hooks/useProductImages';
+import { useCartStore } from '@/stores/cart-store';
+import { formatPrice } from '@/lib/utils';
+import { HONEY_EASE_OUT } from '@/lib/animations';
+import HoneycombLoader from '@/components/shared/HoneycombLoader';
 
 const ACTIVE_PRODUCTS = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon);
 
-const CATEGORIES = ['All', 'Raw Honey', 'Gift Boxes & Combos'];
+// Categories aligned with CATEGORIES in lib/constants.ts (raw-honey, gift-boxes)
+// and with STATIC_PRODUCTS.categoryId (cat_raw_honey, cat_gift_boxes).
+const CATEGORIES = [
+  { label: 'All',                   categoryId: null },
+  { label: 'Raw Honey',             categoryId: 'cat_raw_honey' },
+  { label: 'Gift Boxes & Combos',   categoryId: 'cat_gift_boxes' },
+] as const;
 
-const SLUG_TO_CATEGORY: Record<string, string> = {
-  'raw-honey': 'Raw Honey',
-  'gift-boxes': 'Gift Boxes & Combos',
+const SLUG_TO_CATEGORY_ID: Record<string, string> = {
+  'raw-honey': 'cat_raw_honey',
+  'gift-boxes': 'cat_gift_boxes',
 };
 
 export default function ShopContent() {
   const params = useParams<{ slug?: string[] }>();
-  const slugCat = params.slug?.[0] ? SLUG_TO_CATEGORY[params.slug[0]] ?? 'All' : 'All';
+  const slugCatId = params.slug?.[0] ? SLUG_TO_CATEGORY_ID[params.slug[0]] ?? null : null;
 
-  const [category, setCategory] = useState(slugCat);
-  const [sort, setSort] = useState('featured');
+  const [categoryId, setCategoryId] = useState<string | null>(slugCatId);
+  const [sort, setSort] = useState<'featured' | 'price_asc' | 'price_desc'>('featured');
   const [transitioning, setTransitioning] = useState(false);
   const [filterStuck, setFilterStuck] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [addedId, setAddedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const dbImages = useProductImages();
+  const addItem = useCartStore((s) => s.addItem);
   const filterTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const reduce = useReducedMotion();
 
   useEffect(() => {
-    const onScroll = () => {
-      setFilterStuck(window.scrollY > 190);
-      document.querySelectorAll('[data-reveal]').forEach((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.top < window.innerHeight * 0.92 && r.bottom > 0) el.classList.add('revealed');
-      });
-    };
+    // Data is static — brief skeleton for perceived weight then reveal
+    const t = setTimeout(() => setLoading(false), 120);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setFilterStuck(window.scrollY > 120);
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const changeCategory = useCallback((cat: string) => {
+  const changeCategory = useCallback((catId: string | null) => {
     setTransitioning(true);
     clearTimeout(filterTimeout.current);
     filterTimeout.current = setTimeout(() => {
-      setCategory(cat);
+      setCategoryId(catId);
       setTransitioning(false);
     }, 180);
   }, []);
 
   const filtered = (() => {
     let list = [...ACTIVE_PRODUCTS];
-    if (category === 'Raw Honey') {
-      list = list.filter((p) => p.categoryId === 'cat_raw_honey');
-    } else if (category === 'Gift Boxes & Combos') {
-      list = list.filter((p) => p.categoryId !== 'cat_raw_honey');
-    }
+    if (categoryId) list = list.filter((p) => p.categoryId === categoryId);
     if (sort === 'price_asc') list.sort((a, b) => a.price - b.price);
     if (sort === 'price_desc') list.sort((a, b) => b.price - a.price);
     return list;
   })();
 
-  const activeLabel = category === 'All' ? '' : category;
+  const activeCat = CATEGORIES.find((c) => c.categoryId === categoryId);
+  const activeLabel = activeCat && activeCat.categoryId ? activeCat.label : '';
+
+  const handleQuickAdd = useCallback(
+    (e: React.MouseEvent, p: (typeof ACTIVE_PRODUCTS)[number]) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const variant = p.variants?.[0] ?? null;
+      addItem(
+        p.id,
+        variant?.id ?? null,
+        1,
+        { id: p.id, name: p.name, slug: p.slug, price: p.price, images: p.images ?? [], stock: p.stock ?? 99 },
+        variant,
+      );
+      setAddedId(p.id);
+      setTimeout(() => setAddedId((prev) => (prev === p.id ? null : prev)), 1600);
+    },
+    [addItem],
+  );
 
   return (
-    <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
-
+    <div className="bg-cream text-charcoal min-h-screen">
       {/* Page header */}
-      <section style={{ padding: '150px 24px 40px', maxWidth: '1400px', margin: '0 auto' }}>
-        <p style={{ fontSize: '13px', color: '#C4B39A', margin: '0 0 12px' }}>
-          <Link href="/" style={{ color: '#C4B39A', textDecoration: 'none' }}>Home</Link> / Shop
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+      <section className="max-w-content mx-auto px-6 md:px-8 pt-8 md:pt-12 pb-10">
+        <nav aria-label="Breadcrumb" className="mb-3">
+          <ol className="flex items-center gap-1.5 font-satoshi text-xs text-earth-light">
+            <li>
+              <Link href="/" className="hover:text-honey-500 transition-colors">Home</Link>
+            </li>
+            <li aria-hidden>/</li>
+            <li className="text-earth">Shop</li>
+          </ol>
+        </nav>
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,4vw,3rem)', color: '#2C2417', margin: '0 0 8px' }}>The Collection</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <p style={{ fontFamily: 'var(--font-instrument), serif', fontStyle: 'italic', fontSize: '18px', color: '#8B7355', margin: 0 }}>
+            <h1 className="font-clash font-extrabold text-charcoal text-4xl md:text-5xl mb-2">The Collection</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="font-bespoke italic text-earth text-base md:text-lg m-0">
                 Showing {filtered.length} products{activeLabel ? ` in ${activeLabel}` : ''}
               </p>
               {activeLabel && (
-                <button onClick={() => changeCategory('All')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFF0D6', color: '#A66A10', fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '999px', border: 'none', cursor: 'pointer' }}>
-                  {activeLabel} ✕
+                <button
+                  onClick={() => changeCategory(null)}
+                  className="inline-flex items-center gap-1.5 bg-honey-100 text-honey-600 font-satoshi text-xs font-bold px-3 py-1.5 rounded-full hover:bg-honey-200 transition-colors min-h-[32px]"
+                  aria-label={`Clear ${activeLabel} filter`}
+                >
+                  {activeLabel} <X size={12} aria-hidden />
                 </button>
               )}
             </div>
@@ -86,85 +130,186 @@ export default function ShopContent() {
       </section>
 
       {/* Sticky filter bar */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(255,253,248,0.96)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #F0E6D3', padding: '14px 24px', boxShadow: filterStuck ? '0 4px 16px rgba(44,36,23,0.07)' : 'none', transition: 'box-shadow 0.3s ease' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+      <div
+        className={`sticky top-[var(--header-height)] z-40 bg-cream/95 backdrop-blur-md border-b border-sand transition-shadow duration-300 ${
+          filterStuck ? 'shadow-sm' : ''
+        }`}
+      >
+        <div className="max-w-content mx-auto px-6 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2 overflow-x-auto scrollbar-none">
             {CATEGORIES.map((cat) => {
-              const active = cat === category;
+              const active = cat.categoryId === categoryId;
               return (
-                <button key={cat} onClick={() => changeCategory(cat)} style={{ padding: '8px 18px', borderRadius: '999px', border: active ? '1px solid #F5A623' : '1px solid #F0E6D3', background: active ? '#F5A623' : '#FFFDF8', color: active ? '#1A150E' : '#5C4A32', fontSize: '13px', fontWeight: active ? 700 : 500, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s ease' }}>
-                  {cat}
+                <button
+                  key={cat.label}
+                  onClick={() => changeCategory(cat.categoryId)}
+                  aria-pressed={active}
+                  className={`px-4 py-2 rounded-full text-sm font-satoshi transition-all whitespace-nowrap min-h-[44px] border ${
+                    active
+                      ? 'bg-honey-400 text-charcoal border-honey-400 font-bold'
+                      : 'bg-cream text-bark border-sand hover:border-honey-400 font-medium'
+                  }`}
+                >
+                  {cat.label}
                 </button>
               );
             })}
           </div>
-          <div style={{ position: 'relative' }}>
-            <select value={sort} onChange={(e) => setSort(e.target.value)} style={{ appearance: 'none', padding: '10px 34px 10px 16px', borderRadius: '8px', border: '1px solid #F0E6D3', background: '#FFFDF8', fontSize: '13px', color: '#5C4A32', fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
+          <div className="relative">
+            <label htmlFor="shop-sort" className="sr-only">Sort products</label>
+            <select
+              id="shop-sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as typeof sort)}
+              className="appearance-none pr-9 pl-4 py-2 rounded-lg border border-sand bg-cream text-bark text-sm font-satoshi font-semibold cursor-pointer focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-400/30 transition-all min-h-[44px]"
+            >
               <option value="featured">Sort: Featured</option>
               <option value="price_asc">Price: Low to High</option>
               <option value="price_desc">Price: High to Low</option>
             </select>
-            <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#8B7355', fontSize: '10px' }}>▾</span>
+            <span aria-hidden className="absolute right-3 top-1/2 -translate-y-1/2 text-earth text-[10px] pointer-events-none">
+              ▾
+            </span>
           </div>
         </div>
       </div>
 
       {/* Product grid */}
-      <section style={{ padding: '48px 24px 96px', maxWidth: '1400px', margin: '0 auto' }}>
-        {filtered.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '24px', opacity: transitioning ? 0 : 1, transition: 'opacity 0.18s ease' }} className="sum-shop-grid">
-            {filtered.map((p) => {
-              const hovered = hoveredId === p.id;
-              return (
-                <Link
-                  key={p.id}
-                  href={`/product/${p.slug}`}
-                  data-reveal
-                  onMouseEnter={() => setHoveredId(p.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  style={{ display: 'block', textDecoration: 'none' }}
-                >
-                  <div style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '12px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 14px,#FFF9F0 14px,#FFF9F0 28px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '12px', transform: hovered ? 'scale(1.02)' : 'scale(1)', boxShadow: hovered ? '0 16px 32px rgba(212,137,26,0.18)' : 'none', transition: 'transform 0.4s cubic-bezier(.16,1,.3,1), box-shadow 0.4s ease' }}>
-                    {p.compareAtPrice && (
-                      <span style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: '#C4573A', color: '#FDE8E3', fontSize: '10px', fontWeight: 700, padding: '4px 8px', borderRadius: '4px' }}>SALE</span>
-                    )}
-                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '10px', letterSpacing: '0.06em', color: '#8B7355', textTransform: 'uppercase', padding: '0 16px' }}>product photo<br />{p.name}</span>
-                    <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#F5A623', color: '#1A150E', fontSize: '12px', fontWeight: 700, padding: '12px', textAlign: 'center', transform: hovered ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.3s cubic-bezier(.16,1,.3,1)', zIndex: 2 }}>Quick Add</span>
-                  </div>
-                  <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B39A', margin: '0 0 4px' }}>{p.category?.name ?? ''}</p>
-                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#2C2417', margin: '0 0 6px' }}>{p.name}</h3>
-                  <p style={{ fontSize: '14px', fontWeight: 700, color: '#D4891A', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    {(() => {
-                      const v0 = p.variants?.[0];
-                      const sp = v0 ? p.price + (v0 as any).priceAdjust : p.price;
-                      const mrp = v0 && (v0 as any).compareAtPriceAdjust != null ? (p.compareAtPrice ?? 0) + (v0 as any).compareAtPriceAdjust : p.compareAtPrice;
-                      return (
-                        <>
-                          {mrp && mrp > sp && <span style={{ fontSize: '12px', color: '#C4B39A', textDecoration: 'line-through', fontWeight: 500 }}>₹{mrp}</span>}
-                          <span>₹{sp}{p.variants && p.variants.length > 1 && <span style={{ fontSize: '11px', color: '#8B7355', fontWeight: 500, marginLeft: '2px' }}>onwards</span>}</span>
-                        </>
-                      );
-                    })()}
-                  </p>
-                </Link>
-              );
-            })}
+      <section className="max-w-content mx-auto px-6 md:px-8 pt-10 pb-24">
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <HoneycombLoader size="lg" />
           </div>
+        ) : filtered.length > 0 ? (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${categoryId ?? 'all'}-${sort}`}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: transitioning ? 0 : 1 }}
+              exit={reduce ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.25, ease: HONEY_EASE_OUT }}
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6"
+            >
+              {filtered.map((p, idx) => {
+                const hovered = hoveredId === p.id;
+                const added = addedId === p.id;
+                const v0 = p.variants?.[0];
+                const sp = v0 ? p.price + v0.priceAdjust : p.price;
+                const mrp = v0 && (v0 as any).compareAtPriceAdjust != null
+                  ? (p.compareAtPrice ?? 0) + (v0 as any).compareAtPriceAdjust
+                  : p.compareAtPrice;
+                const src = resolveProductImage(dbImages, p.id, p.images?.[0]?.url);
+                return (
+                  <motion.div
+                    key={p.id}
+                    initial={reduce ? false : { opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.5,
+                      delay: reduce ? 0 : Math.min(idx * 0.04, 0.28),
+                      ease: HONEY_EASE_OUT,
+                    }}
+                  >
+                    <Link
+                      href={`/product/${p.slug}`}
+                      onMouseEnter={() => setHoveredId(p.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      className="block group"
+                    >
+                      <div
+                        className={`relative aspect-[3/4] rounded-xl overflow-hidden bg-cream-warm border border-sand mb-3 transition-all duration-500 ease-out ${
+                          hovered ? 'shadow-honey scale-[1.02]' : ''
+                        }`}
+                      >
+                        {p.compareAtPrice && (
+                          <span className="absolute top-2.5 right-2.5 z-10 bg-terracotta text-terracotta-light font-satoshi text-[10px] font-bold px-2 py-0.5 rounded">
+                            SALE
+                          </span>
+                        )}
+                        {src ? (
+                          <Image
+                            src={src}
+                            alt={p.images?.[0]?.altText || p.name}
+                            fill
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-earth-light">
+                            <Package size={40} strokeWidth={1.25} aria-hidden />
+                          </div>
+                        )}
+                        {/* Quick Add */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickAdd(e, p)}
+                          aria-label={added ? `${p.name} added` : `Quick add ${p.name} to cart`}
+                          className={`absolute inset-x-0 bottom-0 bg-honey-500 hover:bg-honey-600 text-cream font-satoshi text-xs font-bold py-3 flex items-center justify-center gap-2 transition-transform duration-300 ease-out min-h-[44px] ${
+                            hovered ? 'translate-y-0' : 'translate-y-full'
+                          }`}
+                        >
+                          {added ? (
+                            <>
+                              <Check size={13} aria-hidden />
+                              <span>Added</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag size={13} aria-hidden />
+                              <span>Quick Add</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className="font-satoshi text-[10px] uppercase tracking-[0.14em] text-earth-light mb-1">
+                        {p.category?.name ?? ''}
+                      </p>
+                      <h3 className="font-satoshi text-[15px] font-semibold text-charcoal mb-1.5 group-hover:text-honey-600 transition-colors">
+                        {p.name}
+                      </h3>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        {mrp && mrp > sp && (
+                          <span className="font-satoshi text-xs text-earth-light line-through">
+                            {formatPrice(mrp)}
+                          </span>
+                        )}
+                        <span className="font-clash font-medium text-honey-500 text-base">
+                          {formatPrice(sp)}
+                          {p.variants && p.variants.length > 1 && (
+                            <span className="font-satoshi text-earth text-[11px] font-normal ml-0.5">
+                              onwards
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
         ) : (
-          <div style={{ textAlign: 'center', padding: '80px 24px' }}>
-            <div style={{ width: '88px', height: '88px', borderRadius: '999px', background: '#FDF6EC', margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>🍯</div>
-            <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '20px', color: '#2C2417', margin: '0 0 8px' }}>No products found</h3>
-            <p style={{ fontSize: '14px', color: '#8B7355', margin: '0 0 24px' }}>Try a different category or clear your filters.</p>
-            <button onClick={() => changeCategory('All')} style={{ background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '14px', padding: '12px 28px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>Clear Filters</button>
+          <div className="text-center py-20 flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-cream-warm flex items-center justify-center text-earth-light">
+              <Package size={40} strokeWidth={1.25} aria-hidden />
+            </div>
+            <h3 className="font-clash font-bold text-charcoal text-2xl m-0">No products found</h3>
+            <p className="font-satoshi text-earth text-sm m-0">
+              Try a different category or clear your filters.
+            </p>
+            <button
+              onClick={() => changeCategory(null)}
+              className="inline-flex items-center justify-center bg-honey-500 hover:bg-honey-600 text-cream font-satoshi font-semibold text-sm px-6 py-2.5 rounded-full transition-colors min-h-[44px]"
+            >
+              Clear Filters
+            </button>
           </div>
         )}
       </section>
 
-      <style>{`
-        @media (min-width: 640px) { .sum-shop-grid { grid-template-columns: repeat(3,1fr) !important; } }
-        @media (min-width: 1024px) { .sum-shop-grid { grid-template-columns: repeat(4,1fr) !important; } }
-        [data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
-        [data-reveal].revealed { opacity: 1; transform: translateY(0); }
+      <style jsx>{`
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { scrollbar-width: none; }
       `}</style>
     </div>
   );

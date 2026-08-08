@@ -203,12 +203,181 @@ export async function sendOrderConfirmation(
   }
 }
 
+interface ShippingUpdateData {
+  orderNumber:     string;
+  recipientEmail:  string;
+  shippingName:    string;
+  trackingNumber?: string | null;
+  trackingUrl?:    string | null;
+  courier?:        string | null;
+  estimatedDate?:  string | null;
+}
+
+function buildShippedHtml(order: ShippingUpdateData): string {
+  const etaLine = order.estimatedDate
+    ? `<p style="margin:0 0 24px;color:#5C4A32;font-size:15px;line-height:1.6;">Estimated delivery: <strong>${new Date(order.estimatedDate).toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}</strong></p>`
+    : '';
+  const trackingBlock = order.trackingNumber
+    ? `
+      <div style="background:#FFF9F0;border:1px solid #F0E6D3;border-radius:8px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 4px;color:#8B7355;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Tracking Number</p>
+        <p style="margin:0 0 8px;color:#2C2417;font-size:16px;font-weight:700;">${order.trackingNumber}</p>
+        ${order.courier ? `<p style="margin:0 0 12px;color:#5C4A32;font-size:13px;">Courier: ${order.courier}</p>` : ''}
+        ${order.trackingUrl ? `<a href="${order.trackingUrl}" style="display:inline-block;background:#F5A623;color:#1A150E;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">Track your package →</a>` : ''}
+      </div>`
+    : '';
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Your order has shipped — SUMOSTA</title></head>
+<body style="margin:0;padding:0;background:#FFFDF8;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFDF8;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(44,36,23,0.08);">
+        <tr><td style="background:#1A150E;padding:32px 40px;text-align:center;">
+          <h1 style="margin:0;color:#F5A623;font-size:28px;letter-spacing:0.05em;">SUMOSTA</h1>
+        </td></tr>
+        <tr><td style="background:#FFF0D6;padding:24px 40px;text-align:center;border-bottom:2px solid #FFCC66;">
+          <p style="margin:0;font-size:32px;">📦</p>
+          <h2 style="margin:8px 0 4px;color:#2C2417;font-size:22px;">Your order is on the way!</h2>
+          <p style="margin:0;color:#8B7355;font-size:14px;">Order ${order.orderNumber}</p>
+        </td></tr>
+        <tr><td style="padding:32px 40px;">
+          <p style="margin:0 0 16px;color:#5C4A32;font-size:15px;line-height:1.6;">
+            Hi ${order.shippingName}, great news — your SUMOSTA order has left our warehouse.
+          </p>
+          ${etaLine}
+          ${trackingBlock}
+          <p style="margin:0;color:#8B7355;font-size:13px;line-height:1.5;">
+            Keep this email for your records. If you have any questions, reply to this message or reach us at
+            <a href="mailto:support@sumosta.com" style="color:#F5A623;">support@sumosta.com</a>.
+          </p>
+        </td></tr>
+        <tr><td style="background:#FFF9F0;padding:20px 40px;text-align:center;border-top:1px solid #F0E6D3;">
+          <p style="margin:0;color:#C4B39A;font-size:12px;">© ${new Date().getFullYear()} SUMOSTA. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+function buildDeliveredHtml(order: ShippingUpdateData): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Delivered — SUMOSTA</title></head>
+<body style="margin:0;padding:0;background:#FFFDF8;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFDF8;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(44,36,23,0.08);">
+        <tr><td style="background:#1A150E;padding:32px 40px;text-align:center;">
+          <h1 style="margin:0;color:#F5A623;font-size:28px;letter-spacing:0.05em;">SUMOSTA</h1>
+        </td></tr>
+        <tr><td style="background:#EAF6E4;padding:24px 40px;text-align:center;border-bottom:2px solid #7C9A6E;">
+          <p style="margin:0;font-size:32px;">✓</p>
+          <h2 style="margin:8px 0 4px;color:#2C2417;font-size:22px;">Delivered — enjoy!</h2>
+          <p style="margin:0;color:#5C8A4E;font-size:14px;">Order ${order.orderNumber}</p>
+        </td></tr>
+        <tr><td style="padding:32px 40px;">
+          <p style="margin:0 0 20px;color:#5C4A32;font-size:15px;line-height:1.6;">
+            Hi ${order.shippingName}, your SUMOSTA order has been delivered. We hope you love it.
+          </p>
+          <p style="margin:0 0 24px;color:#5C4A32;font-size:15px;line-height:1.6;">
+            Enjoyed it? A short review helps other honey lovers discover us.
+          </p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+            <tr><td style="background:#F5A623;border-radius:8px;text-align:center;">
+              <a href="https://sumosta.com/account/orders" style="display:inline-block;padding:14px 32px;color:#1A150E;font-size:15px;font-weight:700;text-decoration:none;letter-spacing:0.03em;">
+                Leave a review
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#8B7355;font-size:13px;line-height:1.5;">
+            Anything not quite right? Reply to this email or reach us at
+            <a href="mailto:support@sumosta.com" style="color:#F5A623;">support@sumosta.com</a> within 7 days.
+          </p>
+        </td></tr>
+        <tr><td style="background:#FFF9F0;padding:20px 40px;text-align:center;border-top:1px solid #F0E6D3;">
+          <p style="margin:0;color:#C4B39A;font-size:12px;">© ${new Date().getFullYear()} SUMOSTA. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+async function sendResendEmail(
+  to: string, subject: string, html: string, apiKey: string, fromAddress: string,
+): Promise<boolean> {
+  try {
+    const response = await fetch(RESEND_API_URL, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ from: fromAddress, to: [to], subject, html }),
+    });
+    if (!response.ok) {
+      console.error('[Email] Resend API error:', response.status, await response.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Email] send failed:', err);
+    return false;
+  }
+}
+
+export async function sendOrderShipped(
+  order: ShippingUpdateData,
+  apiKey: string,
+  fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+): Promise<boolean> {
+  return sendResendEmail(
+    order.recipientEmail,
+    `Your order ${order.orderNumber} has shipped — SUMOSTA`,
+    buildShippedHtml(order),
+    apiKey,
+    fromAddress,
+  );
+}
+
+export async function sendOrderDelivered(
+  order: ShippingUpdateData,
+  apiKey: string,
+  fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+): Promise<boolean> {
+  return sendResendEmail(
+    order.recipientEmail,
+    `Delivered: your SUMOSTA order ${order.orderNumber}`,
+    buildDeliveredHtml(order),
+    apiKey,
+    fromAddress,
+  );
+}
+
+function buildPasswordResetText(resetUrl: string): string {
+  return [
+    'Reset Your SUMOSTA Password',
+    '',
+    'We received a request to reset the password for your SUMOSTA account.',
+    'Open the link below in your browser to create a new password:',
+    '',
+    resetUrl,
+    '',
+    'This link will expire in 30 minutes. If you did not request a password reset,',
+    'you can safely ignore this email.',
+    '',
+    '© ' + new Date().getFullYear() + ' SUMOSTA',
+  ].join('\n');
+}
+
 export async function sendPasswordReset(
   email: string,
   resetUrl: string,
   apiKey: string,
   fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
 ): Promise<boolean> {
+  const text = buildPasswordResetText(resetUrl);
   const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -245,7 +414,7 @@ export async function sendPasswordReset(
                 </tr>
               </table>
               <p style="margin:0 0 8px;color:#8B7355;font-size:13px;line-height:1.5;">
-                This link will expire in <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email.
+                This link will expire in <strong>30 minutes</strong>. If you did not request a password reset, you can safely ignore this email.
               </p>
               <p style="margin:0;color:#C4B39A;font-size:12px;word-break:break-all;">
                 Or copy and paste this URL: ${resetUrl}
@@ -278,6 +447,7 @@ export async function sendPasswordReset(
         to:      [email],
         subject: 'Reset Your SUMOSTA Password',
         html,
+        text,
       }),
     });
 
@@ -292,4 +462,14 @@ export async function sendPasswordReset(
     console.error('[Email] sendPasswordReset failed:', err);
     return false;
   }
+}
+
+// Named per API contract in CLAUDE.md — thin alias over sendPasswordReset.
+export async function sendPasswordResetEmail(
+  email: string,
+  resetUrl: string,
+  apiKey: string,
+  fromAddress?: string,
+): Promise<boolean> {
+  return sendPasswordReset(email, resetUrl, apiKey, fromAddress);
 }

@@ -1,67 +1,71 @@
 import { create } from 'zustand';
 import type { User } from 'shared';
+import { authApi, ApiError } from '@/lib/api';
 
-const ACCESS_KEY = 'sumosta_access_token';
-const REFRESH_KEY = 'sumosta_refresh_token';
+const USER_ID_KEY = 'sumosta_user_id';
 
 interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isLoading: boolean;
+  user:          User | null;
+  accessToken:   string | null;   // in-memory only
+  refreshToken:  string | null;   // in-memory only (cookie is source of truth)
+  isLoading:     boolean;
   isInitialized: boolean;
 }
 
 interface AuthActions {
-  login: (user: User, accessToken: string, refreshToken: string) => void;
-  logout: () => void;
-  setUser: (user: User) => void;
-  setTokens: (accessToken: string, refreshToken: string) => void;
-  initAuth: () => Promise<void>;
+  login:      (user: User, accessToken: string, refreshToken: string) => void;
+  logout:     () => Promise<void>;
+  setUser:    (user: User) => void;
+  setTokens:  (accessToken: string, refreshToken: string) => void;
+  initAuth:   () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-  isLoading: false,
+  user:          null,
+  accessToken:   null,
+  refreshToken:  null,
+  isLoading:     false,
   isInitialized: false,
 
+  // ─── login ─────────────────────────────────────────────────────────
+  // NOTE: refreshToken is held in memory as a fallback for the /refresh
+  // endpoint when the httpOnly cookie is unavailable (e.g. cross-site
+  // dev). It is intentionally NOT written to localStorage.
   login: (user, accessToken, refreshToken) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(ACCESS_KEY, accessToken);
-      localStorage.setItem(REFRESH_KEY, refreshToken);
-      localStorage.setItem('sumosta_user_id', user.id);
+      localStorage.setItem(USER_ID_KEY, user.id);
     }
     set({ user, accessToken, refreshToken });
   },
 
-  logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(ACCESS_KEY);
-      localStorage.removeItem(REFRESH_KEY);
-      localStorage.removeItem('sumosta_user_id');
+  // ─── logout ────────────────────────────────────────────────────────
+  logout: async () => {
+    try {
+      // Best-effort: revoke refresh token server-side (and clear cookie)
+      await authApi.logout().catch(() => { /* swallow — always clear locally */ });
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(USER_ID_KEY);
+      }
+      set({ user: null, accessToken: null, refreshToken: null });
     }
-    set({ user: null, accessToken: null, refreshToken: null });
   },
 
   setUser: (user) => set({ user }),
 
-  setTokens: (accessToken, refreshToken) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(ACCESS_KEY, accessToken);
-      localStorage.setItem(REFRESH_KEY, refreshToken);
-    }
-    set({ accessToken, refreshToken });
-  },
+  setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
 
+  // ─── initAuth ──────────────────────────────────────────────────────
+  // Runs once on app mount. Uses the httpOnly refresh cookie (sent
+  // automatically) to obtain a fresh access token + user profile.
   initAuth: async () => {
     if (typeof window === 'undefined') return;
 
-    const storedAccess = localStorage.getItem(ACCESS_KEY);
-    const storedRefresh = localStorage.getItem(REFRESH_KEY);
+    if (get().isInitialized) return;
 
-    if (!storedAccess && !storedRefresh) {
+    const storedUserId = localStorage.getItem(USER_ID_KEY);
+
+    if (!storedUserId) {
       set({ isInitialized: true });
       return;
     }
@@ -69,33 +73,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-      const res = await fetch(`${apiUrl}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${storedAccess}` },
+      const session = await authApi.refresh();
+      set({
+        user:         session.user,
+        accessToken:  session.accessToken,
+        refreshToken: session.refreshToken,
       });
-
-      if (res.ok) {
-        const { data } = await res.json();
-        set({ user: data, accessToken: storedAccess, refreshToken: storedRefresh });
-      } else if (storedRefresh) {
-        // Attempt silent refresh
-        const refreshRes = await fetch(`${apiUrl}/api/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: storedRefresh }),
-        });
-
-        if (refreshRes.ok) {
-          const { data } = await refreshRes.json();
-          get().login(data.user, data.accessToken, data.refreshToken);
-        } else {
-          get().logout();
-        }
-      } else {
-        get().logout();
+    } catch (err) {
+      // Only wipe the persisted id on a definitive auth failure (401/400).
+      // Network errors leave the id in place so we can retry later.
+      if (err instanceof ApiError && (err.status === 401 || err.status === 400 || err.status === 404)) {
+        localStorage.removeItem(USER_ID_KEY);
+        set({ user: null, accessToken: null, refreshToken: null });
       }
-    } catch {
-      // Network failure — keep stored tokens, retry later
     } finally {
       set({ isLoading: false, isInitialized: true });
     }

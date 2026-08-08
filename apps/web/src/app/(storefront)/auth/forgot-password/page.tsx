@@ -1,133 +1,147 @@
 'use client';
-import { useState } from 'react';
+
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Link from 'next/link';
-import { ArrowLeft, Mail } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { fadeUp, HONEY_EASE_OUT } from '@/lib/animations';
-import HoneycombLoader from '@/components/shared/HoneycombLoader';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-const schema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Please enter a valid email address.'),
 });
-type FormData = z.infer<typeof schema>;
+type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+import { Mail } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+
+import { authApi } from '@/lib/api';
+import { HONEY_EASE_OUT } from '@/lib/animations';
+
+import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthField } from '@/components/auth/AuthField';
+import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton';
+
+const SUBMIT_COOLDOWN_MS = 30_000;
 
 export default function ForgotPasswordPage() {
-  const [submitting, setSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState('');
+  const reduce = useReducedMotion();
 
-  const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema as any),
+  const [sent, setSent] = useState(false);
+  const [sentEmail, setSentEmail] = useState('');
+  const [error, setError] = useState('');
+  const [cooldownEndsAt, setCooldownEndsAt] = useState<number>(0);
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ForgotPasswordInput>({
+    resolver: zodResolver(forgotPasswordSchema as any),
   });
 
-  const onSubmit = async (data: FormData) => {
-    setSubmitting(true);
+  // 1s ticker so the "wait N seconds" copy updates without user interaction.
+  useEffect(() => {
+    if (cooldownEndsAt <= now) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [cooldownEndsAt, now]);
+
+  const cooldownRemaining = Math.max(0, Math.ceil((cooldownEndsAt - now) / 1000));
+  const isCoolingDown = cooldownRemaining > 0;
+
+  const onSubmit = async (data: ForgotPasswordInput) => {
+    if (isCoolingDown) return;
+
     setError('');
     try {
-      await fetch(`${API}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      await authApi.forgotPassword({ email: data.email });
+      setSentEmail(data.email);
       setSent(true);
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
+      setCooldownEndsAt(Date.now() + SUBMIT_COOLDOWN_MS);
+      setNow(Date.now());
+    } catch (err) {
+      const e = err as { code?: string; message?: string; retryAfter?: number };
+      if (e.code === 'RATE_LIMITED') {
+        const seconds = Number(e.retryAfter) > 0 ? Math.ceil(Number(e.retryAfter)) : 30;
+        setCooldownEndsAt(Date.now() + seconds * 1000);
+        setNow(Date.now());
+        setError(`Too many attempts. Try again in ${seconds}s.`);
+        return;
+      }
+      setError(e.message ?? 'Something went wrong. Please try again.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-4 py-20">
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={fadeUp}
-        className="w-full max-w-sm"
-      >
-        <Link
-          href="/auth/login"
-          className="inline-flex items-center gap-2 font-jakarta text-gray-600 text-sm hover:text-charcoal transition-colors mb-8"
+    <AuthCard
+      title={sent ? 'Check your email' : 'Reset your password'}
+      subtitle={
+        sent
+          ? undefined
+          : 'Enter your email address and we’ll send you a link to reset your password.'
+      }
+      back={{ href: '/auth/login', label: 'Back to sign in' }}
+      size="sm"
+    >
+      {sent ? (
+        <motion.div
+          initial={reduce ? undefined : { opacity: 0, scale: 0.96 }}
+          animate={reduce ? undefined : { opacity: 1, scale: 1 }}
+          transition={reduce ? undefined : { duration: 0.5, ease: HONEY_EASE_OUT }}
+          className="text-center py-2"
         >
-          <ArrowLeft size={16} /> Back to login
-        </Link>
-
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm">
-          {sent ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, ease: HONEY_EASE_OUT }}
-              className="text-center py-4"
+          <div className="w-16 h-16 bg-[--honey-100] rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail size={26} className="text-[--honey-500]" aria-hidden="true" />
+          </div>
+          <p className="font-satoshi text-[--bark] text-sm leading-relaxed">
+            We sent a password reset link to{' '}
+            <span className="font-medium text-[--charcoal]">{sentEmail}</span>.
+          </p>
+          <p className="font-satoshi text-[--earth] text-xs mt-4">
+            Didn&apos;t receive it? Check your spam folder or{' '}
+            <button
+              type="button"
+              onClick={() => {
+                if (isCoolingDown) return;
+                setSent(false);
+              }}
+              disabled={isCoolingDown}
+              className="text-[--honey-600] hover:text-[--honey-700] underline disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail size={28} className="text-[#F97316]" />
-              </div>
-              <h2 className="font-jakarta font-semibold text-charcoal text-lg mb-2">Check your email</h2>
-              <p className="font-jakarta text-gray-600 text-sm leading-relaxed">
-                We sent a password reset link to{' '}
-                <span className="font-medium text-charcoal">{getValues('email')}</span>
-              </p>
-              <p className="font-jakarta text-gray-400 text-xs mt-4">
-                Didn&apos;t receive it? Check your spam folder or{' '}
-                <button
-                  onClick={() => setSent(false)}
-                  className="text-[#F97316] hover:text-[#EA580C] underline"
-                >
-                  try again
-                </button>
-              </p>
-            </motion.div>
-          ) : (
-            <>
-              <h1 className="font-jakarta font-semibold text-charcoal text-lg mb-2">Forgot password?</h1>
-              <p className="font-jakarta text-gray-600 text-sm mb-6">
-                Enter your email address and we&apos;ll send you a link to reset your password.
-              </p>
+              {isCoolingDown ? `try again in ${cooldownRemaining}s` : 'try again'}
+            </button>
+            .
+          </p>
+        </motion.div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+          <AuthField
+            label="Email address"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            error={errors.email?.message}
+            {...register('email')}
+          />
 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div>
-                  <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">
-                    Email address
-                  </label>
-                  <input
-                    type="email"
-                    {...register('email')}
-                    className={`w-full border rounded-lg px-4 py-3 text-sm font-jakarta text-charcoal focus:outline-none transition-colors ${
-                      errors.email ? 'border-red-400 focus:border-red-500' : 'border-[#E5E7EB] focus:border-[#F97316]'
-                    }`}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                  />
-                  {errors.email && (
-                    <p className="font-jakarta text-red-600 text-xs mt-1">{errors.email.message}</p>
-                  )}
-                </div>
+          {error ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-[--terracotta-light] bg-[--terracotta-light]/60 px-4 py-3"
+            >
+              <p className="font-satoshi text-[--terracotta] text-sm">{error}</p>
+            </div>
+          ) : null}
 
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                    <p className="font-jakarta text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full flex items-center justify-center gap-2 btn-pill-orange disabled:opacity-60"
-                >
-                  {submitting ? <HoneycombLoader size="sm" /> : null}
-                  {submitting ? 'Sending...' : 'Send reset link'}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-      </motion.div>
-    </div>
+          <AuthSubmitButton
+            loading={isSubmitting}
+            disabled={isCoolingDown}
+            loadingLabel="Sending…"
+          >
+            {isCoolingDown ? `Try again in ${cooldownRemaining}s` : 'Send reset link'}
+          </AuthSubmitButton>
+        </form>
+      )}
+    </AuthCard>
   );
 }

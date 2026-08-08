@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Search, User } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUIStore } from '@/stores/ui-store';
@@ -29,79 +29,49 @@ export default function Navbar() {
 
   return (
     <div
-      style={{
-        background: frosted ? 'rgba(255,253,248,0.95)' : 'transparent',
-        backdropFilter: frosted ? 'blur(10px)' : 'none',
-        boxShadow: frosted ? '0 1px 3px rgba(44,36,23,0.06)' : 'none',
-        transition: 'background 0.3s ease, box-shadow 0.3s ease',
-      }}
+      className={
+        'transition-[background,box-shadow] duration-300 ' +
+        (frosted
+          ? 'bg-cream/95 backdrop-blur-md shadow-sm'
+          : 'bg-transparent shadow-none')
+      }
     >
-      <div
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          padding: '0 20px',
-          height: '64px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '24px',
-        }}
-      >
+      <div className="max-w-content mx-auto px-5 flex items-center justify-between gap-6 h-16">
         {/* Logo */}
         <Link
           href="/"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            textDecoration: 'none',
-            flexShrink: 0,
-          }}
+          className="flex flex-col shrink-0 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream rounded-sm"
+          aria-label="SUMOSTA — Home"
         >
-          <span style={{
-            fontFamily: 'var(--font-bricolage), sans-serif',
-            fontWeight: 700,
-            fontSize: '20px',
-            color: '#2C2417',
-            letterSpacing: '0.02em',
-            lineHeight: 1,
-          }}>
+          <span className="font-clash font-bold text-charcoal text-[20px] leading-none tracking-[0.02em]">
             SUMOSTA
           </span>
-          <span style={{
-            fontFamily: 'var(--font-instrument), serif',
-            fontStyle: 'italic',
-            fontSize: '10px',
-            color: '#2C2417',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            marginTop: '2px',
-            lineHeight: 1,
-          }}>
+          <span className="font-bespoke italic text-charcoal text-[10px] font-bold leading-none tracking-[0.06em] mt-[2px]">
             indulgence that cares
           </span>
         </Link>
 
         {/* Desktop nav */}
         <nav
-          style={{ display: 'none', gap: '28px', alignItems: 'center', flex: 1, justifyContent: 'center' }}
-          className="sum-desktop-nav"
+          aria-label="Primary"
+          className="sum-desktop-nav hidden lg:flex gap-7 items-center flex-1 justify-center"
         >
           {NAV_LINKS.map((link) => {
-            const active = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+            const active =
+              pathname === link.href ||
+              (link.href !== '/' && pathname.startsWith(link.href));
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                style={{
-                  fontSize: '14px',
-                  color: active ? '#2C2417' : '#5C4A32',
-                  fontWeight: active ? 600 : 500,
-                  textDecoration: 'none',
-                  transition: 'color 0.25s ease',
-                  fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif',
-                  whiteSpace: 'nowrap',
-                }}
+                aria-current={active ? 'page' : undefined}
+                className={
+                  'font-satoshi text-[14px] whitespace-nowrap transition-colors duration-200 ' +
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 rounded-sm px-1 py-0.5 ' +
+                  (active
+                    ? 'text-charcoal font-semibold'
+                    : 'text-bark hover:text-honey-500 font-medium')
+                }
               >
                 {link.label}
               </Link>
@@ -109,93 +79,54 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right: account + cart + hamburger */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-          {/* Account — desktop only */}
-          {mounted && (
-            user ? (
-              <Link
-                href="/account/orders"
-                aria-label="My Account"
-                title={user.name ?? 'My Account'}
-                className="navbar-account-avatar sum-desktop-only"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '50%',
-                  background: 'rgba(212,137,26,0.12)',
-                  color: '#D4891A',
-                  fontFamily: 'var(--font-bricolage), sans-serif',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  textDecoration: 'none',
-                  flexShrink: 0,
-                  transition: 'background 0.2s ease',
-                }}
-              >
-                {user.name?.charAt(0).toUpperCase() ?? 'U'}
-              </Link>
-            ) : (
-              <Link
-                href="/auth/login"
-                className="navbar-signin-link sum-desktop-only"
-                style={{
-                  fontSize: '13px',
-                  color: '#5C4A32',
-                  fontFamily: 'var(--font-manrope), sans-serif',
-                  fontWeight: 500,
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                  transition: 'color 0.2s ease',
-                }}
-              >
-                Sign In
-              </Link>
-            )
-          )}
+        {/* Right: search + account + cart + hamburger */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Search icon */}
+          <Link
+            href="/search"
+            aria-label="Search products"
+            className="p-1.5 rounded-md text-bark hover:text-honey-500 hover:bg-honey-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 flex items-center justify-center"
+          >
+            <Search size={20} strokeWidth={1.8} />
+          </Link>
+
+          {/* Account — desktop only, reserve space to avoid layout shift */}
+          <div className="hidden lg:flex items-center justify-center min-w-[40px] h-[34px]">
+            {mounted ? (
+              user ? (
+                <Link
+                  href="/account/orders"
+                  aria-label={`My Account — ${user.name ?? 'Signed in'}`}
+                  title={user.name ?? 'My Account'}
+                  className="flex items-center justify-center w-[34px] h-[34px] rounded-full bg-honey-500/10 text-honey-500 hover:bg-honey-500/20 transition-colors font-clash font-bold text-[14px] no-underline shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400"
+                >
+                  {user.name?.charAt(0).toUpperCase() ?? 'U'}
+                </Link>
+              ) : (
+                <Link
+                  href="/auth/login"
+                  aria-label="Sign in to your account"
+                  className="inline-flex items-center gap-1.5 font-satoshi text-[13px] text-bark hover:text-honey-500 transition-colors font-medium whitespace-nowrap no-underline px-2 py-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400"
+                >
+                  <User size={16} strokeWidth={1.8} />
+                  Sign In
+                </Link>
+              )
+            ) : null}
+          </div>
 
           {/* Cart */}
           <button
+            type="button"
             onClick={openCart}
-            aria-label="Open cart"
-            className="navbar-cart-btn"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#5C4A32',
-              position: 'relative',
-              padding: '6px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'color 0.2s, background 0.2s',
-            }}
+            aria-label={mounted && itemCount > 0 ? `Open cart, ${itemCount} item${itemCount === 1 ? '' : 's'}` : 'Open cart'}
+            className="relative p-1.5 rounded-md text-bark hover:text-honey-500 hover:bg-honey-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 flex items-center justify-center"
           >
             <ShoppingCart size={20} strokeWidth={1.8} />
             {mounted && itemCount > 0 && (
               <span
-                style={{
-                  position: 'absolute',
-                  top: '0px',
-                  right: '0px',
-                  background: '#F5A623',
-                  color: '#1A150E',
-                  fontSize: '9px',
-                  fontWeight: 700,
-                  minWidth: '16px',
-                  height: '16px',
-                  borderRadius: '999px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  lineHeight: 1,
-                  padding: '0 2px',
-                }}
+                aria-hidden="true"
+                className="absolute top-0 right-0 bg-honey-500 text-cream text-[9px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center leading-none px-[2px]"
               >
                 {itemCount > 9 ? '9+' : itemCount}
               </span>
@@ -204,44 +135,18 @@ export default function Navbar() {
 
           {/* Hamburger — mobile only */}
           <button
-            className="sum-hamburger"
+            type="button"
             onClick={openMobileMenu}
             aria-label="Open navigation menu"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '7px 5px',
-              display: 'none',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              gap: '5px',
-              borderRadius: '6px',
-            }}
+            aria-haspopup="dialog"
+            className="sum-hamburger flex lg:hidden flex-col justify-center items-start gap-[5px] py-[7px] px-[5px] rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 group"
           >
-            <span style={{ width: '22px', height: '2px', background: '#5C4A32', display: 'block', borderRadius: '2px' }} />
-            <span style={{ width: '22px', height: '2px', background: '#5C4A32', display: 'block', borderRadius: '2px' }} />
-            <span style={{ width: '14px', height: '2px', background: '#5C4A32', display: 'block', borderRadius: '2px' }} />
+            <span className="block w-[22px] h-[2px] rounded bg-bark group-hover:bg-honey-500 transition-colors" />
+            <span className="block w-[22px] h-[2px] rounded bg-bark group-hover:bg-honey-500 transition-colors" />
+            <span className="block w-[14px] h-[2px] rounded bg-bark group-hover:bg-honey-500 transition-colors" />
           </button>
         </div>
       </div>
-
-      <style>{`
-        @media (min-width: 1024px) {
-          .sum-desktop-nav  { display: flex !important; }
-          .sum-hamburger    { display: none !important; }
-          .sum-desktop-only { display: flex !important; }
-        }
-        @media (max-width: 1023px) {
-          .sum-hamburger    { display: flex !important; }
-          .sum-desktop-only { display: none !important; }
-        }
-        .navbar-account-avatar:hover { background: rgba(212,137,26,0.2) !important; }
-        .navbar-signin-link:hover { color: #D4891A !important; }
-        .navbar-cart-btn:hover { color: #D4891A !important; background: rgba(212,137,26,0.08) !important; }
-        .sum-hamburger:hover span { background: #D4891A !important; }
-      `}</style>
     </div>
   );
 }

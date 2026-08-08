@@ -161,9 +161,13 @@ CREATE TABLE IF NOT EXISTS orders (
     total                     REAL NOT NULL,
     coupon_code               TEXT,
     tracking_number           TEXT,
+    tracking_url              TEXT,
     estimated_delivery_date   TEXT,
     phonepe_merchant_txn_id   TEXT UNIQUE,
     phonepe_txn_id            TEXT,
+    razorpay_order_id         TEXT,
+    razorpay_payment_id       TEXT,
+    razorpay_signature        TEXT,
     paid_at                   TEXT,
     shipped_at                TEXT,
     delivered_at              TEXT,
@@ -176,6 +180,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status     ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_payment    ON orders(payment_status);
 CREATE INDEX IF NOT EXISTS idx_orders_number     ON orders(order_number);
 CREATE INDEX IF NOT EXISTS idx_orders_phonepe    ON orders(phonepe_merchant_txn_id);
+CREATE INDEX IF NOT EXISTS idx_orders_razorpay   ON orders(razorpay_order_id);
 
 -- ============================================================
 -- ORDER ITEMS

@@ -1,6 +1,6 @@
 export const SITE_CONFIG = {
   name:        'SUMOSTA',
-  tagline:     "Indulgence that cares",
+  tagline:     'Indulgence that cares',
   url:         'https://sumosta.com',
   description: "Raw, unprocessed honey sourced from India's wildest apiaries. From hive to home, nothing added, nothing taken.",
   email:       'hello@sumosta.com',
@@ -11,38 +11,49 @@ export const SITE_CONFIG = {
 };
 
 export const NAV_LINKS = [
-  { href: '/',                  label: 'Home' },
-  { href: '/shop',              label: 'Shop' },
-  { href: '/gifting',            label: 'Gift Bundles' },
-  { href: '/about',             label: 'Our Story' },
-  { href: '/evidence-hub',      label: 'Evidence Hub' },
+  { href: '/',              label: 'Home' },
+  { href: '/shop',          label: 'Shop' },
+  { href: '/gifting',       label: 'Gift Combos' },
+  { href: '/about',         label: 'Our Story' },
+  { href: '/evidence-hub',  label: 'Evidence Hub' },
+] as const;
+
+/**
+ * Canonical navigation categories.
+ * These slugs correspond directly to the filters the /shop page understands
+ * (see productsApi.list in lib/api.ts and shop [[...slug]] content).
+ * All chrome consumers (Navbar, MobileMenu, Footer, CategoryGrid) should
+ * import from this array so the labels stay in lock-step with the storefront.
+ */
+export const NAV_CATEGORIES = [
+  { slug: 'raw-honey',  label: 'Raw Honey',            href: '/shop/raw-honey' },
+  { slug: 'gift-boxes', label: 'Gift Boxes & Combos',  href: '/shop/gift-boxes' },
 ] as const;
 
 export const FOOTER_LINKS = {
   shop: [
-    { href: '/shop/raw-honey',        label: 'Raw Honey' },
-    { href: '/shop/gift-boxes',       label: 'Gift Boxes & Combos' },
-    { href: '/gifting',              label: 'Corporate Gifting' },
+    { href: '/shop',              label: 'All Products' },
+    { href: '/shop/raw-honey',    label: 'Raw Honey' },
+    { href: '/shop/gift-boxes',   label: 'Gift Boxes & Combos' },
+    { href: '/gifting',           label: 'Corporate Gifting' },
   ],
   company: [
-    { href: '/about',   label: 'Our Story' },
-    { href: '/about#sourcing',     label: 'Sourcing' },
-    { href: '/about#sustainability', label: 'Sustainability' },
-    { href: '/contact', label: 'Contact' },
+    { href: '/about',             label: 'Our Story' },
+    { href: '/about#sourcing',    label: 'Sourcing' },
+    { href: '/evidence-hub',      label: 'Evidence Hub' },
+    { href: '/contact',           label: 'Contact' },
   ],
   help: [
-    { href: '/policies/shipping',  label: 'Shipping Policy' },
-    { href: '/policies/refund',    label: 'Returns' },
-    { href: '/policies/privacy',   label: 'Privacy Policy' },
-    { href: '/policies/terms',     label: 'Terms of Service' },
-    { href: '/#faq',               label: 'FAQs' },
+    { href: '/track',             label: 'Track Order' },
+    { href: '/policies/shipping', label: 'Shipping Policy' },
+    { href: '/policies/refund',   label: 'Returns' },
+    { href: '/policies/privacy',  label: 'Privacy Policy' },
+    { href: '/policies/terms',    label: 'Terms of Service' },
   ],
 } as const;
 
-export const CATEGORIES = [
-  { slug: 'raw-honey',      label: 'Raw Honey',      emoji: '🍯' },
-  { slug: 'gift-boxes',     label: 'Gift Boxes & Combos', emoji: '🎁' },
-] as const;
+/** @deprecated Use NAV_CATEGORIES instead. Kept for backwards compat. */
+export const CATEGORIES = NAV_CATEGORIES;
 
 export const SORT_OPTIONS = [
   { value: 'featured',    label: 'Featured' },
@@ -59,6 +70,12 @@ export const TRUST_BADGES = [
   { icon: '♻️', label: 'Eco Packaging' },
 ] as const;
 
+export const SOCIAL_LINKS = [
+  { platform: 'instagram', href: 'https://instagram.com/sumosta',        label: 'Follow on Instagram' },
+  { platform: 'facebook',  href: 'https://facebook.com/sumosta',         label: 'Follow on Facebook'  },
+  { platform: 'twitter',   href: 'https://twitter.com/sumosta',          label: 'Follow on Twitter'   },
+] as const;
+
 export const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
   'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
@@ -68,4 +85,3 @@ export const INDIAN_STATES = [
   'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ] as const;
-

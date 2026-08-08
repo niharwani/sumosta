@@ -1,126 +1,164 @@
 'use client';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { motion, useReducedMotion } from 'framer-motion';
+import {
+  Beaker,
+  Check,
+  ChevronRight,
+  Droplet,
+  Dumbbell,
+  Gem,
+  Leaf,
+  Minus,
+  Moon,
+  Package,
+  Plus,
+  ShoppingBag,
+  Shield,
+  Sparkles,
+  Star,
+  Sunrise,
+  type LucideIcon,
+} from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
+import { useAuth } from '@/hooks/useAuth';
 import { STATIC_PRODUCTS, STATIC_COMBOS } from '@/lib/content';
+import { useProductImages, resolveProductImage } from '@/hooks/useProductImages';
+import { tracker } from '@/lib/tracker';
+import { formatPrice } from '@/lib/utils';
+import { HONEY_EASE_OUT } from '@/lib/animations';
+import ProductGallery from '@/components/product/ProductGallery';
+import ReviewSection from '@/components/product/ReviewSection';
+
+// Deterministic pseudo-random pick for related products so a given slug always
+// picks the same shuffled subset (no CLS, but different across pages).
+function pickRelated<T>(list: T[], slug: string, n: number): T[] {
+  if (list.length <= n) return list;
+  const seed = slug.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const start = seed % list.length;
+  const out: T[] = [];
+  for (let i = 0; i < n && i < list.length; i++) {
+    out.push(list[(start + i * 3) % list.length]);
+  }
+  return out;
+}
+
+// Pick a lucide icon for a benefit / how-to bullet — intentional, small set.
+function getBenefitIcon(text: string): LucideIcon {
+  const t = text.toLowerCase();
+  if (/(gut|digest|stomach|microbiome|probiotic)/.test(t)) return Leaf;
+  if (/(energy|fuel|metabol|blood sugar|glycaemic|glycemic)/.test(t)) return Sparkles;
+  if (/(sleep|bedtime|rest|relax)/.test(t)) return Moon;
+  if (/(respiratory|throat|lung|seasonal)/.test(t)) return Droplet;
+  if (/(skin|moistur|humect|face)/.test(t)) return Sparkles;
+  if (/(immun|defense|antimicrob|antibacter|propolis)/.test(t)) return Shield;
+  if (/(antioxidant|phenol|polyphen|orac|enzyme|cellular)/.test(t)) return Beaker;
+  if (/(iron|blood|hematic|hemato|mineral|magnesium|potassium|copper)/.test(t)) return Dumbbell;
+  if (/(rare|premium|luxury|gem)/.test(t)) return Gem;
+  return Leaf;
+}
+
+function getHowToUseIcon(text: string): LucideIcon {
+  const t = text.toLowerCase();
+  if (/(morning|wak|first thing|empty stomach|sunrise)/.test(t)) return Sunrise;
+  if (/(evening|bedtime|night|sleep|wind-down)/.test(t)) return Moon;
+  if (/(skin|face|topical|mask)/.test(t)) return Sparkles;
+  if (/(tea|herbal|infus|kadha|tulsi|coffee|espresso|matcha|latte)/.test(t)) return Droplet;
+  return Leaf;
+}
 
 export default function ProductContent({ slug }: { slug: string }) {
-
   const product = STATIC_PRODUCTS.find((p) => p.slug === slug) ?? null;
   const combo = !product ? STATIC_COMBOS.find((c) => c.slug === slug) ?? null : null;
 
+  const dbImages = useProductImages();
   const [activeVariant, setActiveVariant] = useState(0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<number | null>(0);
+  const reduce = useReducedMotion();
+  const { isAuthenticated } = useAuth();
 
-  const { addItem, openCart } = useCartStore();
+  const { addItem } = useCartStore();
   const addTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   const variants = product?.variants ?? (combo as any)?.variants ?? [];
   const basePrice = product?.price ?? combo?.price ?? 0;
-  const currentPrice = variants.length > 0
-    ? basePrice + (variants[activeVariant]?.priceAdjust ?? 0)
-    : basePrice;
+  const currentPrice =
+    variants.length > 0
+      ? basePrice + (variants[activeVariant]?.priceAdjust ?? 0)
+      : basePrice;
   const baseCompareAt = product?.compareAtPrice ?? combo?.compareAtPrice ?? null;
-  // Use variant-specific MRP if available (compareAtPriceAdjust), otherwise fall back to base MRP
-  const variantCompareAtAdj = variants.length > 0 ? ((variants[activeVariant] as any)?.compareAtPriceAdjust ?? null) : null;
-  const compareAt = variantCompareAtAdj != null && baseCompareAt != null
-    ? baseCompareAt + variantCompareAtAdj
-    : baseCompareAt;
-  const savePercent = compareAt && compareAt > currentPrice
-    ? Math.round(((compareAt - currentPrice) / compareAt) * 100)
-    : null;
+  const variantCompareAtAdj =
+    variants.length > 0
+      ? ((variants[activeVariant] as any)?.compareAtPriceAdjust ?? null)
+      : null;
+  const compareAt =
+    variantCompareAtAdj != null && baseCompareAt != null
+      ? baseCompareAt + variantCompareAtAdj
+      : baseCompareAt;
+  const savePercent =
+    compareAt && compareAt > currentPrice
+      ? Math.round(((compareAt - currentPrice) / compareAt) * 100)
+      : null;
 
   useEffect(() => {
-    const onScroll = () => {
-      setStickyVisible(window.scrollY > 520);
-      document.querySelectorAll('[data-reveal]').forEach((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.top < window.innerHeight * 0.92 && r.bottom > 0) el.classList.add('revealed');
-      });
-    };
+    const onScroll = () => setStickyVisible(window.scrollY > 520);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Fire product_view once per slug
+  const viewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const name = product?.name ?? combo?.name;
+    if (!name || viewedRef.current === slug) return;
+    viewedRef.current = slug;
+    tracker?.track('product_view', {
+      productId: product?.id ?? combo?.id,
+      productName: name,
+      price: basePrice,
+      category: product?.category?.slug ?? 'gift-boxes',
+    });
+  }, [slug, product, combo, basePrice]);
 
   const handleAddToCart = useCallback(() => {
     if (added || (!product && !combo)) return;
     const itemId = product?.id ?? combo?.id ?? '';
     const itemSlug = slug;
     const itemName = product?.name ?? combo?.name ?? '';
-    const variantName = variants[activeVariant]?.name ?? '';
+    const variant = variants[activeVariant] ?? null;
     addItem(
       itemId,
-      variantName,
+      variant?.id ?? null,
       qty,
-      { id: itemId, name: itemName, slug: itemSlug, price: currentPrice, images: [], stock: product?.stock ?? 99 },
+      {
+        id: itemId,
+        name: itemName,
+        slug: itemSlug,
+        price: basePrice,
+        images: product?.images ?? [],
+        stock: product?.stock ?? 99,
+      },
+      variant,
     );
     setAdded(true);
     clearTimeout(addTimeout.current);
-    addTimeout.current = setTimeout(() => {
-      setAdded(false);
-      openCart();
-    }, 1800);
-  }, [added, activeVariant, qty, currentPrice, addItem, openCart, product, combo, variants, slug]);
+    addTimeout.current = setTimeout(() => setAdded(false), 1800);
+  }, [added, activeVariant, qty, basePrice, addItem, product, combo, variants, slug]);
 
   const toggleAccordion = (i: number) => setOpenAccordion((prev) => (prev === i ? null : i));
 
-  const addBtnStyle: React.CSSProperties = {
-    flex: 1,
-    padding: '14px 28px',
-    borderRadius: '8px',
-    border: 'none',
-    fontSize: '15px',
-    fontWeight: 700,
-    cursor: added ? 'default' : 'pointer',
-    background: added ? '#7C9A6E' : '#F5A623',
-    color: added ? '#FFFDF8' : '#1A150E',
-    transition: 'background 0.3s ease, transform 0.2s ease',
-    fontFamily: 'var(--font-bricolage), sans-serif',
-    letterSpacing: '0.01em',
-  };
-
-  function getBenefitIcon(text: string): string {
-    const t = text.toLowerCase();
-    if (t.includes('gut') || t.includes('digest') || t.includes('stomach') || t.includes('microbiome') || t.includes('probiotic')) return '🌿';
-    if (t.includes('energy') || t.includes('fuel') || t.includes('metabol') || t.includes('blood sugar') || t.includes('glycaemic')) return '⚡';
-    if (t.includes('sleep') || t.includes('bedtime') || t.includes('rest') || t.includes('relax')) return '🌙';
-    if (t.includes('respiratory') || t.includes('throat') || t.includes('lung') || t.includes('seasonal')) return '💧';
-    if (t.includes('skin') || t.includes('moistur') || t.includes('humect') || t.includes('face')) return '✨';
-    if (t.includes('immun') || t.includes('defense') || t.includes('antimicrobial') || t.includes('antibacter')) return '🛡️';
-    if (t.includes('antioxidant') || t.includes('phenol') || t.includes('polyphen') || t.includes('orac')) return '🔬';
-    if (t.includes('iron') || t.includes('blood') || t.includes('hematic') || t.includes('hemato')) return '💪';
-    if (t.includes('mineral') || t.includes('magnesium') || t.includes('potassium') || t.includes('copper')) return '💎';
-    if (t.includes('sweetener') || t.includes('sugar') || t.includes('alternative')) return '🍯';
-    if (t.includes('oral') || t.includes('tooth') || t.includes('dental') || t.includes('acariogenic')) return '🦷';
-    if (t.includes('propolis') || t.includes('cellular') || t.includes('enzyme')) return '🧬';
-    if (t.includes('inflam')) return '❄️';
-    return '✦';
-  }
-
-  function getHowToUseIcon(text: string): string {
-    const t = text.toLowerCase();
-    if (t.includes('morning') || t.includes('wak') || t.includes('first thing') || t.includes('empty stomach')) return '🌅';
-    if (t.includes('breakfast') || t.includes('oatmeal') || t.includes('yogurt') || t.includes('smoothie')) return '🍽️';
-    if (t.includes('tea') || t.includes('herbal') || t.includes('infus') || t.includes('kadha') || t.includes('tulsi')) return '🍵';
-    if (t.includes('coffee') || t.includes('espresso') || t.includes('matcha') || t.includes('latte')) return '☕';
-    if (t.includes('skin') || t.includes('face') || t.includes('topical') || t.includes('mask')) return '💆';
-    if (t.includes('workout') || t.includes('exercise') || t.includes('recovery') || t.includes('active')) return '💪';
-    if (t.includes('evening') || t.includes('bedtime') || t.includes('night') || t.includes('sleep') || t.includes('wind-down')) return '🌙';
-    if (t.includes('sweetener') || t.includes('sugar') || t.includes('baking') || t.includes('recipe')) return '🍯';
-    if (t.includes('drizzle') || t.includes('pour') || t.includes('drip')) return '🍯';
-    if (t.includes('cheese') || t.includes('chocolate') || t.includes('dessert') || t.includes('epicurean')) return '🧀';
-    if (t.includes('sublingual') || t.includes('purist') || t.includes('dose') || t.includes('directly')) return '💊';
-    return '→';
-  }
-
   if (!product && !combo) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#FFFDF8', fontFamily: 'var(--font-manrope), sans-serif', gap: '16px' }}>
-        <p style={{ fontSize: '20px', fontWeight: 700, color: '#2C2417' }}>Product not found.</p>
-        <Link href="/shop" style={{ color: '#F5A623', fontWeight: 600, textDecoration: 'none' }}>← Back to Shop</Link>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-cream gap-4 px-6 text-center">
+        <p className="font-clash font-bold text-charcoal text-2xl">Product not found.</p>
+        <Link href="/shop" className="font-satoshi font-semibold text-honey-500 hover:text-honey-600">
+          ← Back to Shop
+        </Link>
       </div>
     );
   }
@@ -128,6 +166,7 @@ export default function ProductContent({ slug }: { slug: string }) {
   const name = product?.name ?? combo?.name ?? '';
   const categoryName = product?.category?.name ?? 'Gift Box';
   const description = product?.description ?? combo?.description ?? '';
+  const shortDescription = (product as any)?.shortDescription;
   const sourcingHighlights = product?.sourcingHighlights ?? null;
   const faqs = product?.faqs ?? [];
   const nutritionalBenefits = product?.nutritionalBenefits ?? [];
@@ -135,6 +174,8 @@ export default function ProductContent({ slug }: { slug: string }) {
   const ingredients = (product as any)?.ingredients as string | undefined;
   const trustBadges = (product as any)?.trustBadges as string[] | undefined;
   const benefitsBody = (combo as any)?.benefitsBody as string | string[] | undefined;
+  const averageRating = product?.averageRating ?? null;
+  const reviewCount = product?.reviewCount ?? 0;
 
   const ACCORDION: { title: string; body: string | string[] }[] = [
     { title: 'Description', body: description },
@@ -147,96 +188,242 @@ export default function ProductContent({ slug }: { slug: string }) {
     ...(howToUse && howToUse.length > 0 ? [{ title: 'How to Use', body: howToUse }] : []),
   ];
 
-  const related = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon && p.slug !== slug).slice(0, 4);
+  const relatedPool = STATIC_PRODUCTS.filter(
+    (p) => p.isActive && !p.comingSoon && p.slug !== slug,
+  );
+  const related = pickRelated(relatedPool, slug, 4);
+
+  // Resolve gallery images (map resolvable URLs through resolveProductImage)
+  const galleryImages = (product?.images ?? []).map((img) => ({
+    ...img,
+    url: resolveProductImage(dbImages, product?.id ?? '', img.url) ?? img.url,
+  }));
+
+  // JSON-LD Product schema
+  const jsonLd = useMemo(() => {
+    const url = typeof window !== 'undefined'
+      ? window.location.href
+      : `https://sumosta.com/product/${slug}`;
+    const image = product?.images?.[0]?.url ?? (combo as any)?.image ?? undefined;
+    const schema: Record<string, unknown> = {
+      '@context': 'https://schema.org/',
+      '@type': 'Product',
+      name,
+      image: image ? [image] : undefined,
+      description: shortDescription || description,
+      sku: product?.sku,
+      brand: { '@type': 'Brand', name: 'SUMOSTA' },
+      offers: {
+        '@type': 'Offer',
+        url,
+        priceCurrency: 'INR',
+        price: currentPrice.toFixed(2),
+        availability:
+          (product?.stock ?? 99) > 0
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
+      },
+    };
+    if (averageRating && reviewCount > 0) {
+      schema.aggregateRating = {
+        '@type': 'AggregateRating',
+        ratingValue: averageRating,
+        reviewCount,
+      };
+    }
+    return JSON.stringify(schema);
+  }, [name, product, combo, shortDescription, description, currentPrice, averageRating, reviewCount, slug]);
 
   return (
-    <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
+    <div className="bg-cream text-charcoal min-h-screen">
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd }}
+      />
 
-      {/* Sticky add-to-cart bar */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 80, background: 'rgba(255,253,248,0.97)', backdropFilter: 'blur(12px)', borderTop: '1px solid #F0E6D3', boxShadow: '0 -4px 20px rgba(44,36,23,0.08)', transform: stickyVisible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.35s cubic-bezier(0.25,0.1,0.25,1)' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', height: '76px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: '13px', fontWeight: 700, color: '#2C2417', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
-            <p style={{ fontSize: '12px', color: '#D4891A', fontWeight: 700, margin: '2px 0 0' }}>₹{currentPrice}{variants[activeVariant] ? <span style={{ color: '#8B7355', fontWeight: 500 }}> / {variants[activeVariant].name}</span> : ''}</p>
+      {/* Sticky add-to-cart bar (no auto-open cart) */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-cream/95 backdrop-blur-md border-t border-sand shadow-lg transition-transform duration-300 ease-out ${
+          stickyVisible ? 'translate-y-0' : 'translate-y-full'
+        }`}
+      >
+        <div className="max-w-content mx-auto px-6 md:px-8 h-[76px] flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-satoshi text-charcoal text-sm font-bold truncate">{name}</p>
+            <p className="font-satoshi text-honey-500 text-xs font-bold">
+              {formatPrice(currentPrice)}
+              {variants[activeVariant] && (
+                <span className="text-earth font-medium"> / {variants[activeVariant].name}</span>
+              )}
+            </p>
           </div>
-          <button onClick={handleAddToCart} style={{ ...addBtnStyle, flex: 'none', padding: '12px 28px', fontSize: '14px' }}>
-            {added ? 'Added ✓' : 'Add to Cart'}
+          <button
+            onClick={handleAddToCart}
+            disabled={added}
+            className={`inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-sm px-6 py-3 rounded-full transition-colors min-h-[44px] ${
+              added
+                ? 'bg-sage text-cream cursor-default'
+                : 'bg-honey-500 hover:bg-honey-600 text-cream'
+            }`}
+          >
+            {added ? (
+              <>
+                <Check size={16} aria-hidden /> Added
+              </>
+            ) : (
+              <>
+                <ShoppingBag size={16} aria-hidden /> Add to Cart
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {/* Product layout */}
-      <section style={{ padding: '150px 24px 0', maxWidth: '1400px', margin: '0 auto' }}>
-        <p style={{ fontSize: '13px', color: '#C4B39A', margin: '0 0 32px' }}>
-          <Link href="/" style={{ color: '#C4B39A', textDecoration: 'none' }}>Home</Link> /{' '}
-          <Link href="/shop" style={{ color: '#C4B39A', textDecoration: 'none' }}>Shop</Link> /{' '}
-          {name}
-        </p>
+      <section className="max-w-content mx-auto px-6 md:px-8 pt-8 md:pt-12">
+        <nav aria-label="Breadcrumb" className="mb-8">
+          <ol className="flex items-center gap-1.5 font-satoshi text-xs text-earth-light">
+            <li><Link href="/" className="hover:text-honey-500 transition-colors">Home</Link></li>
+            <li aria-hidden>/</li>
+            <li><Link href="/shop" className="hover:text-honey-500 transition-colors">Shop</Link></li>
+            <li aria-hidden>/</li>
+            <li className="text-earth">{name}</li>
+          </ol>
+        </nav>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '48px' }} className="sum-pdp-grid">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
           {/* Gallery */}
           <div>
-            <div style={{ aspectRatio: '1/1', borderRadius: '16px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 16px,#FFF9F0 16px,#FFF9F0 32px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '14px' }}>
-              <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '12px', letterSpacing: '0.06em', color: '#8B7355', textTransform: 'uppercase' }}>product photo<br />{name}</span>
-            </div>
+            {galleryImages.length > 0 ? (
+              <ProductGallery images={galleryImages} productName={name} />
+            ) : (
+              <div className="relative aspect-square rounded-xl bg-cream-warm border border-sand flex items-center justify-center">
+                <span className="font-satoshi text-xs uppercase tracking-[0.08em] text-earth-light">
+                  {name}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Product info — new order: Name → Price → Source → Badges → Sizes → Cart → Accordion */}
+          {/* Product info */}
           <div>
-            {/* 1. Name */}
-            <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C4B39A', margin: '0 0 10px' }}>{categoryName}</p>
-            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.6rem)', color: '#2C2417', margin: '0 0 16px' }}>{name}</h1>
+            <p className="font-satoshi text-[11px] uppercase tracking-[0.14em] text-earth-light mb-2.5">
+              {categoryName}
+            </p>
+            <h1 className="font-clash font-extrabold text-charcoal text-3xl md:text-[2.6rem] leading-tight mb-4">
+              {name}
+            </h1>
 
-            {/* 2. Price: MRP strikethrough + selling price */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap', marginBottom: '24px' }}>
-              <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '30px', color: '#D4891A' }}>₹{currentPrice}</span>
+            {/* Rating & review count */}
+            {(averageRating || reviewCount > 0) && (
+              <a
+                href="#reviews"
+                className="inline-flex items-center gap-2 mb-5 group"
+                aria-label={`${averageRating ?? ''} out of 5 from ${reviewCount} reviews`}
+              >
+                <div className="flex gap-0.5" aria-hidden>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={14}
+                      className={
+                        s <= Math.round(averageRating ?? 0)
+                          ? 'text-honey-400 fill-honey-400'
+                          : 'text-sand fill-sand'
+                      }
+                    />
+                  ))}
+                </div>
+                <span className="font-satoshi text-charcoal text-sm font-semibold">
+                  {(averageRating ?? 0).toFixed(1)}
+                </span>
+                <span className="font-satoshi text-earth text-sm group-hover:text-honey-500 transition-colors">
+                  ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                </span>
+              </a>
+            )}
+
+            {/* Price row */}
+            <div className="flex items-baseline gap-3 flex-wrap mb-6">
+              <span className="font-clash font-extrabold text-honey-500 text-3xl md:text-4xl">
+                {formatPrice(currentPrice)}
+              </span>
               {compareAt && compareAt > currentPrice && (
                 <>
-                  <span style={{ fontSize: '17px', color: '#C4B39A', textDecoration: 'line-through', fontWeight: 500 }}>MRP ₹{compareAt}</span>
-                  <span style={{ background: '#C4573A', color: '#FFFDF8', fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px' }}>SAVE {savePercent}%</span>
+                  <span className="font-satoshi text-earth-light text-base line-through font-medium">
+                    MRP {formatPrice(compareAt)}
+                  </span>
+                  <span className="bg-terracotta text-cream font-satoshi text-[11px] font-bold px-2.5 py-1 rounded-full">
+                    SAVE {savePercent}%
+                  </span>
                 </>
               )}
             </div>
 
-            {/* 3. Source details table */}
+            {/* Source details */}
             {sourcingHighlights && (
-              <div style={{ background: '#FFF9F0', border: '1px solid #FFE0A8', borderRadius: '12px', padding: '18px 20px', marginBottom: '24px' }}>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#D4891A', fontWeight: 700, margin: '0 0 12px' }}>Source Details</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="bg-honey-50 border border-honey-200 rounded-xl px-5 py-4 mb-6">
+                <p className="font-satoshi text-honey-500 text-[11px] uppercase tracking-[0.12em] font-bold mb-3">
+                  Source Details
+                </p>
+                <div className="grid grid-cols-2 gap-2.5">
                   {[
                     { label: 'Source', value: sourcingHighlights.forestName },
                     { label: 'Location', value: sourcingHighlights.location },
                     { label: 'Harvested By', value: sourcingHighlights.harvestedBy },
                     { label: 'Bee Species', value: sourcingHighlights.beeSpecies },
-                    ...(sourcingHighlights.tasteProfile ? [{ label: 'Taste Profile', value: sourcingHighlights.tasteProfile }] : []),
+                    ...(sourcingHighlights.tasteProfile
+                      ? [{ label: 'Taste Profile', value: sourcingHighlights.tasteProfile }]
+                      : []),
                   ].map((item) => (
-                    <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B39A', fontWeight: 600 }}>{item.label}</span>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#2C2417' }}>{item.value}</span>
+                    <div key={item.label} className="flex flex-col gap-0.5">
+                      <span className="font-satoshi text-earth-light text-[10px] uppercase tracking-[0.08em] font-semibold">
+                        {item.label}
+                      </span>
+                      <span className="font-satoshi text-charcoal text-[13px] font-semibold">
+                        {item.value}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 4. Trust badges */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
-              {(trustBadges ?? ['100% Raw & Unfiltered', 'NABL Lab Tested', 'NPOP APEDA Organic', 'No Additives']).map((badge) => (
-                <span key={badge} style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#5C4A32', fontWeight: 600, background: '#F0E6D3', padding: '4px 10px', borderRadius: '4px' }}>{badge}</span>
-              ))}
+            {/* Trust badges */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {(trustBadges ?? ['100% Raw & Unfiltered', 'NABL Lab Tested', 'NPOP APEDA Organic', 'No Additives']).map(
+                (badge) => (
+                  <span
+                    key={badge}
+                    className="font-satoshi text-bark text-[11px] font-semibold uppercase tracking-[0.06em] bg-sand px-2.5 py-1 rounded"
+                  >
+                    {badge}
+                  </span>
+                ),
+              )}
             </div>
 
-            {/* 5. Variant selector */}
+            {/* Variant selector */}
             {variants.length > 0 && (
-              <div style={{ marginBottom: '20px' }}>
-                <p style={{ fontSize: '13px', fontWeight: 700, color: '#2C2417', margin: '0 0 10px' }}>Size</p>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div className="mb-5">
+                <p className="font-satoshi text-charcoal text-sm font-bold mb-2.5">Size</p>
+                <div className="flex flex-wrap gap-2.5">
                   {variants.map((v: any, i: number) => {
                     const active = activeVariant === i;
                     const varPrice = basePrice + v.priceAdjust;
                     return (
-                      <button key={v.id} onClick={() => setActiveVariant(i)} style={{ padding: '10px 22px', borderRadius: '8px', border: active ? '2px solid #F5A623' : '1px solid #F0E6D3', background: active ? '#FFF9F0' : '#FFFDF8', color: active ? '#D4891A' : '#5C4A32', fontWeight: active ? 700 : 500, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s ease' }}>
-                        {v.name} — ₹{varPrice}
+                      <button
+                        key={v.id}
+                        onClick={() => setActiveVariant(i)}
+                        aria-pressed={active}
+                        className={`px-5 py-2.5 rounded-lg text-sm font-satoshi transition-all min-h-[44px] ${
+                          active
+                            ? 'border-2 border-honey-400 bg-honey-50 text-honey-500 font-bold'
+                            : 'border border-sand bg-cream text-bark hover:border-honey-400 font-medium'
+                        }`}
+                      >
+                        {v.name} — {formatPrice(varPrice)}
                       </button>
                     );
                   })}
@@ -244,54 +431,119 @@ export default function ProductContent({ slug }: { slug: string }) {
               </div>
             )}
 
-            {/* 6. Qty + Add to cart */}
-            <div style={{ display: 'flex', gap: '14px', marginBottom: '28px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #F0E6D3', borderRadius: '8px' }}>
-                <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: '40px', height: '44px', background: 'none', border: 'none', fontSize: '16px', color: '#5C4A32', cursor: 'pointer' }}>−</button>
-                <span style={{ width: '36px', textAlign: 'center', fontWeight: 700, fontSize: '14px' }}>{qty}</span>
-                <button onClick={() => setQty((q) => q + 1)} style={{ width: '40px', height: '44px', background: 'none', border: 'none', fontSize: '16px', color: '#5C4A32', cursor: 'pointer' }}>+</button>
+            {/* Qty + Add to Cart */}
+            <div className="flex items-center gap-3.5 mb-7">
+              <div className="flex items-center border border-sand rounded-lg">
+                <button
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
+                  className="w-11 h-11 flex items-center justify-center text-bark hover:text-charcoal transition-colors"
+                >
+                  <Minus size={16} aria-hidden />
+                </button>
+                <span
+                  aria-live="polite"
+                  className="w-10 text-center font-satoshi font-bold text-sm text-charcoal"
+                >
+                  {qty}
+                </span>
+                <button
+                  onClick={() => setQty((q) => q + 1)}
+                  aria-label="Increase quantity"
+                  className="w-11 h-11 flex items-center justify-center text-bark hover:text-charcoal transition-colors"
+                >
+                  <Plus size={16} aria-hidden />
+                </button>
               </div>
-              <button onClick={handleAddToCart} style={addBtnStyle}>
-                {added ? 'Added ✓' : 'Add to Cart'}
+              <button
+                onClick={handleAddToCart}
+                disabled={added}
+                className={`flex-1 inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-[15px] px-7 py-3.5 rounded-lg transition-all min-h-[44px] ${
+                  added
+                    ? 'bg-sage text-cream cursor-default'
+                    : 'bg-honey-500 hover:bg-honey-600 text-cream shadow-honey'
+                }`}
+              >
+                {added ? (
+                  <>
+                    <Check size={16} aria-hidden /> Added
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag size={16} aria-hidden /> Add to Cart
+                  </>
+                )}
               </button>
             </div>
 
-            {/* 7. Accordion: Description → Benefits → How to Use */}
-            <div style={{ borderTop: '1px solid #F0E6D3' }}>
+            {/* Accordion */}
+            <div className="border-t border-sand">
               {ACCORDION.map((a, i) => {
                 const open = openAccordion === i;
                 const isBenefits = a.title === 'Benefits';
                 const isHowToUse = a.title === 'How to Use';
+                const panelId = `accordion-panel-${i}`;
+                const buttonId = `accordion-button-${i}`;
                 return (
-                  <div key={a.title} style={{ borderBottom: '1px solid #F0E6D3' }}>
-                    <button onClick={() => toggleAccordion(i)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: '16px 0', cursor: 'pointer', textAlign: 'left' }}>
-                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#2C2417' }}>
-                        {a.title}
-                      </span>
-                      <span style={{ fontSize: '18px', color: '#8B7355', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease', display: 'inline-block' }}>›</span>
+                  <div key={a.title} className="border-b border-sand">
+                    <button
+                      id={buttonId}
+                      onClick={() => toggleAccordion(i)}
+                      aria-expanded={open}
+                      aria-controls={panelId}
+                      className="w-full flex items-center justify-between py-4 text-left min-h-[44px]"
+                    >
+                      <span className="font-satoshi font-bold text-sm text-charcoal">{a.title}</span>
+                      <ChevronRight
+                        size={16}
+                        aria-hidden
+                        className={`text-earth transition-transform duration-300 ease-out ${
+                          open ? 'rotate-90' : ''
+                        }`}
+                      />
                     </button>
-                    <div style={{ overflow: 'hidden', maxHeight: open ? '1200px' : '0', transition: 'max-height 0.5s cubic-bezier(0.25,0.1,0.25,1)' }}>
+                    <div
+                      id={panelId}
+                      role="region"
+                      aria-labelledby={buttonId}
+                      style={{ maxHeight: open ? '1400px' : '0' }}
+                      className="overflow-hidden transition-[max-height] duration-500 ease-out"
+                    >
                       {Array.isArray(a.body) ? (
-                        <div style={{ margin: '0 0 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="mb-4 flex flex-col gap-2.5">
                           {(a.body as string[]).map((item, idx) => {
-                            const icon = isBenefits ? getBenefitIcon(item) : isHowToUse ? getHowToUseIcon(item) : '→';
+                            const Icon = isBenefits
+                              ? getBenefitIcon(item)
+                              : isHowToUse
+                              ? getHowToUseIcon(item)
+                              : Leaf;
                             return (
-                              <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                <span style={{ fontSize: icon === '→' ? '14px' : '16px', lineHeight: 1.4, flexShrink: 0, marginTop: '2px' }}>{icon}</span>
-                                <span style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32' }}>
+                              <div key={idx} className="flex gap-3 items-start">
+                                <Icon
+                                  size={16}
+                                  aria-hidden
+                                  className="text-honey-500 shrink-0 mt-0.5"
+                                />
+                                <span className="font-satoshi text-bark text-sm leading-relaxed">
                                   {isHowToUse && item.includes(':') ? (
                                     <>
-                                      <strong style={{ fontWeight: 700, color: '#2C2417' }}>{item.substring(0, item.indexOf(':'))}</strong>
+                                      <strong className="text-charcoal font-bold">
+                                        {item.substring(0, item.indexOf(':'))}
+                                      </strong>
                                       {item.substring(item.indexOf(':'))}
                                     </>
-                                  ) : item}
+                                  ) : (
+                                    item
+                                  )}
                                 </span>
                               </div>
                             );
                           })}
                         </div>
                       ) : (
-                        <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32', margin: '0 0 16px' }}>{a.body as string}</p>
+                        <p className="font-satoshi text-bark text-sm leading-relaxed mb-4">
+                          {a.body as string}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -302,21 +554,60 @@ export default function ProductContent({ slug }: { slug: string }) {
         </div>
       </section>
 
+      {/* Reviews */}
+      {product && (
+        <section className="max-w-content mx-auto px-6 md:px-8 pt-16">
+          <ReviewSection
+            productId={product.id}
+            reviews={[]}
+            averageRating={averageRating ?? undefined}
+            reviewCount={reviewCount ?? undefined}
+          />
+        </section>
+      )}
+
       {/* FAQs */}
       {faqs.length > 0 && (
-        <section style={{ padding: '64px 24px', maxWidth: '1400px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.4rem,2.5vw,2rem)', color: '#2C2417', margin: '0 0 20px' }}>Questions About This Honey</h2>
-          <div style={{ borderTop: '1px solid #F0E6D3' }}>
+        <section className="max-w-content mx-auto px-6 md:px-8 pt-16">
+          <h2 className="font-clash font-extrabold text-charcoal text-2xl md:text-3xl mb-5">
+            Questions About This Honey
+          </h2>
+          <div className="border-t border-sand">
             {faqs.map((faq, i) => {
-              const open = openAccordion === ACCORDION.length + i;
+              const idx = ACCORDION.length + i;
+              const open = openAccordion === idx;
+              const panelId = `faq-panel-${i}`;
+              const buttonId = `faq-button-${i}`;
               return (
-                <div key={i} style={{ borderBottom: '1px solid #F0E6D3' }}>
-                  <button onClick={() => setOpenAccordion((prev) => (prev === ACCORDION.length + i ? null : ACCORDION.length + i))} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: '16px 0', cursor: 'pointer', textAlign: 'left' }}>
-                    <span style={{ fontWeight: 700, fontSize: '14px', color: '#2C2417', paddingRight: '16px' }}>{faq.question}</span>
-                    <span style={{ fontSize: '18px', color: '#8B7355', flexShrink: 0, transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease', display: 'inline-block' }}>›</span>
+                <div key={i} className="border-b border-sand">
+                  <button
+                    id={buttonId}
+                    onClick={() => setOpenAccordion((prev) => (prev === idx ? null : idx))}
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    className="w-full flex items-center justify-between py-4 text-left min-h-[44px]"
+                  >
+                    <span className="font-satoshi font-bold text-sm text-charcoal pr-4">
+                      {faq.question}
+                    </span>
+                    <ChevronRight
+                      size={16}
+                      aria-hidden
+                      className={`text-earth shrink-0 transition-transform duration-300 ${
+                        open ? 'rotate-90' : ''
+                      }`}
+                    />
                   </button>
-                  <div style={{ overflow: 'hidden', maxHeight: open ? '300px' : '0', transition: 'max-height 0.35s cubic-bezier(0.25,0.1,0.25,1)' }}>
-                    <p style={{ fontSize: '14px', lineHeight: 1.7, color: '#5C4A32', margin: '0 0 16px' }}>{faq.answer}</p>
+                  <div
+                    id={panelId}
+                    role="region"
+                    aria-labelledby={buttonId}
+                    style={{ maxHeight: open ? '400px' : '0' }}
+                    className="overflow-hidden transition-[max-height] duration-300 ease-out"
+                  >
+                    <p className="font-satoshi text-bark text-sm leading-relaxed mb-4">
+                      {faq.answer}
+                    </p>
                   </div>
                 </div>
               );
@@ -327,33 +618,66 @@ export default function ProductContent({ slug }: { slug: string }) {
 
       {/* Related products */}
       {related.length > 0 && (
-        <section style={{ padding: '64px 0 96px', maxWidth: '1400px', margin: '0 auto', overflow: 'hidden' }}>
-          <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.6rem)', color: '#2C2417', margin: '0 0 32px', padding: '0 24px' }}>You Might Also Like</h2>
-          <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', padding: '0 24px 12px', scrollbarWidth: 'none' }}>
-            {related.map((p) => (
-              <Link key={p.id} href={`/product/${p.slug}`} data-reveal style={{ minWidth: '260px', maxWidth: '260px', flexShrink: 0, textDecoration: 'none' }}>
-                <div style={{ aspectRatio: '3/4', borderRadius: '12px', overflow: 'hidden', background: 'repeating-linear-gradient(135deg,#FFF0D6 0px,#FFF0D6 14px,#FFF9F0 14px,#FFF9F0 28px)', border: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: '10px', color: '#8B7355', textTransform: 'uppercase', padding: '0 12px' }}>{p.name}</span>
-                </div>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#2C2417', margin: '0 0 4px' }}>{p.name}</h3>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                  <p style={{ fontSize: '13px', fontWeight: 700, color: '#D4891A', margin: 0 }}>₹{p.price}</p>
-                  {p.compareAtPrice && p.compareAtPrice > p.price && (
-                    <p style={{ fontSize: '11px', color: '#C4B39A', textDecoration: 'line-through', margin: 0 }}>₹{p.compareAtPrice}</p>
-                  )}
-                </div>
-              </Link>
-            ))}
+        <section className="max-w-content mx-auto pt-16 pb-24 overflow-hidden">
+          <h2 className="font-clash font-extrabold text-charcoal text-2xl md:text-3xl mb-6 px-6 md:px-8">
+            You Might Also Like
+          </h2>
+          <div className="flex gap-5 overflow-x-auto scrollbar-none px-6 md:px-8 pb-3">
+            {related.map((p, idx) => {
+              const src = resolveProductImage(dbImages, p.id, p.images?.[0]?.url);
+              return (
+                <motion.div
+                  key={p.id}
+                  initial={reduce ? false : { opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: reduce ? 0 : idx * 0.06,
+                    ease: HONEY_EASE_OUT,
+                  }}
+                  className="min-w-[260px] max-w-[260px] shrink-0"
+                >
+                  <Link href={`/product/${p.slug}`} className="block group">
+                    <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-cream-warm border border-sand mb-3">
+                      {src ? (
+                        <Image
+                          src={src}
+                          alt={p.images?.[0]?.altText || p.name}
+                          fill
+                          sizes="260px"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-earth-light">
+                          <Package size={40} strokeWidth={1.25} aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-satoshi text-sm font-semibold text-charcoal mb-1 group-hover:text-honey-600 transition-colors">
+                      {p.name}
+                    </h3>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-clash text-honey-500 text-sm font-semibold">
+                        {formatPrice(p.price)}
+                      </span>
+                      {p.compareAtPrice && p.compareAtPrice > p.price && (
+                        <span className="font-satoshi text-earth-light text-xs line-through">
+                          {formatPrice(p.compareAtPrice)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         </section>
       )}
 
-      <style>{`
-        [data-reveal] { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-        [data-reveal].revealed { opacity: 1; transform: none; }
-        @media (min-width: 1024px) {
-          .sum-pdp-grid { grid-template-columns: 1fr 1fr !important; }
-        }
+      <style jsx>{`
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        .scrollbar-none { scrollbar-width: none; }
       `}</style>
     </div>
   );

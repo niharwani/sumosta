@@ -44,8 +44,9 @@ class SumostaTracker {
     const events = [...this.queue];
     this.queue = [];
 
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
     try {
-      await fetch('/api/analytics/event', {
+      await fetch(`${apiUrl}/api/analytics/event`, {
         method:    'POST',
         headers:   { 'Content-Type': 'application/json' },
         body:      JSON.stringify({ events }),

@@ -1,68 +1,66 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingBag, ArrowLeft, ChevronDown, Tag } from 'lucide-react';
+import Script from 'next/script';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ChevronDown, Tag, LogIn, ShoppingBag, Info, Truck, Lock, CreditCard, Wallet } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice } from '@/lib/utils';
 import CouponInput from '@/components/cart/CouponInput';
 import { couponsApi } from '@/lib/api';
+import { tracker } from '@/lib/tracker';
+import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { INDIAN_STATES } from '@/lib/constants';
 import { MAX_COUPONS_DEFAULT, MAX_COUPONS_WITH_FIRST_ORDER, PREPAID_COUPON_CODE } from '@/stores/cart-store';
 import type { Coupon } from 'shared';
 
-const INDIAN_STATES = [
-  'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
-  'Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh',
-  'Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan',
-  'Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal',
-  'Andaman & Nicobar Islands','Chandigarh','Dadra & Nagar Haveli and Daman & Diu',
-  'Delhi','Jammu & Kashmir','Ladakh','Lakshadweep','Puducherry',
+// Razorpay Checkout is loaded via a <Script> tag; declare its global for TS.
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, cb: (resp: unknown) => void) => void;
+    };
+    onTurnstileVerify?: (token: string) => void;
+    turnstile?: {
+      render: (el: HTMLElement | string, opts: Record<string, unknown>) => string;
+      reset: (widgetId?: string) => void;
+    };
+  }
+}
+
+// Coerce an API error field (which may be a string, a ZodError object, or missing)
+// into a user-facing string.
+function errText(err: unknown, fallback: string): string {
+  if (typeof err === 'string' && err.trim()) return err;
+  if (err && typeof err === 'object') {
+    const e = err as { message?: unknown; issues?: Array<{ message?: string; path?: unknown[] }> };
+    if (typeof e.message === 'string') return e.message;
+    if (Array.isArray(e.issues) && e.issues[0]?.message) {
+      const first = e.issues[0];
+      const field = Array.isArray(first.path) ? first.path.join('.') : '';
+      return field ? `${field}: ${first.message}` : first.message!;
+    }
+  }
+  return fallback;
+}
+
+const AVAILABLE_COUPONS: { code: string; label: string }[] = [
+  { code: 'PREPAID5',  label: '5% off on prepaid orders' },
+  { code: 'WELCOME10', label: '10% off for new customers' },
+  { code: 'COMBO10',   label: '10% off on combo purchases' },
 ];
 
-const AVAILABLE_COUPONS = [
-  { code: 'PREPAID5',  label: '5% off on prepaid orders',      color: '#FFF0D6', border: '#F5A623', text: '#A66A10' },
-  { code: 'WELCOME10', label: '10% off for new customers',     color: '#F0FAF0', border: '#BBE0BB', text: '#2E6B2E' },
-  { code: 'COMBO10',   label: '10% off on combo purchases',    color: '#EEF2FF', border: '#C7D2FE', text: '#4338CA' },
-];
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid #E5E7EB',
-  borderRadius: '10px',
-  padding: '12px 14px',
-  fontFamily: 'var(--font-manrope), sans-serif',
-  fontSize: '14px',
-  color: '#2C2417',
-  background: 'white',
-  outline: 'none',
-  boxSizing: 'border-box',
-  transition: 'border-color 0.2s',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-manrope), sans-serif',
-  fontSize: '12px',
-  fontWeight: 600,
-  color: '#5C4A32',
-  marginBottom: '6px',
-  display: 'block',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-};
-
-const sectionHeadStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-bricolage), sans-serif',
-  fontWeight: 700,
-  fontSize: '16px',
-  color: '#2C2417',
-  margin: '0 0 16px',
-  paddingBottom: '12px',
-  borderBottom: '1px solid rgba(229,231,235,0.7)',
-};
+const inputClass =
+  'w-full border border-sand rounded-lg px-3.5 py-3 font-satoshi text-sm text-charcoal bg-cream focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-400/30 transition-all';
+const labelClass =
+  'font-satoshi text-[12px] font-semibold text-bark mb-1.5 block uppercase tracking-[0.05em]';
 
 export default function CheckoutPage() {
-  const { items, subtotal, discount, shipping, total, couponDiscounts, coupons, addCoupon, removeCoupon } = useCartStore();
-  const { user } = useAuthStore();
+  const router = useRouter();
+  const { items, subtotal, discount, shipping, total, couponDiscounts, coupons, addCoupon, removeCoupon, clearCart } = useCartStore();
+  const { user, isInitialized } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
   const [form, setForm] = useState({
@@ -73,6 +71,11 @@ export default function CheckoutPage() {
   const [payError, setPayError] = useState('');
   const [chipLoading, setChipLoading] = useState<string | null>(null);
   const [chipError, setChipError] = useState<{ code: string; msg: string } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const turnstileMounted = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -86,14 +89,136 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
-  if (!mounted) return <div style={{ minHeight: '100vh', background: '#FAF7F2', paddingTop: '7rem' }} />;
+  // Pincode → city/state autofill (debounced 400ms) using postalpincode.in
+  useEffect(() => {
+    if (!/^\d{6}$/.test(form.pincode)) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${form.pincode}`, {
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        const office = json?.[0]?.PostOffice?.[0];
+        if (office?.District && office?.State) {
+          setForm((f) => ({ ...f, city: f.city || office.District, state: f.state || office.State }));
+        }
+      } catch {
+        /* silent — user can fill manually */
+      }
+    }, 400);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [form.pincode]);
+
+  // Fire begin_checkout once when the page mounts with items
+  const beginCheckoutFired = useRef(false);
+  useEffect(() => {
+    if (!mounted || beginCheckoutFired.current || items.length === 0) return;
+    beginCheckoutFired.current = true;
+    tracker?.track('begin_checkout', {
+      cartTotal:  total,
+      itemCount:  items.reduce((n, i) => n + i.quantity, 0),
+      couponCodes: coupons.map((c) => c.code),
+    });
+  }, [mounted, items, total, coupons]);
+
+  // Cloudflare Turnstile setup: register callback + render when script + container ready
+  useEffect(() => {
+    if (!turnstileSiteKey) {
+      // no-op if the sitekey isn't set — pay button remains usable
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.warn('[checkout] NEXT_PUBLIC_TURNSTILE_SITE_KEY not set — Turnstile disabled.');
+      }
+      return;
+    }
+    if (typeof window === 'undefined') return;
+
+    window.onTurnstileVerify = (token: string) => setTurnstileToken(token);
+
+    const tryRender = () => {
+      if (turnstileMounted.current) return;
+      const el = document.getElementById('cf-turnstile');
+      if (el && window.turnstile) {
+        try {
+          window.turnstile.render(el, {
+            sitekey: turnstileSiteKey,
+            callback: 'onTurnstileVerify',
+            theme: 'light',
+          });
+          turnstileMounted.current = true;
+        } catch {
+          /* ignore double-render */
+        }
+      } else {
+        setTimeout(tryRender, 300);
+      }
+    };
+    tryRender();
+  }, [turnstileSiteKey]);
+
+  if (!mounted) return <div className="min-h-screen bg-cream" />;
 
   if (items.length === 0) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 text-center px-6 bg-[#FAF7F2]">
-        <ShoppingBag size={64} className="text-[#E5E7EB]" />
-        <h1 className="font-jakarta font-bold text-charcoal text-3xl">Your cart is empty</h1>
-        <Link href="/shop" className="btn-pill-orange">Browse Products</Link>
+      <div className="min-h-[calc(100vh-var(--header-height))] flex flex-col items-center justify-center gap-6 text-center px-6 bg-cream py-20">
+        <ShoppingBag size={64} strokeWidth={1} className="text-earth-light" aria-hidden />
+        <h1 className="font-clash font-bold text-charcoal text-3xl">Your cart is empty</h1>
+        <Link
+          href="/shop"
+          className="inline-flex items-center justify-center bg-honey-500 hover:bg-honey-600 text-cream font-satoshi font-semibold text-sm px-8 py-3 rounded-full transition-colors min-h-[44px]"
+        >
+          Browse Products
+        </Link>
+      </div>
+    );
+  }
+
+  // Auth gate — checkout requires a signed-in customer.
+  if (isInitialized && !user) {
+    return (
+      <div className="min-h-[calc(100vh-var(--header-height))] flex items-center justify-center px-6 py-20 bg-cream">
+        <div className="w-full max-w-md bg-cream-warm rounded-2xl border border-sand p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-honey-100 mx-auto mb-4 flex items-center justify-center">
+            <LogIn size={22} className="text-honey-600" aria-hidden />
+          </div>
+          <h1 className="font-clash font-bold text-charcoal text-2xl mb-2">Please sign in to place your order</h1>
+          <p className="font-satoshi text-earth text-sm mb-6">
+            Signing in lets us save your order to your account so you can track it, reorder easily, and access support.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => router.push(`/auth/login?next=${encodeURIComponent('/checkout')}`)}
+              className="w-full inline-flex items-center justify-center gap-2 bg-honey-500 hover:bg-honey-600 text-cream font-satoshi font-semibold text-sm rounded-full px-6 py-3 transition-colors min-h-[44px]"
+            >
+              Sign in to continue
+            </button>
+            <button
+              onClick={() => router.push(`/auth/register?next=${encodeURIComponent('/checkout')}`)}
+              className="w-full inline-flex items-center justify-center bg-cream border border-sand hover:border-honey-400 text-charcoal font-satoshi font-semibold text-sm rounded-full px-6 py-3 transition-colors min-h-[44px]"
+            >
+              Create an account
+            </button>
+            <Link
+              href="/cart"
+              className="font-satoshi text-xs text-earth hover:text-charcoal mt-1"
+            >
+              ← Back to cart
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Waiting on auth init
+  if (!isInitialized) {
+    return (
+      <div className="min-h-[calc(100vh-var(--header-height))] flex items-center justify-center bg-cream">
+        <HoneycombLoader size="lg" />
       </div>
     );
   }
@@ -102,7 +227,7 @@ export default function CheckoutPage() {
     setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const applyCode = async (code: string) => {
-    if (coupons.some((c) => c.code === code)) return; // already applied
+    if (coupons.some((c) => c.code === code)) return;
     setChipLoading(code);
     setChipError(null);
     try {
@@ -113,7 +238,6 @@ export default function CheckoutPage() {
         return;
       }
       const coupon = res.coupon as Coupon;
-      // Stacking check
       const hasFirstOrder = coupons.some((c) => c.isFirstOrderOnly) || coupon.isFirstOrderOnly;
       const max = hasFirstOrder ? MAX_COUPONS_WITH_FIRST_ORDER : MAX_COUPONS_DEFAULT;
       if (coupon.code !== PREPAID_COUPON_CODE && coupons.length >= max) {
@@ -132,38 +256,163 @@ export default function CheckoutPage() {
     form.name && form.email && form.phone.length >= 10 &&
     form.address1 && form.city && form.state && form.pincode.length === 6;
 
+  // If Turnstile is configured, require a verified token before enabling pay
+  const turnstileOk = !turnstileSiteKey || !!turnstileToken;
+
+  const shippingPayload = () => ({
+    name:    form.name,
+    phone:   form.phone,
+    line1:   form.address1,
+    line2:   form.address2 || null,
+    city:    form.city,
+    state:   form.state,
+    pincode: form.pincode,
+  });
+
+  const handleCodPay = async () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
+    const res = await fetch(`${API_URL}/api/checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        shippingAddress: shippingPayload(),
+        couponCodes:     coupons.map((c) => c.code),
+        email:           form.email,
+        paymentMethod:   'cod',
+      }),
+    });
+    const data = await res.json();
+    if (data.success && data.data?.orderId) {
+      clearCart();
+      const oid = data.data.orderId;
+      window.location.href = `/order-confirmation/${oid}/?orderId=${encodeURIComponent(oid)}&email=${encodeURIComponent(form.email)}`;
+    } else {
+      setPayError(errText(data.error, 'Could not place COD order. Please try again.'));
+    }
+  };
+
+  const handleRazorpayPay = async () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (!keyId) {
+      setPayError('Payment is not configured. Please contact support.');
+      return;
+    }
+    if (typeof window === 'undefined' || !window.Razorpay) {
+      setPayError('Payment library is still loading. Please try again in a moment.');
+      return;
+    }
+    const token = localStorage.getItem('sumosta_access_token');
+
+    const createRes = await fetch(`${API_URL}/api/razorpay/create-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        shippingAddress: shippingPayload(),
+        couponCodes:     coupons.map((c) => c.code),
+        email:           form.email,
+        items: items.map((i) => ({
+          productId:   i.productId,
+          variantId:   i.variantId ?? null,
+          quantity:    i.quantity,
+          unitPrice:   i.unitPrice,
+          productName: i.product.name,
+        })),
+      }),
+    });
+    const created = await createRes.json();
+    if (!createRes.ok || !created.success) {
+      setPayError(errText(created.error, 'Could not start payment. Please try again.'));
+      return;
+    }
+    const { orderId, razorpayOrderId, amount, currency } = created.data as {
+      orderId: string; razorpayOrderId: string; amount: number; currency: string;
+    };
+
+    await new Promise<void>((resolve) => {
+      const rzp = new window.Razorpay({
+        key:       keyId,
+        amount,
+        currency,
+        name:      'SUMOSTA',
+        description: 'Order payment',
+        order_id:  razorpayOrderId,
+        prefill: {
+          name:    form.name,
+          email:   form.email,
+          contact: form.phone,
+        },
+        notes: { orderId },
+        theme: { color: '#F5A623' },
+        modal: {
+          ondismiss: () => {
+            setPayError('Payment cancelled. Your order is still saved — you can retry.');
+            setPaying(false);
+            resolve();
+          },
+        },
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id:   string;
+          razorpay_signature:  string;
+        }) => {
+          try {
+            const verifyRes = await fetch(`${API_URL}/api/razorpay/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                orderId,
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
+              }),
+            });
+            const verified = await verifyRes.json();
+            if (verifyRes.ok && verified.success) {
+              clearCart();
+              const finalOid = verified.data.orderId ?? orderId;
+              window.location.href = `/order-confirmation/${finalOid}/?orderId=${encodeURIComponent(finalOid)}&email=${encodeURIComponent(form.email)}`;
+            } else {
+              setPayError(errText(verified.error, 'Payment verification failed. Please contact support.'));
+            }
+          } catch {
+            setPayError('Could not verify payment. Please contact support.');
+          } finally {
+            resolve();
+          }
+        },
+      });
+
+      rzp.on('payment.failed', (resp: unknown) => {
+        const r = resp as { error?: { description?: string } };
+        setPayError(r.error?.description ?? 'Payment failed. Please try again.');
+        setPaying(false);
+        resolve();
+      });
+
+      rzp.open();
+    });
+  };
+
   const handlePay = async () => {
-    if (!isFormValid) return;
+    if (!isFormValid || !turnstileOk) return;
     setPaying(true);
     setPayError('');
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-      const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-      const res = await fetch(`${API_URL}/api/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          shippingAddress: {
-            name:     form.name,
-            phone:    form.phone,
-            line1:    form.address1,
-            line2:    form.address2,
-            city:     form.city,
-            state:    form.state,
-            pincode:  form.pincode,
-          },
-          couponCodes: coupons.map((c) => c.code),
-          email: form.email,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.data?.paymentUrl) {
-        window.location.href = data.data.paymentUrl;
+      if (paymentMethod === 'cod') {
+        await handleCodPay();
       } else {
-        setPayError(data.error ?? 'Something went wrong. Please try again.');
+        await handleRazorpayPay();
       }
     } catch {
       setPayError('Could not reach payment server. Please try again.');
@@ -172,101 +421,120 @@ export default function CheckoutPage() {
     }
   };
 
+  const COD_FEE = 69;
   const afterDiscount = Math.max(0, subtotal - discount);
   const toFreeShipping = Math.max(0, 499 - afterDiscount);
+  const codHandlingFee = paymentMethod === 'cod' ? COD_FEE : 0;
+  const grandTotal = total + codHandlingFee;
+
+  const canPay = isFormValid && turnstileOk;
 
   return (
-    <div style={{ background: '#FAF7F2', minHeight: '100vh', paddingTop: '6rem' }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px 80px' }}>
-
+    <div className="bg-cream min-h-screen">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
+      {turnstileSiteKey && (
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+      )}
+      <div className="max-w-[1100px] mx-auto px-6 md:px-8 pt-8 pb-24">
         {/* Back */}
         <Link
           href="/cart"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontFamily: 'var(--font-manrope), sans-serif', fontSize: '13px',
-            color: '#8B7355', textDecoration: 'none', marginBottom: '24px',
-          }}
+          className="inline-flex items-center gap-1.5 font-satoshi text-sm text-earth hover:text-honey-500 transition-colors mb-6"
         >
-          <ArrowLeft size={14} /> Back to Cart
+          <ArrowLeft size={14} aria-hidden /> Back to Cart
         </Link>
 
-        <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '26px', color: '#2C2417', margin: '0 0 28px' }}>
+        <h1 className="font-clash font-bold text-charcoal text-3xl md:text-4xl mb-7">
           Checkout
         </h1>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }} className="checkout-grid">
-
-          {/* ── Left: Form ─────────────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-6">
+          {/* Left: Form */}
+          <div className="flex flex-col gap-5">
             {/* Contact */}
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid rgba(229,231,235,0.8)', padding: '24px' }}>
-              <h2 style={sectionHeadStyle}>Contact Information</h2>
-              <div style={{ display: 'grid', gap: '14px' }}>
+            <section className="bg-cream-warm rounded-2xl border border-sand p-6">
+              <h2 className="font-clash font-bold text-charcoal text-base mb-4 pb-3 border-b border-sand">
+                Contact Information
+              </h2>
+              <div className="grid gap-3.5">
                 <div>
-                  <label style={labelStyle}>Full Name *</label>
-                  <input style={inputStyle} placeholder="Rahul Sharma" value={form.name} onChange={set('name')} className="co-input" />
+                  <label htmlFor="co-name" className={labelClass}>Full Name *</label>
+                  <input id="co-name" className={inputClass} placeholder="Rahul Sharma" value={form.name} onChange={set('name')} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="two-col">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label style={labelStyle}>Email *</label>
-                    <input style={inputStyle} type="email" placeholder="you@example.com" value={form.email} onChange={set('email')} className="co-input" />
+                    <label htmlFor="co-email" className={labelClass}>Email *</label>
+                    <input id="co-email" type="email" className={inputClass} placeholder="you@example.com" value={form.email} onChange={set('email')} />
                   </div>
                   <div>
-                    <label style={labelStyle}>Phone *</label>
-                    <input style={inputStyle} type="tel" placeholder="9876543210" maxLength={10} value={form.phone} onChange={set('phone')} className="co-input" />
+                    <label htmlFor="co-phone" className={labelClass}>Phone *</label>
+                    <input id="co-phone" type="tel" className={inputClass} placeholder="9876543210" maxLength={10} value={form.phone} onChange={set('phone')} />
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Shipping address */}
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid rgba(229,231,235,0.8)', padding: '24px' }}>
-              <h2 style={sectionHeadStyle}>Shipping Address</h2>
-              <div style={{ display: 'grid', gap: '14px' }}>
+            {/* Shipping */}
+            <section className="bg-cream-warm rounded-2xl border border-sand p-6">
+              <h2 className="font-clash font-bold text-charcoal text-base mb-4 pb-3 border-b border-sand">
+                Shipping Address
+              </h2>
+              <div className="grid gap-3.5">
                 <div>
-                  <label style={labelStyle}>Address Line 1 *</label>
-                  <input style={inputStyle} placeholder="Flat / House No., Building, Street" value={form.address1} onChange={set('address1')} className="co-input" />
+                  <label htmlFor="co-addr1" className={labelClass}>Address Line 1 *</label>
+                  <input id="co-addr1" className={inputClass} placeholder="Flat / House No., Building, Street" value={form.address1} onChange={set('address1')} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Address Line 2</label>
-                  <input style={inputStyle} placeholder="Area, Colony, Landmark (optional)" value={form.address2} onChange={set('address2')} className="co-input" />
+                  <label htmlFor="co-addr2" className={labelClass}>Address Line 2</label>
+                  <input id="co-addr2" className={inputClass} placeholder="Area, Colony, Landmark (optional)" value={form.address2} onChange={set('address2')} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="two-col">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label style={labelStyle}>City *</label>
-                    <input style={inputStyle} placeholder="Mumbai" value={form.city} onChange={set('city')} className="co-input" />
+                    <label htmlFor="co-pincode" className={labelClass}>Pincode *</label>
+                    <input
+                      id="co-pincode"
+                      className={inputClass}
+                      placeholder="400001"
+                      maxLength={6}
+                      value={form.pincode}
+                      onChange={set('pincode')}
+                      inputMode="numeric"
+                      aria-describedby="pincode-hint"
+                    />
+                    <p id="pincode-hint" className="font-satoshi text-[11px] text-earth mt-1">
+                      City & state auto-fill from pincode
+                    </p>
                   </div>
                   <div>
-                    <label style={labelStyle}>Pincode *</label>
-                    <input style={inputStyle} placeholder="400001" maxLength={6} value={form.pincode} onChange={set('pincode')} className="co-input" />
+                    <label htmlFor="co-city" className={labelClass}>City *</label>
+                    <input id="co-city" className={inputClass} placeholder="Mumbai" value={form.city} onChange={set('city')} />
                   </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>State *</label>
-                  <div style={{ position: 'relative' }}>
+                  <label htmlFor="co-state" className={labelClass}>State *</label>
+                  <div className="relative">
                     <select
+                      id="co-state"
                       value={form.state}
                       onChange={set('state')}
-                      style={{ ...inputStyle, appearance: 'none', paddingRight: '36px', cursor: 'pointer' }}
-                      className="co-input"
+                      className={`${inputClass} appearance-none pr-9 cursor-pointer`}
                     >
                       <option value="">Select state…</option>
                       {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8B7355', pointerEvents: 'none' }} />
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-earth pointer-events-none" aria-hidden />
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Available coupons */}
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid rgba(229,231,235,0.8)', padding: '24px' }}>
-              <h2 style={sectionHeadStyle}>Offers &amp; Coupons</h2>
+            {/* Offers & Coupons */}
+            <section className="bg-cream-warm rounded-2xl border border-sand p-6">
+              <h2 className="font-clash font-bold text-charcoal text-base mb-4 pb-3 border-b border-sand">
+                Offers & Coupons
+              </h2>
 
-              {/* Clickable offer chips */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              <div className="flex flex-col gap-2 mb-4">
                 {AVAILABLE_COUPONS.map((offer) => {
                   const isApplied = coupons.some((c) => c.code === offer.code);
                   const isLoading = chipLoading === offer.code;
@@ -276,41 +544,38 @@ export default function CheckoutPage() {
                       <button
                         onClick={() => isApplied ? removeCoupon(offer.code) : applyCode(offer.code)}
                         disabled={isLoading}
-                        style={{
-                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          background: isApplied ? offer.color : '#FAFAFA',
-                          border: `1px ${isApplied ? 'solid' : 'dashed'} ${isApplied ? offer.border : '#D1D5DB'}`,
-                          borderRadius: '10px', padding: '10px 14px',
-                          cursor: isLoading ? 'wait' : 'pointer',
-                          textAlign: 'left', transition: 'all 0.15s',
-                          opacity: isLoading ? 0.6 : 1,
-                        }}
-                        className={`offer-chip ${isApplied ? 'applied' : ''}`}
+                        aria-pressed={isApplied}
+                        className={`w-full flex items-center justify-between text-left rounded-lg px-3.5 py-3 transition-all min-h-[44px] ${
+                          isApplied
+                            ? 'bg-cream-warm border border-honey-400'
+                            : 'bg-cream border border-dashed border-sand hover:border-honey-400'
+                        } ${isLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <Tag size={13} color={isApplied ? offer.text : '#9CA3AF'} />
+                        <div className="flex items-center gap-2.5">
+                          <Tag size={13} className={isApplied ? 'text-honey-600' : 'text-earth-light'} aria-hidden />
                           <div>
-                            <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 700, fontSize: '13px', color: isApplied ? offer.text : '#374151', margin: 0, letterSpacing: '0.04em' }}>
+                            <p className={`font-satoshi font-bold text-[13px] tracking-[0.04em] m-0 ${
+                              isApplied ? 'text-honey-600' : 'text-charcoal'
+                            }`}>
                               {offer.code}
                             </p>
-                            <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '11px', color: isApplied ? offer.text : '#6B7280', margin: 0 }}>
+                            <p className={`font-satoshi text-[11px] m-0 ${
+                              isApplied ? 'text-honey-600' : 'text-earth'
+                            }`}>
                               {offer.label}
                             </p>
                           </div>
                         </div>
-                        <span style={{
-                          fontFamily: 'var(--font-manrope), sans-serif', fontSize: '12px', fontWeight: 600,
-                          color: isApplied ? offer.text : '#9CA3AF',
-                          background: isApplied ? 'white' : 'transparent',
-                          border: isApplied ? `1px solid ${offer.border}` : 'none',
-                          borderRadius: '999px', padding: isApplied ? '3px 10px' : '0',
-                          whiteSpace: 'nowrap',
-                        }}>
+                        <span className={`font-satoshi text-xs font-semibold whitespace-nowrap ${
+                          isApplied
+                            ? 'text-honey-600 bg-cream border border-honey-400 rounded-full px-2.5 py-0.5'
+                            : 'text-earth-light'
+                        }`}>
                           {isLoading ? '…' : isApplied ? '✓ Applied' : 'Tap to apply'}
                         </span>
                       </button>
                       {err && (
-                        <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '11px', color: '#C4573A', margin: '4px 0 0 14px' }}>
+                        <p role="alert" className="font-satoshi text-[11px] text-terracotta mt-1 ml-3.5">
                           {err}
                         </p>
                       )}
@@ -320,26 +585,26 @@ export default function CheckoutPage() {
               </div>
 
               <CouponInput />
-            </div>
+            </section>
           </div>
 
-          {/* ── Right: Order summary + pay ──────────────────────────────────────── */}
+          {/* Right: Order summary + pay */}
           <div>
-            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid rgba(229,231,235,0.8)', padding: '24px', position: 'sticky', top: '110px' }}>
-              <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '18px', color: '#2C2417', margin: '0 0 18px' }}>
+            <div className="bg-cream-warm rounded-2xl border border-sand p-6 sticky top-[calc(var(--header-height)+1rem)]">
+              <h2 className="font-clash font-bold text-charcoal text-lg mb-4">
                 Order Summary
               </h2>
 
               {/* Items */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px', paddingBottom: '18px', borderBottom: '1px solid rgba(229,231,235,0.6)', maxHeight: '220px', overflowY: 'auto' }}>
+              <div className="flex flex-col gap-2.5 mb-4 pb-4 border-b border-sand max-h-[220px] overflow-y-auto">
                 {items.map((item) => (
-                  <div key={`${item.productId}-${item.variantId ?? 'default'}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'flex-start' }}>
-                    <span style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '13px', color: '#5C4A32', flex: 1, lineHeight: 1.4 }}>
+                  <div key={`${item.productId}-${item.variantId ?? 'default'}`} className="flex justify-between gap-2 items-start">
+                    <span className="font-satoshi text-[13px] text-bark flex-1 leading-tight">
                       {item.product.name}
-                      {item.variant && <span style={{ color: '#C4B39A' }}> · {item.variant.name}</span>}
-                      <span style={{ color: '#C4B39A' }}> × {item.quantity}</span>
+                      {item.variant && <span className="text-earth-light"> · {item.variant.name}</span>}
+                      <span className="text-earth-light"> × {item.quantity}</span>
                     </span>
-                    <span style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '13px', fontWeight: 600, color: '#2C2417', whiteSpace: 'nowrap' }}>
+                    <span className="font-satoshi text-[13px] font-semibold text-charcoal whitespace-nowrap">
                       {formatPrice(item.lineTotal)}
                     </span>
                   </div>
@@ -347,22 +612,22 @@ export default function CheckoutPage() {
               </div>
 
               {/* Price breakdown */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-manrope), sans-serif', fontSize: '14px', color: '#5C4A32' }}>
+              <div className="flex flex-col gap-2.5 mb-4">
+                <div className="flex justify-between font-satoshi text-sm text-bark">
                   <span>Subtotal</span>
                   <span>{formatPrice(subtotal)}</span>
                 </div>
 
                 {couponDiscounts.map((cd) => (
-                  <div key={cd.code} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-manrope), sans-serif', fontSize: '14px', color: '#4A8F4A', fontWeight: 600 }}>
+                  <div key={cd.code} className="flex justify-between font-satoshi text-sm text-sage font-semibold">
                     <span>Coupon ({cd.code})</span>
                     <span>−{formatPrice(cd.amount)}</span>
                   </div>
                 ))}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-manrope), sans-serif', fontSize: '14px', color: '#5C4A32' }}>
+                <div className="flex justify-between font-satoshi text-sm text-bark">
                   <span>Shipping</span>
-                  <span style={{ color: shipping === 0 ? '#4A8F4A' : undefined, fontWeight: shipping === 0 ? 700 : undefined }}>
+                  <span className={shipping === 0 ? 'text-sage font-bold' : ''}>
                     {shipping === 0 ? 'FREE' : formatPrice(shipping)}
                   </span>
                 </div>
@@ -370,84 +635,192 @@ export default function CheckoutPage() {
 
               {/* Free shipping nudge */}
               {toFreeShipping > 0 && (
-                <div style={{ background: '#FFF9F0', border: '1px solid rgba(245,166,35,0.2)', borderRadius: '8px', padding: '8px 12px', marginBottom: '14px' }}>
-                  <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '12px', color: '#A66A10', margin: 0 }}>
-                    Add {formatPrice(toFreeShipping)} more for free shipping!
+                <div className="bg-honey-50 border border-honey-200 rounded-lg px-3.5 py-2 mb-3.5 flex items-center gap-2">
+                  <Truck size={13} className="text-honey-500 shrink-0" aria-hidden />
+                  <p className="font-satoshi text-xs text-honey-600 m-0">
+                    Add {formatPrice(toFreeShipping)} more for free shipping.
                   </p>
                 </div>
               )}
 
-              {/* Total */}
-              <div style={{ borderTop: '1px solid rgba(229,231,235,0.6)', paddingTop: '16px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 600, fontSize: '15px', color: '#2C2417' }}>Total</span>
-                  <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '26px', color: '#2C2417' }}>{formatPrice(total)}</span>
+              {/* COD handling fee line */}
+              {paymentMethod === 'cod' && (
+                <div className="flex justify-between font-satoshi text-sm text-bark mb-2.5">
+                  <span>COD Handling Fee</span>
+                  <span className="text-terracotta font-semibold">+{formatPrice(COD_FEE)}</span>
                 </div>
-                <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '11px', color: '#C4B39A', textAlign: 'right', margin: '3px 0 0' }}>
-                  Inclusive of all taxes
+              )}
+
+              {/* Total */}
+              <div className="border-t border-sand pt-4 mb-5">
+                <div className="flex justify-between items-baseline">
+                  <span className="font-satoshi font-semibold text-[15px] text-charcoal">Total</span>
+                  <span className="font-clash font-bold text-[26px] text-charcoal">{formatPrice(grandTotal)}</span>
+                </div>
+                <p className="font-satoshi text-[11px] text-earth-light text-right mt-1">
+                  Inclusive of all taxes{paymentMethod === 'cod' ? ' · Incl. ₹69 COD fee' : ''}
                 </p>
               </div>
 
+              {/* Payment method selector — using Radix-less radio group pattern */}
+              <div className="flex flex-col gap-2 mb-4" role="radiogroup" aria-label="Payment method">
+                <p className="font-satoshi text-xs font-bold text-bark m-0 mb-1 uppercase tracking-[0.05em]">
+                  Payment Method
+                </p>
+
+                {/* Online payment */}
+                <label
+                  className={`w-full flex items-center gap-2.5 rounded-lg px-3.5 py-3 cursor-pointer transition-all border ${
+                    paymentMethod === 'online'
+                      ? 'bg-honey-50 border-honey-400'
+                      : 'bg-cream border-sand hover:border-earth-light'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="online"
+                    checked={paymentMethod === 'online'}
+                    onChange={() => setPaymentMethod('online')}
+                    className="sr-only"
+                  />
+                  <span
+                    aria-hidden
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      paymentMethod === 'online' ? 'border-honey-500 bg-honey-500' : 'border-earth-light bg-cream'
+                    }`}
+                  >
+                    {paymentMethod === 'online' && (
+                      <span className="w-1.5 h-1.5 bg-cream rounded-full block" />
+                    )}
+                  </span>
+                  <CreditCard size={16} className={paymentMethod === 'online' ? 'text-honey-600' : 'text-earth'} aria-hidden />
+                  <div className="flex-1">
+                    <p className="font-satoshi font-bold text-[13px] text-charcoal m-0">Pay Online</p>
+                    <p className="font-satoshi text-[11px] text-earth m-0">UPI · Cards · Net Banking · Wallets</p>
+                  </div>
+                  <span className="ml-auto font-satoshi text-[11px] font-bold text-sage bg-sage-light border border-sage/30 rounded-full px-2 py-0.5 whitespace-nowrap">
+                    Save with PREPAID5
+                  </span>
+                </label>
+
+                {/* COD */}
+                <label
+                  className={`w-full flex items-center gap-2.5 rounded-lg px-3.5 py-3 cursor-pointer transition-all border ${
+                    paymentMethod === 'cod'
+                      ? 'bg-honey-50 border-honey-400'
+                      : 'bg-cream border-sand hover:border-earth-light'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cod"
+                    checked={paymentMethod === 'cod'}
+                    onChange={() => setPaymentMethod('cod')}
+                    className="sr-only"
+                  />
+                  <span
+                    aria-hidden
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      paymentMethod === 'cod' ? 'border-honey-500 bg-honey-500' : 'border-earth-light bg-cream'
+                    }`}
+                  >
+                    {paymentMethod === 'cod' && (
+                      <span className="w-1.5 h-1.5 bg-cream rounded-full block" />
+                    )}
+                  </span>
+                  <Wallet size={16} className={paymentMethod === 'cod' ? 'text-honey-600' : 'text-earth'} aria-hidden />
+                  <div className="flex-1">
+                    <p className="font-satoshi font-bold text-[13px] text-charcoal m-0">Cash on Delivery</p>
+                    <p className="font-satoshi text-[11px] text-earth m-0">Pay when your order arrives · +₹69 handling fee</p>
+                  </div>
+                </label>
+
+                {/* PREPAID5 nudge when COD is selected */}
+                {paymentMethod === 'cod' && (
+                  <div className="bg-honey-100 border border-honey-400 rounded-lg px-3.5 py-2.5 flex items-start gap-2.5">
+                    <Info size={16} className="text-honey-600 shrink-0 mt-0.5" aria-hidden />
+                    <div className="flex-1">
+                      <p className="font-satoshi font-bold text-[13px] text-honey-600 m-0 mb-0.5">
+                        Save 5% by paying online.
+                      </p>
+                      <p className="font-satoshi text-xs text-earth m-0">
+                        Switch to online payment and use code{' '}
+                        <strong className="text-honey-600 tracking-[0.04em]">PREPAID5</strong>{' '}
+                        to get 5% off. No COD fee either.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPaymentMethod('online')}
+                      className="ml-auto shrink-0 font-satoshi text-xs font-bold text-honey-600 bg-cream border border-honey-400 hover:bg-honey-50 rounded-lg px-2.5 py-1.5 transition-colors whitespace-nowrap"
+                    >
+                      Switch →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Turnstile widget */}
+              {turnstileSiteKey && (
+                <div className="mb-3">
+                  <div id="cf-turnstile" className="cf-turnstile" />
+                </div>
+              )}
+
               {/* Error */}
               {payError && (
-                <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '13px', color: '#C4573A', background: '#FDE8E3', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px' }}>
+                <p role="alert" className="font-satoshi text-sm text-terracotta bg-terracotta-light rounded-lg px-3.5 py-2.5 mb-3.5">
                   {payError}
                 </p>
               )}
 
-              {/* Pay button */}
+              {/* Pay button — unified honey styling regardless of method */}
               <button
                 onClick={handlePay}
-                disabled={!isFormValid || paying}
-                style={{
-                  width: '100%', padding: '15px', borderRadius: '10px', border: 'none',
-                  background: isFormValid ? '#5A3B8C' : '#E5E7EB',
-                  color: isFormValid ? 'white' : '#9CA3AF',
-                  fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '15px',
-                  cursor: isFormValid ? 'pointer' : 'not-allowed',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                  transition: 'background 0.2s', marginBottom: '10px',
-                  opacity: paying ? 0.7 : 1,
-                }}
-                className="pay-btn"
+                disabled={!canPay || paying}
+                className={`w-full py-3.5 rounded-full font-satoshi font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors mb-2.5 min-h-[44px] ${
+                  canPay && !paying
+                    ? 'bg-honey-500 hover:bg-honey-600 text-cream shadow-honey'
+                    : 'bg-sand text-earth-light cursor-not-allowed'
+                } ${paying ? 'opacity-70' : ''}`}
               >
                 {paying ? (
                   'Processing…'
+                ) : paymentMethod === 'cod' ? (
+                  <>
+                    <Wallet size={16} aria-hidden />
+                    Place Order — Pay {formatPrice(grandTotal)} on Delivery
+                  </>
                 ) : (
                   <>
-                    <svg width="20" height="20" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="20" cy="20" r="20" fill="white" fillOpacity="0.15"/>
-                      <path d="M12 20C12 15.58 15.58 12 20 12C22.76 12 25.19 13.39 26.66 15.52L23.5 17.44C22.64 16.26 21.4 15.5 20 15.5C17.52 15.5 15.5 17.52 15.5 20C15.5 22.48 17.52 24.5 20 24.5C21.4 24.5 22.64 23.74 23.5 22.56L26.66 24.48C25.19 26.61 22.76 28 20 28C15.58 28 12 24.42 12 20Z" fill="white"/>
-                    </svg>
-                    Pay {formatPrice(total)} with PhonePe
+                    <Lock size={16} aria-hidden />
+                    Pay {formatPrice(grandTotal)} Securely
                   </>
                 )}
               </button>
 
               {!isFormValid && (
-                <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '11px', color: '#C4B39A', textAlign: 'center', margin: 0 }}>
+                <p className="font-satoshi text-[11px] text-earth-light text-center m-0">
                   Fill in all required fields to continue
                 </p>
               )}
+              {isFormValid && !turnstileOk && turnstileSiteKey && (
+                <p className="font-satoshi text-[11px] text-earth-light text-center m-0">
+                  Complete the security check to continue
+                </p>
+              )}
 
-              <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontSize: '11px', color: '#C4B39A', textAlign: 'center', margin: '8px 0 0' }}>
-                🔒 Secured by PhonePe · UPI · Cards · Net Banking
+              <p className="font-satoshi text-[11px] text-earth-light text-center mt-2 inline-flex items-center justify-center gap-1.5 w-full">
+                <Lock size={11} aria-hidden />
+                {paymentMethod === 'cod'
+                  ? 'Secure COD · Pay cash when your order arrives'
+                  : 'Secured by Razorpay · UPI · Cards · Net Banking · Wallets'}
               </p>
             </div>
           </div>
         </div>
       </div>
-
-      <style>{`
-        @media (min-width: 768px) {
-          .checkout-grid { grid-template-columns: 1fr 360px !important; }
-          .two-col { grid-template-columns: 1fr 1fr !important; }
-        }
-        .co-input:focus { border-color: #F5A623 !important; }
-        .pay-btn:hover:not(:disabled) { background: #3D2870 !important; }
-        .offer-chip:hover:not(:disabled):not(.applied) { background: #F5F5F5 !important; border-color: #C4B39A !important; }
-        .offer-chip.applied:hover:not(:disabled) { filter: brightness(0.97); }
-      `}</style>
     </div>
   );
 }

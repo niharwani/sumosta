@@ -1,37 +1,40 @@
-import { Leaf, ShieldCheck, Thermometer, BadgeCheck, MapPin, Droplets, FlaskConical, Home } from 'lucide-react';
+'use client';
+import { useReducedMotion } from 'framer-motion';
 
-const ITEMS: { icon: React.ReactNode; label: string }[] = [
-  { icon: <Leaf size={12} strokeWidth={2.2} />, label: 'Raw & Unprocessed' },
-  { icon: <MapPin size={12} strokeWidth={2.2} />, label: 'Single-Origin' },
-  { icon: <FlaskConical size={12} strokeWidth={2.2} />, label: 'Lab Certified' },
-  { icon: <MapPin size={12} strokeWidth={2.2} />, label: 'Western Ghats' },
-  { icon: <Droplets size={12} strokeWidth={2.2} />, label: 'Sundarbans' },
-  { icon: <MapPin size={12} strokeWidth={2.2} />, label: 'Himalayan Foothills' },
-  { icon: <ShieldCheck size={12} strokeWidth={2.2} />, label: 'Zero Additives' },
-  { icon: <Home size={12} strokeWidth={2.2} />, label: 'Hive to Home' },
+const MARQUEE_ITEMS = [
+  'RAW HONEY',
+  'WILD SOURCED',
+  'UNPROCESSED',
+  'SINGLE ORIGIN',
+  'WESTERN GHATS',
+  'SUNDARBANS',
+  'HIMALAYAN',
+  'PURE NATURE',
 ];
 
-const repeated = [...ITEMS, ...ITEMS, ...ITEMS];
+// Duplicate the sequence so the marquee loops seamlessly at translateX(-50%).
+const RUN = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
 export default function MarqueeBanner() {
+  const reduce = useReducedMotion();
+
   return (
-    <div className="bg-midnight border-y border-[#2C2010] overflow-hidden pause-on-hover py-3.5">
-      <div className="flex whitespace-nowrap animate-marquee">
-        {repeated.map((item, i) => (
+    <div
+      className="bg-honey-100 border-y border-honey-200/60 overflow-hidden pause-on-hover"
+      aria-hidden={reduce ? undefined : true}
+    >
+      <div
+        className={reduce ? 'flex whitespace-nowrap' : 'flex whitespace-nowrap animate-marquee'}
+        style={reduce ? { transform: 'none' } : undefined}
+      >
+        {RUN.map((label, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-2 shrink-0 text-earth mx-6"
-            style={{
-              fontFamily: 'var(--font-satoshi), ui-sans-serif, system-ui, sans-serif',
-              fontSize: '11px',
-              fontWeight: 600,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-            }}
+            className="inline-flex items-center gap-6 shrink-0 py-4 px-6 font-clash font-medium text-honey-500 text-lg md:text-xl uppercase"
+            style={{ letterSpacing: '0.2em' }}
           >
-            {item.icon}
-            <span>{item.label}</span>
-            <span className="w-1 h-1 rounded-full bg-honey-600 shrink-0 ml-4" />
+            <span>{label}</span>
+            <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-honey-400/60" />
           </span>
         ))}
       </div>

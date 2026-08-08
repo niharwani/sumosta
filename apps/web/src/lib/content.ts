@@ -230,30 +230,6 @@ export const STATIC_CATEGORIES: Record<string, Category> = {
     description: 'Curated collections and premium gift boxes of our finest wild forest honeys.',
     imageUrl: null,
     sortOrder: 2
-  },
-  'superfoods': {
-    id: 'cat_superfoods',
-    name: 'Proprietary Superfoods',
-    slug: 'superfoods',
-    description: 'Nutrient-rich, functional superfood honey infusions curated for daily wellness.',
-    imageUrl: null,
-    sortOrder: 2
-  },
-  'spreads': {
-    id: 'cat_spreads',
-    name: 'Nuts & Seeds Spreads',
-    slug: 'spreads',
-    description: 'Creamy, high-protein nuts & seeds spreads naturally sweetened with honey & jaggery.',
-    imageUrl: null,
-    sortOrder: 3
-  },
-  'honey-nuts': {
-    id: 'cat_honey_nuts',
-    name: 'Honey Soaked Nuts',
-    slug: 'honey-nuts',
-    description: 'Premium organic nuts slow-soaked in raw single-origin forest honey.',
-    imageUrl: null,
-    sortOrder: 4
   }
 };
 
@@ -393,8 +369,7 @@ export const STATIC_PRODUCTS: (Product & {
     metaTitle: 'Organic Wild Forest Honey | SUMOSTA',
     metaDescription: 'Buy 100% pure NPOP APEDA certified organic wild forest honey. Sourced sustainably, rich in medicinal benefits.',
     images: [
-      { id: 'img_wf_1', url: '/images/products/wild-forest-1.png', altText: 'Organic Certified Wild Forest Honey Jar', sortOrder: 1, isPrimary: true },
-      { id: 'img_wf_2', url: '/images/products/wild-forest-2.png', altText: 'Forest Sourcing Honey', sortOrder: 2, isPrimary: false }
+      { id: 'img_wf_1', url: '/images/products/wild-forest-250-hero.png', altText: 'Organic Certified Wild Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_wf_250g', name: '250g Glass Jar', sku: 'SM-WF-250', priceAdjust: -250, compareAtPriceAdjust: -300, stock: 50 },
@@ -452,8 +427,7 @@ export const STATIC_PRODUCTS: (Product & {
     metaTitle: 'Rare Dammer Bee Honey from Nagaland | SUMOSTA',
     metaDescription: 'Discover the medicinal power of rare Dammer Bee Honey sourced from Nagaland. Highly antimicrobial, rich and tangy.',
     images: [
-      { id: 'img_st_1', url: '/images/products/stingless-1.png', altText: 'Rare Dammer Bee Honey Jar', sortOrder: 1, isPrimary: true },
-      { id: 'img_st_2', url: '/images/products/stingless-2.png', altText: 'Small Stingless Dammer Bee Hives', sortOrder: 2, isPrimary: false }
+      { id: 'img_st_1', url: '/images/products/dammer-250-hero.png', altText: 'Rare Dammer Bee Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: -600, compareAtPriceAdjust: -800, stock: 15 },
@@ -515,7 +489,7 @@ export const STATIC_PRODUCTS: (Product & {
     metaTitle: 'Artisanal Heritage Forest Honey (Kandhamal Odisha) | SUMOSTA',
     metaDescription: 'Authentic wild artisanal heritage forest honey from Kandhamal, Odisha. Hand-harvested, raw and pure.',
     images: [
-      { id: 'img_tb_1', url: '/images/products/tribal-1.png', altText: 'Artisanal Heritage Forest Honey Jar', sortOrder: 1, isPrimary: true }
+      { id: 'img_tb_1', url: '/images/products/heritage-250-hero.png', altText: 'Artisanal Heritage Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -300, compareAtPriceAdjust: -350, stock: 40 },
@@ -572,7 +546,7 @@ export const STATIC_PRODUCTS: (Product & {
     metaTitle: 'Canopy Dew Forest Honey | SUMOSTA',
     metaDescription: 'Indulge in rare, dark Canopy Dew Forest Honey from the Sal forests of Saranda, Jharkhand. Extremely rich in minerals and prebiotics.',
     images: [
-      { id: 'img_hd_1', url: '/images/products/honeydew-1.png', altText: 'Canopy Dew Forest Honey Jar', sortOrder: 1, isPrimary: true }
+      { id: 'img_hd_1', url: '/images/products/canopy-250-hero.png', altText: 'Canopy Dew Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -300, compareAtPriceAdjust: -350, stock: 25 },
@@ -634,7 +608,7 @@ export const STATIC_PRODUCTS: (Product & {
     metaTitle: 'Bloodseed Forest Honey | High Iron Wild Honey | SUMOSTA',
     metaDescription: 'Taste the therapeutic Bloodseed Forest Honey from Abujhmarh Reserve. Rich in iron & antioxidants, deep red-amber color, ethically wild-harvested.',
     images: [
-      { id: 'img_rk_1', url: '/images/products/raktbeej-1.png', altText: 'Bloodseed Forest Honey Jar', sortOrder: 1, isPrimary: true }
+      { id: 'img_rk_1', url: '/images/products/bloodseed-250-hero.png', altText: 'Bloodseed Forest Honey Jar', sortOrder: 1, isPrimary: true }
     ],
     variants: [
       { id: 'var_rb_250g', name: '250g Glass Jar', sku: 'SM-RB-250', priceAdjust: -300, compareAtPriceAdjust: -350, stock: 25 },
@@ -680,7 +654,7 @@ export const STATIC_PRODUCTS: (Product & {
     metaTitle: 'The 5 Elements Collection | Premium Forest Honey Gift Set | SUMOSTA',
     metaDescription: 'Experience all 5 SUMOSTA raw forest honeys in a luxury 70g gift set. Bloodseed, Artisanal Heritage, Rare Dammer Bee, Canopy Dew, and Organic Wild Forest — NABL tested, NPOP certified.',
     images: [
-      { id: 'img_tb_box_1', url: '/images/products/combo-trialbox.png', altText: 'The 5 Elements Collection Gift Box', sortOrder: 1, isPrimary: true }
+      { id: 'img_tb_box_1', url: '/images/products/wild-forest-250-hero.png', altText: 'The 5 Elements Collection Gift Box', sortOrder: 1, isPrimary: true }
     ],
     variants: [],
     averageRating: 4.8,
@@ -694,152 +668,6 @@ export const STATIC_PRODUCTS: (Product & {
       beeSpecies: 'Apis dorsata & Meliponini (Dammer Bee)'
     },
     faqs: []
-  },
-
-  // FUTURE PRODUCTS (Coming Soon)
-  {
-    id: 'prod_moringa_velvet',
-    name: 'Moringa Green Velvet (Superfood)',
-    slug: 'moringa-green-velvet',
-    sku: 'SM-FC-MOR',
-    categoryId: 'cat_superfoods',
-    category: STATIC_CATEGORIES['superfoods'],
-    shortDescription: 'Active raw honey whipped with bio-active organic Moringa oleifera green leaf extract. Coming soon.',
-    description: 'Moringa Green Velvet is an upcoming premium superfood infusion. We slowly whip raw forest honey with organic, cold-dried Moringa leaf extract, creating a creamy green velvet honey. Packed with plant proteins, calcium, vitamins, and antioxidants, it provides a green energy boost without any grassy bitterness.',
-    sourcingStory: 'Moringa leaves are sourced from organic farms in southern India and blended at room temperature to preserve raw honey enzymes and Moringa vitamins.',
-    nutritionalBenefits: [
-      'Rich in vitamins A, C, E, and calcium for bone health.',
-      'Offers a natural plant-based energy boost.',
-      'High in chlorophyll and amino acids.'
-    ],
-    price: 499,
-    compareAtPrice: null,
-    costPrice: null,
-    stock: 0,
-    lowStockThreshold: 0,
-    weight: 250,
-    tags: ['superfood', 'moringa', 'green-honey', 'infusion'],
-    isFeatured: false,
-    isActive: false,
-    comingSoon: true,
-    metaTitle: 'Moringa Green Velvet Honey Infusion | SUMOSTA',
-    metaDescription: 'Coming Soon: Moringa Green Velvet. A premium wellness blend of raw forest honey and organic Moringa superfood.',
-    images: [
-      { id: 'img_mor_1', url: '/images/products/moringa-placeholder.svg', altText: 'Moringa Green Velvet Mock Jar', sortOrder: 1, isPrimary: true }
-    ],
-    variants: [],
-    averageRating: 0,
-    reviewCount: 0,
-    createdAt: '2026-06-01T00:00:00Z',
-    updatedAt: '2026-06-01T00:00:00Z'
-  },
-  {
-    id: 'prod_golden_latte',
-    name: 'Royal Golden Latte (Superfood)',
-    slug: 'royal-golden-latte',
-    sku: 'SM-FC-LAT',
-    categoryId: 'cat_superfoods',
-    category: STATIC_CATEGORIES['superfoods'],
-    shortDescription: 'Whipped raw honey infused with high-curcumin Lakadong Turmeric, ginger, and black pepper. Coming soon.',
-    description: 'An upcoming wellness superstar inspired by ancient Ayurvedic Golden Milk. We blend whipped raw honey with Lakadong Turmeric (renowned for its 7%+ curcumin content), dry ginger, and a dash of black pepper. The black pepper activates the absorption of curcumin, delivering an antioxidant powerhouse that supports immunity, joints, and digestion.',
-    sourcingStory: 'Lakadong Turmeric is sourced directly from cooperative farmers in Meghalaya, celebrated for growing the most potent turmeric in the world.',
-    nutritionalBenefits: [
-      'Highly anti-inflammatory blend supporting joint flexibility and immune health.',
-      'Lakadong turmeric contains high active curcumin concentrations.',
-      'Black pepper inclusion increases curcumin absorption by up to 2000%.'
-    ],
-    price: 549,
-    compareAtPrice: null,
-    costPrice: null,
-    stock: 0,
-    lowStockThreshold: 0,
-    weight: 250,
-    tags: ['superfood', 'turmeric', 'golden-milk', 'ayurvedic'],
-    isFeatured: false,
-    isActive: false,
-    comingSoon: true,
-    metaTitle: 'Royal Golden Latte Turmeric Honey | SUMOSTA',
-    metaDescription: 'Coming Soon: Royal Golden Latte. An Ayurvedic-inspired blend of raw forest honey, Lakadong turmeric, and warming spices.',
-    images: [
-      { id: 'img_lat_1', url: '/images/products/golden-latte-placeholder.svg', altText: 'Royal Golden Latte Mock Jar', sortOrder: 1, isPrimary: true }
-    ],
-    variants: [],
-    averageRating: 0,
-    reviewCount: 0,
-    createdAt: '2026-06-01T00:00:00Z',
-    updatedAt: '2026-06-01T00:00:00Z'
-  },
-  {
-    id: 'prod_nuts_spread',
-    name: 'Multi-Nuts & Seeds Spread',
-    slug: 'multi-nuts-seeds-spread',
-    sku: 'SM-SP-NUTS',
-    categoryId: 'cat_spreads',
-    category: STATIC_CATEGORIES['spreads'],
-    shortDescription: 'Clean, high-protein nut butter sweetened with raw forest honey and organic jaggery. Coming soon.',
-    description: 'A revolutionary, clean nut butter spread. It contains zero palm oil, zero stabilizers, and zero refined sugars. Naturally sweetened with raw forest honey and organic jaggery, it combines slow-roasted almonds, hazelnuts, cashews, peanuts, and seeds (chia, flax, and pumpkin seeds) into a velvety, crunchy spread rich in plant proteins and healthy fats.',
-    sourcingStory: 'All nuts and seeds are carefully roasted in small batches to preserve their natural oils and blended slowly with wild honey to achieve a perfect spreadable texture.',
-    nutritionalBenefits: [
-      'Zero palm oil, hydrogenated fats, or preservatives.',
-      '100% naturally sweetened with raw honey and organic jaggery.',
-      'Loaded with proteins, dietary fibers, and omega-3 fatty acids from seeds.'
-    ],
-    price: 449,
-    compareAtPrice: null,
-    costPrice: null,
-    stock: 0,
-    lowStockThreshold: 0,
-    weight: 350,
-    tags: ['spread', 'nut-butter', 'no-palm-oil', 'seeds'],
-    isFeatured: false,
-    isActive: false,
-    comingSoon: true,
-    metaTitle: 'Multi-Nuts & Seeds Honey Spread | SUMOSTA',
-    metaDescription: 'Coming Soon: Clean Multi-Nuts & Seeds Spread. Naturally sweetened with raw forest honey and organic jaggery. No palm oil.',
-    images: [
-      { id: 'img_spr_1', url: '/images/products/nuts-spread-placeholder.svg', altText: 'Multi-Nuts & Seeds Spread Mock Jar', sortOrder: 1, isPrimary: true }
-    ],
-    variants: [],
-    averageRating: 0,
-    reviewCount: 0,
-    createdAt: '2026-06-01T00:00:00Z',
-    updatedAt: '2026-06-01T00:00:00Z'
-  },
-  {
-    id: 'prod_honey_soaked_nuts',
-    name: 'Honey-soaked Premium Nuts',
-    slug: 'honey-soaked-premium-nuts',
-    sku: 'SM-SN-PREM',
-    categoryId: 'cat_honey_nuts',
-    category: STATIC_CATEGORIES['honey-nuts'],
-    shortDescription: 'Premium almonds, walnuts, and cashews slow-soaked in raw single-origin wild forest honey. Coming soon.',
-    description: 'A luxurious jar of whole premium nuts (Californian almonds, Kashmiri walnuts, and whole cashews) slow-soaked for 30 days in raw single-origin wild forest honey. As the nuts soak, they absorb the enzymes and sweetness of the honey, while releasing their roasted oils into the honey, making it rich and complex. Perfect for breakfasts, snacking, or gifting.',
-    sourcingStory: 'Premium grade almonds, walnuts, and cashews are sourced from local farms in Kashmir and California, lightly dry-roasted, and hand-packed in jars before being filled with wild honey.',
-    nutritionalBenefits: [
-      'Energy-boosting, vitamin-rich daily ritual snack.',
-      'Excellent source of antioxidants, minerals, and healthy fats.',
-      'Perfect healthy alternative to processed sweets.'
-    ],
-    price: 599,
-    compareAtPrice: null,
-    costPrice: null,
-    stock: 0,
-    lowStockThreshold: 0,
-    weight: 350,
-    tags: ['honey-soaked', 'nuts', 'gifting', 'healthy-snack'],
-    isFeatured: false,
-    isActive: false,
-    comingSoon: true,
-    metaTitle: 'Honey-soaked Premium Nuts | SUMOSTA',
-    metaDescription: 'Coming Soon: Honey-soaked Premium Nuts. Organic walnuts, almonds, and cashews slow-soaked in raw forest honey.',
-    images: [
-      { id: 'img_skn_1', url: '/images/products/soaked-nuts-placeholder.svg', altText: 'Honey Soaked Nuts Mock Jar', sortOrder: 1, isPrimary: true }
-    ],
-    variants: [],
-    averageRating: 0,
-    reviewCount: 0,
-    createdAt: '2026-06-01T00:00:00Z',
-    updatedAt: '2026-06-01T00:00:00Z'
   }
 ];
 
@@ -853,7 +681,7 @@ export const STATIC_COMBOS: (ComboBundle & {
     description: 'Three of India\'s most storied forest honeys, united in one extraordinary set. The Heritage Trio brings together Organic Wild Forest Honey (250g), Artisanal Heritage Forest Honey (250g), and Bloodseed Forest Honey (250g) — each harvested from ancient indigenous forest ecosystems by tribal communities who have practiced sustainable honey gathering for generations. These are not interchangeable products: each carries a distinct terroir, a unique color, a specific medicinal character, and a story rooted in place. Together, they represent the full depth of India\'s wild honey heritage.',
     price: 999,
     compareAtPrice: 1299,
-    image: '/images/products/combo-essentials.png',
+    image: '/images/products/heritage-250-hero.png',
     products: ['prod_wf_honey_500', 'prod_tribal_500', 'prod_raktbeej_500'],
     benefitsLabel: 'Why this Trio',
     benefitsBody: [
@@ -874,7 +702,7 @@ export const STATIC_COMBOS: (ComboBundle & {
     description: 'Two of India\'s rarest forest honeys, brought together for those who seek the extraordinary. The Forest Alchemy Duo pairs Rare Dammer Bee Honey (250g) — harvested from stingless Meliponini bees in Kerala\'s ancient rainforests — with Canopy Dew Forest Honey (250g) — a remarkable honeydew variety collected from the forest canopy of Kandhamal\'s pristine sal and teak forests. Both are among the most unusual and sought-after raw honeys in India, prized by healers, chefs, and connoisseurs alike.',
     price: 999,
     compareAtPrice: 1299,
-    image: '/images/products/combo-medicinal.png',
+    image: '/images/products/canopy-250-hero.png',
     products: ['prod_stingless_250', 'prod_honeydew_500'],
     benefitsLabel: 'Why this Duo',
     benefitsBody: 'Rare Dammer Bee Honey brings the ancient wisdom of stingless-bee honey — naturally lower in sugar, higher in organic acids, with a distinctive tangy-sweet profile uniquely suited for immune support and oral health. Canopy Dew Forest Honey adds a mineral-rich, complex sweetness derived not from flower nectar but from the concentrated forest canopy secretions gathered by wild bees. Together, they represent two completely different expressions of honey at its most elemental — complementary in character, extraordinary in origin, and unlike anything found in mainstream markets.',

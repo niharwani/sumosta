@@ -45,6 +45,17 @@
   --radius-xl:   16px;
   --radius-2xl:  24px;
   --radius-full: 9999px;
+
+  /* === LAYOUT === */
+  /* Single source of truth for the fixed header offset.
+     AnnouncementBar (36px) is hidden below md; Navbar ≈ 64px. */
+  --header-height: 64px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --header-height: 100px;
+  }
 }
 
 /* ============================================================
@@ -66,7 +77,7 @@ html {
 body {
   background-color: var(--cream);
   color: var(--charcoal);
-  font-family: var(--font-jakarta), var(--font-satoshi), system-ui, sans-serif;
+  font-family: var(--font-satoshi), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -76,24 +87,17 @@ body {
    FONT UTILITIES
    ============================================================ */
 
-.font-clash      { font-family: var(--font-clash),      sans-serif; }
-.font-satoshi    { font-family: var(--font-jakarta),   sans-serif; }
-.font-bespoke    { font-family: var(--font-bespoke),   serif; }
-.font-jakarta    { font-family: var(--font-jakarta),   system-ui, sans-serif; }
-.font-caveat     { font-family: var(--font-caveat),    cursive; }
-.font-bricolage  { font-family: var(--font-bricolage), sans-serif; }
-.font-manrope    { font-family: var(--font-manrope),   sans-serif; }
-.font-instrument { font-family: var(--font-instrument), serif; }
+.font-clash    { font-family: var(--font-clash),    ui-serif, serif; }
+.font-satoshi  { font-family: var(--font-satoshi),  system-ui, sans-serif; }
+.font-bespoke  { font-family: var(--font-bespoke),  ui-serif, serif; }
 
 /* Marquee + misc animations used by redesigned pages */
-@keyframes sum-marquee   { 0% { transform: translateX(0); }   100% { transform: translateX(-50%); } }
 @keyframes sum-bounce    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
 @keyframes sum-spin-slow { from { transform: rotate(0deg); }  to   { transform: rotate(360deg); } }
 @keyframes sum-pulse-gold {
   0%,100% { opacity: 0.3; transform: scale(0.85); }
   50%     { opacity: 1;   transform: scale(1); }
 }
-.animate-sum-marquee   { animation: sum-marquee   32s linear infinite; }
 .animate-sum-bounce    { animation: sum-bounce    2s ease-in-out infinite; }
 .animate-sum-spin-slow { animation: sum-spin-slow 40s linear infinite; }
 .animate-sum-pulse-gold { animation: sum-pulse-gold 1.2s ease-in-out infinite; }
@@ -136,15 +140,15 @@ body {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.8125rem 2rem;
-  font-family: var(--font-jakarta), sans-serif;
+  font-family: var(--font-satoshi), system-ui, sans-serif;
   font-weight: 600;
   font-size: 0.875rem;
   letter-spacing: 0.02em;
   border-radius: var(--radius-sm);
   background-color: var(--honey-500);
-  color: #FFFDF8;
+  color: var(--cream);
   transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: 0 2px 12px rgba(212, 137, 26, 0.28);
+  box-shadow: var(--shadow-honey);
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
@@ -163,7 +167,7 @@ body {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.8125rem 2rem;
-  font-family: var(--font-jakarta), sans-serif;
+  font-family: var(--font-satoshi), system-ui, sans-serif;
   font-weight: 500;
   font-size: 0.875rem;
   letter-spacing: 0.02em;
@@ -182,39 +186,13 @@ body {
   color: var(--charcoal);
 }
 
-/* Legacy — kept for backward compat, maps to honey style */
-.btn-pill-orange {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.8125rem 2rem;
-  font-family: var(--font-jakarta), sans-serif;
-  font-weight: 600;
-  font-size: 0.875rem;
-  letter-spacing: 0.02em;
-  border-radius: var(--radius-sm);
-  background-color: var(--honey-500);
-  color: #FFFDF8;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 12px rgba(212, 137, 26, 0.28);
-  border: none;
-  cursor: pointer;
-}
-
-.btn-pill-orange:hover {
-  background-color: var(--honey-600);
-  box-shadow: 0 4px 20px rgba(212, 137, 26, 0.36);
-  transform: translateY(-1px);
-}
-
 .btn-pill-white {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   padding: 0.8125rem 2rem;
-  font-family: var(--font-jakarta), sans-serif;
+  font-family: var(--font-satoshi), system-ui, sans-serif;
   font-weight: 500;
   font-size: 0.875rem;
   letter-spacing: 0.02em;
@@ -247,18 +225,6 @@ body {
   transform: translateY(-2px);
 }
 
-.card-white {
-  background: #FFFFFF;
-  border-radius: 20px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-  transition: all 0.3s ease;
-}
-
-.card-white:hover {
-  box-shadow: 0 8px 30px rgba(0,0,0,0.07);
-  transform: translateY(-2px);
-}
-
 .image-container-cream {
   background-color: var(--cream-warm);
   border-radius: var(--radius-xl);
@@ -270,6 +236,34 @@ body {
 
 .pause-on-hover:hover .animate-marquee {
   animation-play-state: paused;
+}
+
+/* ============================================================
+   SKIP-LINK — visually hidden until focused
+   ============================================================ */
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--honey-500);
+  color: var(--cream);
+  font-family: var(--font-satoshi), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-200%);
+  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--charcoal);
+  outline-offset: 2px;
 }
 
 /* ============================================================
@@ -300,4 +294,19 @@ body {
 :focus-visible {
   outline: 2px solid var(--honey-400);
   outline-offset: 3px;
+}
+
+/* ============================================================
+   REDUCED MOTION — honor user preference globally
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

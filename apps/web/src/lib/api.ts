@@ -14,13 +14,60 @@ class ApiError extends Error {
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   params?: Record<string, string | number | boolean | undefined>;
+  /** Skip 401 auto-refresh + retry (used by refresh() itself to avoid loops). */
+  _skipAuthRetry?: boolean;
+}
+
+// ─── Access-token accessor (lazy import to sidestep circular deps) ────
+function readAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    // Dynamic require — the store lives in the same package
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useAuthStore } = require('@/stores/auth-store');
+    return useAuthStore.getState().accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function readUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useAuthStore } = require('@/stores/auth-store');
+    const state = useAuthStore.getState();
+    return state.user?.id ?? localStorage.getItem('sumosta_user_id') ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function readRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useAuthStore } = require('@/stores/auth-store');
+    return useAuthStore.getState().refreshToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Deduped refresh promise (concurrent 401s share one refresh call) ─
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let refreshPromise: Promise<any> | null = null;
+
+function dispatchAuthExpired(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('sumosta:auth-expired'));
 }
 
 async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, params, ...rest } = options;
+  const { body, params, _skipAuthRetry, ...rest } = options;
 
   let url = `${API_URL}${path}`;
   if (params) {
@@ -31,46 +78,84 @@ async function request<T>(
     if (search.size > 0) url += `?${search.toString()}`;
   }
 
-  const accessToken =
-    typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+  const buildHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = readAccessToken();
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
   };
 
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+  const doFetch = async (): Promise<Response> =>
+    fetch(url, {
+      ...rest,
+      credentials: 'include', // send/receive httpOnly cookies (refresh token)
+      headers: { ...buildHeaders(), ...(rest.headers as Record<string, string> | undefined) },
+      body:    body !== undefined ? JSON.stringify(body) : undefined,
+    });
 
-  const sessionId =
-    typeof window !== 'undefined'
-      ? (sessionStorage.getItem('sumosta_session') ?? '')
-      : '';
+  let response = await doFetch();
 
-  if (sessionId) headers['X-Session-ID'] = sessionId;
+  // ─── 401 auto-refresh + single retry ───────────────────────────────
+  if (response.status === 401 && !_skipAuthRetry) {
+    try {
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          try {
+            return await authApi.refresh();
+          } finally {
+            // Clear on next tick so pending awaits still see this promise
+            queueMicrotask(() => { refreshPromise = null; });
+          }
+        })();
+      }
+      const refreshed = await refreshPromise;
 
-  const response = await fetch(url, {
-    ...rest,
-    headers: { ...headers, ...(rest.headers as Record<string, string> | undefined) },
-    body:    body !== undefined ? JSON.stringify(body) : undefined,
-  });
+      // Update the store with the new session
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { useAuthStore } = require('@/stores/auth-store');
+        useAuthStore.getState().login(
+          refreshed.user,
+          refreshed.accessToken,
+          refreshed.refreshToken,
+        );
+      } catch {
+        /* store not available — proceed anyway */
+      }
 
-  const data = await response.json();
+      // Retry the original request once
+      response = await doFetch();
+    } catch {
+      dispatchAuthExpired();
+      throw new ApiError('UNAUTHORIZED', 'Session expired', 401);
+    }
+  }
 
-  if (!response.ok || data.success === false) {
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  const asRecord = (data ?? {}) as Record<string, unknown>;
+
+  if (!response.ok || asRecord.success === false) {
     throw new ApiError(
-      (data as any).code ?? 'UNKNOWN',
-      (data as any).error ?? 'An error occurred',
+      (asRecord.code as string) ?? 'UNKNOWN',
+      (asRecord.error as string) ?? 'An error occurred',
       response.status,
     );
   }
 
-  return data.data as T;
+  return (asRecord.data as T);
 }
 
 // ============================================================
 // PRODUCTS
 // ============================================================
 import { STATIC_PRODUCTS, STATIC_CATEGORIES, MOCK_REVIEWS, STATIC_COMBOS, type BatchCertificate } from './content';
-import type { Product, Category } from 'shared';
+import type { Product } from 'shared';
 
 // Formatted combos as virtual products to support shop page category filters
 const COMBO_PRODUCTS_MAPPED: (Product & {
@@ -240,34 +325,80 @@ export const categoriesApi = {
 // ============================================================
 // AUTH
 // ============================================================
+import type { User } from 'shared';
+
+interface AuthSession {
+  user:         User;
+  accessToken:  string;
+  refreshToken: string;
+}
+
 export const authApi = {
   register: (data: { name: string; email: string; phone: string; password: string }) =>
-    request<{ user: any; accessToken: string; refreshToken: string }>('/api/auth/register', {
+    request<AuthSession>('/api/auth/register', {
       method: 'POST',
       body:   data,
     }),
 
   login: (data: { email: string; password: string }) =>
-    request<{ user: any; accessToken: string; refreshToken: string }>('/api/auth/login', {
+    request<AuthSession>('/api/auth/login', {
       method: 'POST',
       body:   data,
     }),
 
-  me: () => request<any>('/api/auth/me'),
+  me: () => request<User>('/api/auth/me'),
 
-  logout: (data: { userId: string; refreshToken: string }) =>
-    request<null>('/api/auth/logout', { method: 'POST', body: data }),
-
-  forgotPassword: (email: string) =>
-    request<{ message: string }>('/api/auth/forgot-password', {
-      method: 'POST',
-      body:   { email },
+  updateProfile: (data: { name?: string; phone?: string }) =>
+    request<{ user: User }>('/api/auth/me', {
+      method: 'PATCH',
+      body:   data,
     }),
 
-  refresh: (data: { userId: string; refreshToken: string }) =>
-    request<{ accessToken: string; refreshToken: string }>('/api/auth/refresh', {
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<{ success: true }>('/api/auth/me/password', {
+      method: 'PATCH',
+      body:   data,
+    }),
+
+  logout: () => {
+    const userId       = readUserId();
+    const refreshToken = readRefreshToken();
+    return request<null>('/api/auth/logout', {
+      method: 'POST',
+      body:   { userId, refreshToken },
+      _skipAuthRetry: true,
+    });
+  },
+
+  forgotPassword: (data: { email: string }) =>
+    request<{ message: string } | { success: true }>('/api/auth/forgot-password', {
       method: 'POST',
       body:   data,
+    }),
+
+  resetPassword: (data: { token: string; password: string }) =>
+    request<{ success: true }>('/api/auth/reset-password', {
+      method: 'POST',
+      body:   data,
+    }),
+
+  refresh: () => {
+    const userId       = readUserId();
+    const refreshToken = readRefreshToken();
+    // Cookie is preferred; body is a fallback (works even when the
+    // browser did not send the httpOnly cookie — e.g. cross-site dev)
+    return request<AuthSession>('/api/auth/refresh', {
+      method: 'POST',
+      body:   { userId, refreshToken },
+      _skipAuthRetry: true,
+    });
+  },
+
+  exchangeSession: (data: { code: string }) =>
+    request<AuthSession>('/api/auth/session-exchange', {
+      method: 'POST',
+      body:   data,
+      _skipAuthRetry: true,
     }),
 };
 
@@ -310,9 +441,58 @@ export const checkoutApi = {
 // ORDERS
 // ============================================================
 export const ordersApi = {
-  list:   (params?: { page?: number; limit?: number }) =>
-    request<any>('/api/orders', { params: params as any }),
-  get:    (id: string) => request<any>(`/api/orders/${id}`),
+  list: (params?: { page?: number; limit?: number; status?: string }) =>
+    request<{
+      orders: any[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>('/api/orders', { params: params as Record<string, string | number | undefined> }),
+  get: (id: string) => request<any>(`/api/orders/${id}`),
+  cancel: (id: string) =>
+    request<{ success: true }>(`/api/orders/${id}/cancel`, { method: 'POST' }),
+  receipt: (id: string, email: string) =>
+    request<any>(`/api/orders/${id}/receipt`, { params: { email } }),
+};
+
+// ============================================================
+// ADDRESSES
+// ============================================================
+export interface Address {
+  id:             string;
+  user_id:        string;
+  name:           string;
+  phone:          string;
+  address_line1:  string;
+  address_line2:  string | null;
+  city:           string;
+  state:          string;
+  pincode:        string;
+  is_default:     number | boolean;
+  created_at:     string;
+}
+
+export interface AddressInput {
+  name:          string;
+  phone:         string;
+  addressLine1:  string;
+  addressLine2?: string;
+  city:          string;
+  state:         string;
+  pincode:       string;
+  isDefault?:    boolean;
+}
+
+export const addressesApi = {
+  list: () => request<Address[]>('/api/addresses'),
+  create: (data: AddressInput) =>
+    request<Address>('/api/addresses', { method: 'POST', body: data }),
+  update: (id: string, data: AddressInput) =>
+    request<Address>(`/api/addresses/${id}`, { method: 'PUT', body: data }),
+  delete: (id: string) =>
+    request<{ success: true }>(`/api/addresses/${id}`, { method: 'DELETE' }),
+  setDefault: (id: string) =>
+    request<{ success: true }>(`/api/addresses/${id}/default`, { method: 'POST' }),
 };
 
 // ============================================================

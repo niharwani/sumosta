@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import SmoothCounter from '@/components/shared/SmoothCounter';
 
 const STORY_CHAPTERS = [
   {
@@ -9,7 +10,7 @@ const STORY_CHAPTERS = [
     eyebrow: 'THE SWEET TOOTH & THE CORPORATE TOLL',
     headline: 'Born from the Hustle.\nPerfected by Nature.',
     paragraphs: [
-      "Two founders. One Gujarati, one Marwari. Both with an intense love of sugar, a corporate grind eating them alive, and a growing realisation that the sweet things in life were slowly working against them.",
+      'Two founders. One Gujarati, one Marwari. Both with an intense love of sugar, a corporate grind eating them alive, and a growing realisation that the sweet things in life were slowly working against them.',
       'Yatin and Rishabh met in the trenches of the startup world — long hours, late nights, and more processed snacks than either would like to admit. Like millions of urban Indians, they were consuming honey from supermarket shelves, assuming it was doing them good. It wasn\'t.',
     ],
     imageRight: false,
@@ -61,9 +62,16 @@ const STORY_CHAPTERS = [
       'Every jar we ship is NABL lab tested, NPOP APEDA organic certified, and traceable back to its specific apiary and harvest batch. From hive to home, nothing is added. Nothing is taken away. Just honey, exactly as nature made it.',
     ],
     imageRight: false,
-    image: '/images/products/wild-forest-1.png',
+    image: '/images/products/wild-forest-250-hero.png',
     imageAlt: 'SUMOSTA wild forest honey jar — your daily ritual',
   },
+];
+
+const STATS = [
+  { value: 5000, suffix: '+', label: 'Happy Customers' },
+  { value: 12,   suffix: '',  label: 'Wild Apiaries' },
+  { value: 0,    suffix: '',  label: 'Additives Ever',  static: 'Zero' },
+  { value: 100,  suffix: '%', label: 'Traceable' },
 ];
 
 const FOUNDERS = [
@@ -107,10 +115,10 @@ export default function AboutPage() {
   }, []);
 
   return (
-    <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
+    <div className="bg-cream text-charcoal font-satoshi min-h-screen">
 
       {/* Dark hero */}
-      <div style={{ position: 'relative', height: '60vh', minHeight: '420px', background: '#1A150E', overflow: 'hidden', marginTop: 0 }}>
+      <section className="relative h-[60vh] min-h-[420px] bg-midnight overflow-hidden">
         <Image
           src="/images/home/about-hero-honeycomb.jpg"
           fill
@@ -119,27 +127,34 @@ export default function AboutPage() {
           sizes="100vw"
           style={{ objectFit: 'cover' }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(26,21,14,0.35), rgba(26,21,14,0.2) 45%, rgba(26,21,14,0.75))' }} />
-        <div style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 24px', paddingTop: '108px' }}>
+        <div
+          className="absolute inset-0"
+          aria-hidden="true"
+          style={{ background: 'linear-gradient(to bottom, rgba(26,21,14,0.35), rgba(26,21,14,0.2) 45%, rgba(26,21,14,0.75))' }}
+        />
+        <div className="relative h-full flex items-center justify-center text-center px-6">
           <div data-reveal>
-            <p style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#FFCC66', fontWeight: 700, margin: '0 0 16px' }}>Our Story</p>
-            <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2.2rem,6vw,4.5rem)', lineHeight: 1.1, color: '#FFFDF8', margin: 0 }}>
+            <p className="font-satoshi uppercase tracking-[0.2em] text-honey-300 font-bold text-[13px] mb-4">
+              Our Story
+            </p>
+            <h1 className="font-clash font-extrabold text-cream leading-[1.1] m-0" style={{ fontSize: 'clamp(2.2rem,6vw,4.5rem)' }}>
               Born from the Hustle.<br />Perfected by Nature.
             </h1>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Story chapters */}
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '80px 24px' }}>
+      <div className="max-w-content mx-auto px-6 py-20">
         {STORY_CHAPTERS.map((ch, i) => (
           <div
             key={i}
-            style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px', marginBottom: i < STORY_CHAPTERS.length - 1 ? '96px' : 0 }}
-            className="sum-story-row"
+            className={`sum-story-row grid grid-cols-1 gap-10 ${
+              i < STORY_CHAPTERS.length - 1 ? 'mb-24' : ''
+            }`}
           >
             <div data-reveal style={{ order: ch.imageRight ? 2 : 1 }}>
-              <div style={{ aspectRatio: '4/3', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
+              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
                 <Image
                   src={ch.image}
                   fill
@@ -149,79 +164,181 @@ export default function AboutPage() {
                 />
               </div>
             </div>
-            <div data-reveal style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', order: ch.imageRight ? 1 : 2 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <span style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '48px', color: '#F0E6D3', lineHeight: 1 }}>{ch.number}</span>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: 0 }}>{ch.eyebrow}</p>
+            <div
+              data-reveal
+              className="flex flex-col justify-center"
+              style={{ order: ch.imageRight ? 1 : 2 }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <span className="font-clash font-extrabold text-sand text-5xl leading-none">
+                  {ch.number}
+                </span>
+                <p className="font-satoshi uppercase tracking-[0.15em] text-honey-500 font-bold text-[11px] m-0">
+                  {ch.eyebrow}
+                </p>
               </div>
-              <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.75rem,3vw,2.5rem)', color: '#2C2417', margin: '0 0 24px', whiteSpace: 'pre-line' }}>{ch.headline}</h2>
+              <h2
+                className="font-clash font-extrabold text-charcoal mb-6 whitespace-pre-line"
+                style={{ fontSize: 'clamp(1.75rem,3vw,2.5rem)' }}
+              >
+                {ch.headline}
+              </h2>
               {ch.paragraphs.map((para, pi) => (
-                <p key={pi} style={{ fontSize: '15px', lineHeight: 1.8, color: '#5C4A32', margin: pi < ch.paragraphs.length - 1 ? '0 0 16px' : 0 }}>{para}</p>
+                <p
+                  key={pi}
+                  className={`font-satoshi text-[15px] leading-[1.8] text-bark ${
+                    pi < ch.paragraphs.length - 1 ? 'mb-4' : ''
+                  }`}
+                >
+                  {para}
+                </p>
               ))}
             </div>
           </div>
         ))}
       </div>
 
+      {/* Stats counter section */}
+      <section aria-labelledby="stats-heading" className="bg-cream-warm border-y border-sand py-16 px-6">
+        <div className="max-w-content mx-auto">
+          <h2 id="stats-heading" className="sr-only">By the numbers</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6 text-center">
+            {STATS.map((stat) => (
+              <div key={stat.label} data-reveal className="flex flex-col items-center">
+                {stat.static ? (
+                  <span className="font-clash font-extrabold text-4xl md:text-5xl text-honey-500 leading-none">
+                    {stat.static}
+                  </span>
+                ) : (
+                  <SmoothCounter
+                    value={stat.value}
+                    suffix={stat.suffix}
+                    className="font-clash font-extrabold text-4xl md:text-5xl text-honey-500 leading-none"
+                  />
+                )}
+                <p className="font-satoshi text-sm text-earth mt-3 uppercase tracking-[0.08em] font-medium">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Pull quote — compact */}
-      <div style={{ background: '#FDF6EC', padding: '48px 24px' }}>
-        <div data-reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ color: '#D4891A', fontSize: '48px', lineHeight: 1, margin: '0 0 8px', fontWeight: 700 }}>&ldquo;</p>
-          <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 500, color: '#2C2417', fontSize: 'clamp(1.05rem,2vw,1.35rem)', lineHeight: 1.7, margin: 0 }}>
+      <div className="bg-cream-warm px-6 py-12">
+        <div data-reveal className="max-w-[760px] mx-auto text-center">
+          <p className="font-bespoke text-honey-500 text-5xl leading-none mb-2 font-bold" aria-hidden="true">
+            &ldquo;
+          </p>
+          <p
+            className="font-bespoke italic text-charcoal leading-[1.7] m-0"
+            style={{ fontSize: 'clamp(1.05rem,2vw,1.35rem)' }}
+          >
             Honey is the only food that never spoils. Egyptian honey found in 3,000-year-old tombs was still perfectly edible. We believe honey that&apos;s been processed, heated, and stripped of its life deserves a different name entirely.
           </p>
-          <p style={{ fontSize: '13px', color: '#8B7355', margin: '16px 0 0', fontWeight: 600 }}>— SUMOSTA Founders</p>
+          <p className="font-satoshi text-[13px] text-earth mt-4 font-semibold">
+            — SUMOSTA Founders
+          </p>
         </div>
       </div>
 
       {/* Founders */}
-      <div style={{ background: '#FFFDF8', padding: '80px 24px' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div data-reveal style={{ textAlign: 'center', marginBottom: '64px' }}>
-            <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 16px' }}>Meet the Founders</p>
-            <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,4vw,3.2rem)', color: '#2C2417', margin: '0 0 20px' }}>Meet the Heavyweights Behind the Honey.</h2>
-            <p style={{ fontSize: '16px', color: '#5C4A32', maxWidth: '680px', margin: '0 auto', lineHeight: 1.75 }}>When a Gujarati and a Marwari team up to launch a food brand, two things are absolutely guaranteed: the numbers will always balance, and the food will always taste phenomenal. We stepped into the SUMOSTA ring to prove that you can conquer the modern daily hustle without giving up the joy of eating.</p>
+      <div className="bg-cream py-20 px-6">
+        <div className="max-w-content mx-auto">
+          <div data-reveal className="text-center mb-16">
+            <p className="font-satoshi uppercase tracking-[0.15em] text-honey-500 font-bold text-xs mb-4">
+              Meet the Founders
+            </p>
+            <h2
+              className="font-clash font-extrabold text-charcoal mb-5"
+              style={{ fontSize: 'clamp(2rem,4vw,3.2rem)' }}
+            >
+              Meet the Heavyweights Behind the Honey.
+            </h2>
+            <p className="font-satoshi text-base text-bark max-w-[680px] mx-auto leading-[1.75]">
+              When a Gujarati and a Marwari team up to launch a food brand, two things are absolutely guaranteed: the numbers will always balance, and the food will always taste phenomenal. We stepped into the SUMOSTA ring to prove that you can conquer the modern daily hustle without giving up the joy of eating.
+            </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }} className="sum-founders-grid">
+          <div className="sum-founders-grid grid grid-cols-1 gap-8 items-stretch auto-rows-fr">
             {FOUNDERS.map((f) => (
-              <div key={f.name} data-reveal style={{ background: '#FDF6EC', borderRadius: '20px', border: '1px solid #F0E6D3', padding: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  <div style={{ width: '80px', height: '80px', borderRadius: '999px', overflow: 'hidden', flexShrink: 0, border: '2px solid #F5A623', position: 'relative', background: '#FFE0A8' }}>
-                    <Image src={f.image} fill alt={f.name} sizes="80px" style={{ objectFit: f.imageFit, objectPosition: f.imagePosition }} />
+              <div
+                key={f.name}
+                data-reveal
+                className="bg-cream-warm rounded-[20px] border border-sand p-10 flex flex-col gap-5 h-full"
+              >
+                <div className="flex items-center gap-5">
+                  <div
+                    className="relative w-20 h-20 rounded-full overflow-hidden shrink-0 border-2 border-honey-400 bg-honey-200"
+                  >
+                    <Image
+                      src={f.image}
+                      fill
+                      alt={f.name}
+                      sizes="80px"
+                      style={{ objectFit: f.imageFit, objectPosition: f.imagePosition }}
+                    />
                   </div>
                   <div>
-                    <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontSize: '20px', fontWeight: 800, color: '#2C2417', margin: '0 0 2px' }}>{f.name}</h3>
-                    <p style={{ fontSize: '13px', color: '#D4891A', fontWeight: 700, margin: '0 0 2px' }}>{f.title}</p>
-                    <span style={{ display: 'inline-block', background: '#FFF0D6', color: '#A66A10', fontSize: '11px', fontWeight: 700, padding: '2px 10px', borderRadius: '999px', letterSpacing: '0.05em' }}>{f.badge}</span>
+                    <h3 className="font-clash font-extrabold text-charcoal text-xl mb-0.5">
+                      {f.name}
+                    </h3>
+                    <p className="font-satoshi text-[13px] text-honey-500 font-bold mb-0.5">
+                      {f.title}
+                    </p>
+                    <span className="inline-block bg-honey-100 text-honey-600 font-satoshi text-[11px] font-bold px-2.5 py-0.5 rounded-full tracking-[0.05em]">
+                      {f.badge}
+                    </span>
                   </div>
                 </div>
-                <div style={{ background: '#FFFDF8', borderRadius: '10px', padding: '14px 18px', borderLeft: '3px solid #F5A623' }}>
-                  <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#D4891A', fontWeight: 700, margin: '0 0 4px' }}>The Sumo Stance</p>
-                  <p style={{ fontSize: '14px', color: '#5C4A32', margin: 0, lineHeight: 1.6 }}>{f.stance}</p>
+                <div className="bg-cream rounded-lg px-4 py-3 border-l-[3px] border-honey-400">
+                  <p className="font-satoshi uppercase tracking-[0.12em] text-honey-500 font-bold text-[11px] mb-1">
+                    The Sumo Stance
+                  </p>
+                  <p className="font-satoshi text-sm text-bark leading-[1.6] m-0">{f.stance}</p>
                 </div>
-                <p style={{ fontSize: '15px', color: '#5C4A32', lineHeight: 1.8, margin: 0 }}>{f.profile}</p>
-                <p style={{ fontSize: '13px', color: '#8B7355', margin: 0 }}>
-                  <span style={{ fontWeight: 700, color: '#2C2417' }}>Fueled By: </span>{f.fueledBy}
+                <p className="font-satoshi text-[15px] text-bark leading-[1.8] m-0">{f.profile}</p>
+                <p className="font-satoshi text-[13px] text-earth m-0 mt-auto">
+                  <span className="font-bold text-charcoal">Fueled By: </span>
+                  {f.fueledBy}
                 </p>
               </div>
             ))}
           </div>
 
-          <div data-reveal style={{ textAlign: 'center', marginTop: '56px', padding: '40px 24px', background: '#2C2417', borderRadius: '20px' }}>
-            <p style={{ fontFamily: 'var(--font-manrope), sans-serif', fontWeight: 500, fontSize: 'clamp(1rem,1.8vw,1.25rem)', color: '#FFFDF8', lineHeight: 1.75, maxWidth: '700px', margin: '0 auto' }}>
+          <div
+            data-reveal
+            className="text-center mt-14 px-6 py-10 bg-charcoal rounded-[20px]"
+          >
+            <p
+              className="font-bespoke italic text-cream leading-[1.75] max-w-[700px] mx-auto m-0"
+              style={{ fontSize: 'clamp(1rem,1.8vw,1.25rem)' }}
+            >
               &ldquo;We don&apos;t just run the company; we are our own biggest customers. We built SUMOSTA because our own sweet teeth demanded an indulgence that actually looks out for our health. Welcome to the ring!&rdquo;
             </p>
-            <p style={{ fontSize: '13px', color: '#F5A623', margin: '20px 0 0', fontWeight: 600 }}>— Yatin &amp; Rishabh, Co-Founders</p>
+            <p className="font-satoshi text-[13px] text-honey-400 mt-5 font-semibold">
+              — Yatin &amp; Rishabh, Co-Founders
+            </p>
           </div>
         </div>
       </div>
 
       {/* CTA */}
-      <div style={{ background: '#2C2417', padding: '80px 24px', textAlign: 'center' }}>
-        <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', color: '#FFFDF8', margin: '0 0 20px' }}>Ready to taste the difference?</h2>
-        <p style={{ fontSize: '16px', color: '#C4B39A', margin: '0 0 32px' }}>Explore our collection of raw, single-origin honeys.</p>
-        <Link href="/shop" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '15px', padding: '17px 34px', borderRadius: '8px', boxShadow: '0 12px 34px rgba(245,166,35,0.35)', textDecoration: 'none', fontFamily: 'var(--font-bricolage), sans-serif' }}>
+      <div className="bg-charcoal py-20 px-6 text-center">
+        <h2
+          className="font-clash font-extrabold text-cream mb-5"
+          style={{ fontSize: 'clamp(1.8rem,3.5vw,2.8rem)' }}
+        >
+          Ready to taste the difference?
+        </h2>
+        <p className="font-satoshi text-base text-earth-light mb-8">
+          Explore our collection of raw, single-origin honeys.
+        </p>
+        <Link
+          href="/shop"
+          className="btn-honey inline-flex items-center gap-2.5"
+        >
           Shop the Collection →
         </Link>
       </div>
@@ -229,6 +346,9 @@ export default function AboutPage() {
       <style>{`
         [data-reveal] { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
         [data-reveal].revealed { opacity: 1; transform: none; }
+        @media (prefers-reduced-motion: reduce) {
+          [data-reveal] { opacity: 1; transform: none; transition: none; }
+        }
         @media (min-width: 768px) {
           .sum-founders-grid { grid-template-columns: repeat(2,1fr) !important; }
           .sum-story-row { grid-template-columns: 1fr 1fr !important; gap: 64px !important; }

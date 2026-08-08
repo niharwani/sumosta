@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { CartItem, Coupon, Product, ProductVariant } from 'shared';
 
 // Coupon stacking rules:
@@ -93,7 +94,9 @@ const DERIVED_ZERO: CartDerived = {
   couponDiscounts: [],
 };
 
-export const useCartStore = create<CartStore>((set, get) => ({
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
   items: [],
   isOpen: false,
   coupons: [],
@@ -129,16 +132,51 @@ export const useCartStore = create<CartStore>((set, get) => ({
         newItems = [...state.items, newItem];
       }
 
+      // Fire analytics for the newly-added units only (not the running total)
+      if (typeof window !== 'undefined') {
+        import('@/lib/tracker').then(({ tracker }) => {
+          tracker?.track('add_to_cart', {
+            productId,
+            variantId: variantId ?? null,
+            productName: product.name,
+            price:       unitPrice,
+            quantity,
+          });
+        }).catch(() => { /* non-blocking */ });
+      }
+
       return { items: newItems, ...computeDerived(newItems, state.coupons) };
     });
   },
 
   removeItem: (productId, variantId) => {
     set((state) => {
+      const removed = state.items.find(
+        (i) => i.productId === productId && i.variantId === (variantId ?? null),
+      );
       const newItems = state.items.filter(
         (i) => !(i.productId === productId && i.variantId === (variantId ?? null)),
       );
-      return { items: newItems, ...computeDerived(newItems, state.coupons) };
+      if (removed && typeof window !== 'undefined') {
+        import('@/lib/tracker').then(({ tracker }) => {
+          tracker?.track('remove_from_cart', {
+            productId: removed.productId,
+            productName: removed.product.name,
+            quantity: removed.quantity,
+          });
+        }).catch(() => { /* non-blocking */ });
+      }
+      // Auto-remove COMBO10 if only 1 unique honey remains (bundles like 5-elements always qualify)
+      const BUNDLE_IDS = ['prod_trial_box_60g'];
+      const hasBundleItem = newItems.some((i) => BUNDLE_IDS.includes(i.productId));
+      const uniqueNonBundleIds = new Set(
+        newItems.filter((i) => !BUNDLE_IDS.includes(i.productId)).map((i) => i.productId),
+      );
+      let newCoupons = state.coupons;
+      if (!hasBundleItem && uniqueNonBundleIds.size <= 1) {
+        newCoupons = state.coupons.filter((c) => c.code !== 'COMBO10');
+      }
+      return { items: newItems, coupons: newCoupons, ...computeDerived(newItems, newCoupons) };
     });
   },
 
@@ -178,4 +216,19 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
   openCart: () => set({ isOpen: true }),
   closeCart: () => set({ isOpen: false }),
-}));
+    }),
+    {
+      name:    'sumosta-cart',
+      storage: createJSONStorage(() => localStorage),
+      // Only persist items + coupons; isOpen is UI state, derived values are recomputed.
+      partialize: (state) => ({ items: state.items, coupons: state.coupons }),
+      // Recompute derived totals after hydration so shipping/discount/total are consistent.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const derived = computeDerived(state.items, state.coupons);
+        Object.assign(state, derived);
+      },
+      version: 1,
+    },
+  ),
+);

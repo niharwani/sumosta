@@ -1,12 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Leaf, ShieldCheck, Thermometer, BadgeCheck, Truck, Tag } from 'lucide-react';
 
 const ITEMS: { icon: React.ReactNode; label: string }[] = [
   { icon: <Leaf size={13} strokeWidth={2.2} />, label: '100% RAW & UN-PROCESSED' },
   { icon: <ShieldCheck size={13} strokeWidth={2.2} />, label: '100% PURE, NO ADDITIVES' },
   { icon: <Thermometer size={13} strokeWidth={2.2} />, label: 'UN-HEATED, MINIMALLY FILTERED' },
-  { icon: <BadgeCheck size={13} strokeWidth={2.2} />, label: 'NABL LAB TESTED & NPO CERTIFIED' },
+  { icon: <BadgeCheck size={13} strokeWidth={2.2} />, label: 'NABL LAB TESTED & NPOP CERTIFIED' },
   { icon: <Truck size={13} strokeWidth={2.2} />, label: 'FREE DELIVERY ABOVE ₹499' },
   { icon: <Tag size={13} strokeWidth={2.2} />, label: '10% OFF ON YOUR FIRST ORDER' },
 ];
@@ -14,40 +15,58 @@ const ITEMS: { icon: React.ReactNode; label: string }[] = [
 const repeated = [...ITEMS, ...ITEMS, ...ITEMS];
 
 export default function AnnouncementBar() {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Reduced-motion fallback: show a single static row (no marquee, no duplication).
+  if (reduceMotion) {
+    return (
+      <div
+        role="region"
+        aria-label="Site announcements"
+        className="hidden md:flex bg-honey-500 text-cream items-center justify-center overflow-hidden"
+        style={{ height: '36px' }}
+      >
+        <div className="flex items-center gap-8 px-6 overflow-x-auto whitespace-nowrap">
+          {ITEMS.map((item, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1.5 font-satoshi text-[11.5px] font-semibold tracking-[0.08em]"
+            >
+              {item.icon}
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      style={{
-        background: '#C68642',
-        color: '#FFF9F0',
-        overflow: 'hidden',
-        height: '36px',
-        display: 'flex',
-        alignItems: 'center',
-      }}
+      role="region"
+      aria-label="Site announcements"
+      className="hidden md:flex bg-honey-500 text-cream items-center overflow-hidden pause-on-hover"
+      style={{ height: '36px' }}
     >
       <div
-        className="sum-announce-track"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          whiteSpace: 'nowrap',
-          width: 'max-content',
-        }}
+        aria-hidden="true"
+        className="sum-announce-track flex items-center whitespace-nowrap"
+        style={{ width: 'max-content' }}
       >
         {repeated.map((item, i) => (
           <span
             key={i}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              fontFamily: 'var(--font-satoshi), ui-sans-serif, system-ui, sans-serif',
-              padding: '0 28px',
-              flexShrink: 0,
-            }}
+            className="inline-flex items-center gap-1.5 font-satoshi text-[11.5px] font-semibold tracking-[0.08em]"
+            style={{ padding: '0 28px', flexShrink: 0 }}
           >
             {item.icon}
             {item.label}
@@ -63,7 +82,7 @@ export default function AnnouncementBar() {
         .sum-announce-track {
           animation: sum-announce-scroll 30s linear infinite;
         }
-        .sum-announce-track:hover {
+        .pause-on-hover:hover .sum-announce-track {
           animation-play-state: paused;
         }
       `}</style>

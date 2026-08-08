@@ -79,7 +79,7 @@ export default function CouponInput() {
         ? Math.round((subtotal * resolved.value) / 100)
         : resolved.value;
     setStatus('success');
-    setMsg(`${resolved.code} applied! You save ₹${discount}.`);
+    setMsg(`${resolved.code} applied. You save ₹${discount}.`);
     setCode('');
   };
 
@@ -99,53 +99,21 @@ export default function CouponInput() {
             return (
               <div
                 key={c.code}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: '#F0FAF0',
-                  border: '1px solid #BBE0BB',
-                  borderRadius: '999px',
-                  padding: '5px 10px 5px 8px',
-                }}
+                className="inline-flex items-center gap-1.5 bg-sage-light border border-sage/30 rounded-full py-1 pl-2 pr-2.5"
               >
-                <Tag size={11} color="#4A8F4A" />
-                <span
-                  style={{
-                    fontFamily: 'var(--font-satoshi), var(--font-manrope), sans-serif',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    color: '#2E6B2E',
-                    letterSpacing: '0.05em',
-                  }}
-                >
+                <Tag size={11} className="text-sage" />
+                <span className="font-satoshi font-bold text-xs text-charcoal tracking-wider">
                   {c.code}
                 </span>
                 {disc && (
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-satoshi), var(--font-manrope), sans-serif',
-                      fontSize: '11px',
-                      color: '#4A8F4A',
-                      fontWeight: 500,
-                    }}
-                  >
+                  <span className="font-satoshi text-[11px] text-sage font-medium">
                     −₹{disc.amount}
                   </span>
                 )}
                 <button
                   onClick={() => handleRemove(c.code)}
                   aria-label={`Remove coupon ${c.code}`}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '1px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: '#4A8F4A',
-                    opacity: 0.7,
-                  }}
+                  className="flex items-center text-sage opacity-70 hover:opacity-100 transition-opacity min-w-[16px] min-h-[16px]"
                 >
                   <X size={11} />
                 </button>
@@ -157,7 +125,9 @@ export default function CouponInput() {
 
       {/* Input row */}
       <div className="flex gap-2">
+        <label className="sr-only" htmlFor="coupon-input">Coupon code</label>
         <input
+          id="coupon-input"
           value={code}
           onChange={(e) => {
             setCode(e.target.value.toUpperCase());
@@ -165,13 +135,13 @@ export default function CouponInput() {
             setMsg('');
           }}
           placeholder="Coupon code"
-          className="flex-1 border border-[#E5E7EB] rounded-full px-4 py-2.5 font-jakarta text-sm text-charcoal bg-white focus:outline-none focus:border-[#F97316]"
+          className="flex-1 border border-sand rounded-full px-4 py-2.5 font-satoshi text-sm text-charcoal bg-cream focus:outline-none focus:border-honey-400 focus:ring-2 focus:ring-honey-400/30 transition-all"
           onKeyDown={(e) => e.key === 'Enter' && handleApply()}
         />
         <button
           onClick={handleApply}
           disabled={status === 'loading' || !code.trim()}
-          className="bg-charcoal text-white font-jakarta text-sm font-medium px-5 py-2.5 rounded-full hover:bg-[#1a1a1a] transition-colors disabled:opacity-50"
+          className="bg-honey-500 hover:bg-honey-600 text-cream font-satoshi text-sm font-semibold px-5 py-2.5 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
         >
           {status === 'loading' ? '…' : 'Apply'}
         </button>
@@ -179,7 +149,10 @@ export default function CouponInput() {
 
       {/* Status message */}
       {msg && (
-        <p className={`font-jakarta text-xs ${status === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+        <p
+          role="status"
+          className={`font-satoshi text-xs ${status === 'success' ? 'text-sage' : 'text-terracotta'}`}
+        >
           {msg}
         </p>
       )}

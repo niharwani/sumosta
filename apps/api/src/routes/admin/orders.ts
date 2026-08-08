@@ -5,8 +5,58 @@ import type { Bindings } from '../../index';
 import { adminMiddleware } from '../../middleware/admin';
 import { generateId } from '../../lib/utils';
 import { PhonePeService } from '../../services/phonepe';
+import { sendOrderShipped, sendOrderDelivered } from '../../services/email';
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+// Fire a shipped/delivered email based on the new status. Best-effort; never
+// blocks the admin response.
+async function notifyOrderStatusChange(
+  env: Bindings,
+  orderId: string,
+  newStatus: string,
+): Promise<void> {
+  if (newStatus !== 'shipped' && newStatus !== 'delivered') return;
+
+  const order = await env.DB.prepare(`
+    SELECT o.order_number, o.guest_email, o.shipping_name,
+           o.tracking_number, o.tracking_url, o.estimated_delivery_date,
+           u.email as user_email
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    WHERE o.id = ?
+  `).bind(orderId).first<{
+    order_number: string; guest_email: string | null; shipping_name: string;
+    tracking_number: string | null; tracking_url: string | null;
+    estimated_delivery_date: string | null; user_email: string | null;
+  }>();
+
+  if (!order) return;
+  const recipient = order.guest_email ?? order.user_email;
+  if (!recipient) {
+    console.warn(`[Admin/Orders] No recipient for ${newStatus} email on order ${orderId}`);
+    return;
+  }
+  if (!env.RESEND_API_KEY) return;
+
+  try {
+    const payload = {
+      orderNumber:     order.order_number,
+      recipientEmail:  recipient,
+      shippingName:    order.shipping_name,
+      trackingNumber:  order.tracking_number,
+      trackingUrl:     order.tracking_url,
+      estimatedDate:   order.estimated_delivery_date,
+    };
+    if (newStatus === 'shipped') {
+      await sendOrderShipped(payload, env.RESEND_API_KEY, env.RESEND_FROM || undefined);
+    } else {
+      await sendOrderDelivered(payload, env.RESEND_API_KEY, env.RESEND_FROM || undefined);
+    }
+  } catch (err) {
+    console.error(`[Admin/Orders] ${newStatus} email failed:`, err);
+  }
+}
 
 app.use('*', adminMiddleware as any);
 
@@ -161,6 +211,10 @@ app.patch('/:id', async (c) => {
     `INSERT INTO admin_logs (id, admin_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, 'order', ?, ?)`
   ).bind(generateId('log'), adminId, `update:${body.status ?? 'tracking'}`, orderId, JSON.stringify(body)).run();
 
+  if (body.status) {
+    await notifyOrderStatusChange(c.env, orderId, body.status);
+  }
+
   return c.json({ success: true, data: { id: orderId } });
 });
 
@@ -215,6 +269,10 @@ app.patch('/:id/status', zValidator('json', statusUpdateSchema), async (c) => {
     orderId,
     JSON.stringify({ from: order.status, to: status, trackingNumber, note }),
   ).run();
+
+  if (status) {
+    await notifyOrderStatusChange(c.env, orderId, status);
+  }
 
   return c.json({ success: true, data: { id: orderId, status, trackingNumber } });
 });

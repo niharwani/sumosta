@@ -1,10 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Truck, MapPin, CheckCircle, Clock } from 'lucide-react';
+import { Package, Truck, MapPin, CheckCircle } from 'lucide-react';
 import { fadeUp } from '@/lib/animations';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
@@ -17,7 +17,7 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-const STATUS_STEPS = ['confirmed', 'processing', 'shipped', 'delivered'];
+const STATUS_STEPS = ['confirmed', 'processing', 'shipped', 'delivered'] as const;
 const STATUS_ICONS: Record<string, typeof Package> = {
   confirmed: CheckCircle,
   processing: Package,
@@ -26,34 +26,70 @@ const STATUS_ICONS: Record<string, typeof Package> = {
 };
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
-  const currentIndex = STATUS_STEPS.indexOf(currentStatus);
+  const currentIndex = STATUS_STEPS.indexOf(currentStatus as (typeof STATUS_STEPS)[number]);
 
   return (
-    <div className="relative flex items-start justify-between mt-8">
-      <div className="absolute top-4 left-0 right-0 h-0.5 bg-[#E5E7EB]" />
-      <div
-        className="absolute top-4 left-0 h-0.5 bg-[#F97316] transition-all duration-1000"
-        style={{ width: `${(Math.max(0, currentIndex) / (STATUS_STEPS.length - 1)) * 100}%` }}
-      />
+    <div className="mt-8">
+      {/* Mobile: vertical stack */}
+      <ol className="flex md:hidden flex-col gap-4" aria-label="Order status timeline">
+        {STATUS_STEPS.map((step, i) => {
+          const Icon = STATUS_ICONS[step];
+          const done = i <= currentIndex;
+          const active = i === currentIndex;
+          return (
+            <li key={step} className="flex items-center gap-3">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  done ? 'bg-honey-500' : 'bg-sand'
+                } ${active ? 'ring-4 ring-honey-100' : ''}`}
+                aria-hidden="true"
+              >
+                <Icon size={15} className={done ? 'text-cream' : 'text-earth-light'} />
+              </div>
+              <span
+                className={`font-satoshi text-sm capitalize ${
+                  done ? 'text-charcoal font-medium' : 'text-earth-light'
+                }`}
+              >
+                {step}
+                {active && <span className="sr-only"> (current)</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
 
-      {STATUS_STEPS.map((step, i) => {
-        const Icon = STATUS_ICONS[step];
-        const done = i <= currentIndex;
-        const active = i === currentIndex;
-
-        return (
-          <div key={step} className="flex flex-col items-center gap-2 relative z-10">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-              done ? 'bg-[#F97316]' : 'bg-[#E5E7EB]'
-            } ${active ? 'ring-4 ring-orange-100' : ''}`}>
-              <Icon size={15} className={done ? 'text-white' : 'text-gray-400'} />
+      {/* Desktop: horizontal timeline */}
+      <div className="relative hidden md:flex items-start justify-between" aria-hidden="true">
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-sand" />
+        <div
+          className="absolute top-4 left-0 h-0.5 bg-honey-500 transition-all duration-1000"
+          style={{ width: `${(Math.max(0, currentIndex) / (STATUS_STEPS.length - 1)) * 100}%` }}
+        />
+        {STATUS_STEPS.map((step, i) => {
+          const Icon = STATUS_ICONS[step];
+          const done = i <= currentIndex;
+          const active = i === currentIndex;
+          return (
+            <div key={step} className="flex flex-col items-center gap-2 relative z-10">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  done ? 'bg-honey-500' : 'bg-sand'
+                } ${active ? 'ring-4 ring-honey-100' : ''}`}
+              >
+                <Icon size={15} className={done ? 'text-cream' : 'text-earth-light'} />
+              </div>
+              <span
+                className={`font-satoshi text-xs capitalize ${
+                  done ? 'text-charcoal font-medium' : 'text-earth-light'
+                }`}
+              >
+                {step}
+              </span>
             </div>
-            <span className={`font-jakarta text-xs capitalize ${done ? 'text-charcoal font-medium' : 'text-gray-400'}`}>
-              {step}
-            </span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -62,6 +98,8 @@ export default function TrackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState('');
+  const orderNumberId = useId();
+  const emailId = useId();
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema as any),
@@ -72,7 +110,9 @@ export default function TrackPage() {
     setError('');
     setOrder(null);
     try {
-      const res = await fetch(`${API}/api/orders/track?orderNumber=${data.orderNumber}&email=${data.email}`);
+      const res = await fetch(
+        `${API}/api/orders/track?orderNumber=${encodeURIComponent(data.orderNumber)}&email=${encodeURIComponent(data.email)}`,
+      );
       const json = await res.json();
       if (!res.ok || !json.data) throw new Error(json.error || 'Order not found');
       setOrder(json.data);
@@ -84,54 +124,74 @@ export default function TrackPage() {
   };
 
   const inputClass = (hasError: boolean) =>
-    `w-full border rounded-lg px-4 py-3 text-sm font-jakarta text-charcoal bg-white focus:outline-none transition-colors ${
-      hasError ? 'border-red-400 focus:border-red-500' : 'border-[#E5E7EB] focus:border-[#F97316]'
+    `w-full border rounded-lg px-4 py-3 text-sm font-satoshi text-charcoal bg-cream focus:outline-none transition-colors focus-visible:ring-2 focus-visible:ring-honey-400 ${
+      hasError ? 'border-terracotta focus:border-terracotta' : 'border-sand focus:border-honey-400'
     }`;
 
   return (
-    <div className="max-w-7xl mx-auto px-6 pt-[148px] pb-20">
+    <div className="max-w-7xl mx-auto px-6 pb-20 pt-12 md:pt-20 bg-cream">
       <motion.div initial="hidden" animate="visible" variants={fadeUp} className="max-w-lg mx-auto">
         <div className="text-center mb-10">
-          <Truck size={36} className="text-[#F97316] mx-auto mb-4" />
-          <h1 className="font-jakarta font-bold text-charcoal text-3xl mb-2">Track Your Order</h1>
-          <p className="font-jakarta text-gray-600 text-sm">Enter your order number and email to check the status</p>
+          <Truck size={36} className="text-honey-500 mx-auto mb-4" strokeWidth={1.6} />
+          <h1 className="font-clash font-bold text-charcoal text-3xl mb-2">Track Your Order</h1>
+          <p className="font-satoshi text-bark text-sm">
+            Enter your order number and email to check the status
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="bg-cream-warm rounded-2xl border border-sand p-8 shadow-sm space-y-4"
+          noValidate
+        >
           <div>
-            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Order Number</label>
+            <label htmlFor={orderNumberId} className="block font-satoshi text-charcoal text-sm font-medium mb-1.5">
+              Order Number
+            </label>
             <input
+              id={orderNumberId}
               {...register('orderNumber')}
               className={inputClass(!!errors.orderNumber)}
               placeholder="SUMO-000001"
+              aria-invalid={!!errors.orderNumber}
+              aria-describedby={errors.orderNumber ? `${orderNumberId}-error` : undefined}
             />
             {errors.orderNumber && (
-              <p className="font-jakarta text-red-600 text-xs mt-1">{errors.orderNumber.message}</p>
+              <p id={`${orderNumberId}-error`} className="font-satoshi text-terracotta text-xs mt-1">
+                {errors.orderNumber.message}
+              </p>
             )}
           </div>
           <div>
-            <label className="block font-jakarta text-charcoal text-sm font-medium mb-1.5">Email Address</label>
+            <label htmlFor={emailId} className="block font-satoshi text-charcoal text-sm font-medium mb-1.5">
+              Email Address
+            </label>
             <input
+              id={emailId}
               type="email"
               {...register('email')}
               className={inputClass(!!errors.email)}
               placeholder="you@example.com"
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? `${emailId}-error` : undefined}
             />
             {errors.email && (
-              <p className="font-jakarta text-red-600 text-xs mt-1">{errors.email.message}</p>
+              <p id={`${emailId}-error`} className="font-satoshi text-terracotta text-xs mt-1">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-              <p className="font-jakarta text-red-600 text-sm">{error}</p>
+            <div className="bg-terracotta-light border border-terracotta/30 rounded-lg px-4 py-3" role="alert">
+              <p className="font-satoshi text-terracotta text-sm m-0">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 btn-pill-orange disabled:opacity-60"
+            className="btn-honey w-full disabled:opacity-60 inline-flex items-center justify-center gap-2"
           >
             {submitting ? <HoneycombLoader size="sm" /> : null}
             {submitting ? 'Looking up...' : 'Track Order'}
@@ -144,24 +204,37 @@ export default function TrackPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-6 bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm"
+              className="mt-6 bg-cream-warm rounded-2xl border border-sand p-8 shadow-sm"
             >
-              <div className="flex items-start justify-between mb-2">
+              <div className="flex items-start justify-between mb-2 gap-4">
                 <div>
-                  <p className="font-jakarta text-gray-600 text-xs uppercase tracking-wider">Order</p>
-                  <p className="font-jakarta text-charcoal font-bold text-lg">{order.order_number}</p>
+                  <p className="font-satoshi text-earth text-xs uppercase tracking-wider">Order</p>
+                  <p className="font-clash text-charcoal font-bold text-lg">{order.order_number}</p>
                 </div>
-                <span className={`text-xs font-jakarta font-medium px-3 py-1 rounded-full capitalize ${
-                  order.status === 'delivered' ? 'bg-green-50 text-green-700' :
-                  order.status === 'cancelled' ? 'bg-red-50 text-red-700' :
-                  'bg-orange-50 text-[#F97316]'
-                }`}>
+                <span
+                  className={`text-xs font-satoshi font-medium px-3 py-1 rounded-full capitalize ${
+                    order.status === 'delivered'
+                      ? 'bg-sage-light text-sage'
+                      : order.status === 'cancelled'
+                        ? 'bg-terracotta-light text-terracotta'
+                        : 'bg-honey-100 text-honey-600'
+                  }`}
+                >
                   {order.status}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between text-sm font-jakarta text-gray-600 mb-6">
-                <span>Placed {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              <div className="flex items-center justify-between text-sm font-satoshi text-bark mb-6 gap-4 flex-wrap">
+                <span>
+                  Placed{' '}
+                  <time dateTime={order.created_at}>
+                    {new Date(order.created_at).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </time>
+                </span>
                 <span className="font-medium text-charcoal">{formatPrice(order.total)}</span>
               </div>
 
@@ -170,11 +243,18 @@ export default function TrackPage() {
               )}
 
               {order.tracking_number && (
-                <div className="mt-6 p-4 bg-[#FAF7F2] rounded-xl border border-[#E5E7EB]">
-                  <p className="font-jakarta text-gray-600 text-xs uppercase tracking-wider mb-1">Tracking Number</p>
-                  <p className="font-jakarta text-charcoal font-medium">{order.tracking_number}</p>
+                <div className="mt-6 p-4 bg-cream rounded-xl border border-sand">
+                  <p className="font-satoshi text-earth text-xs uppercase tracking-wider mb-1">
+                    Tracking Number
+                  </p>
+                  <p className="font-satoshi text-charcoal font-medium">{order.tracking_number}</p>
                   {order.tracking_url && (
-                    <a href={order.tracking_url} target="_blank" rel="noopener noreferrer" className="font-jakarta text-[#F97316] text-sm hover:underline mt-1 inline-block">
+                    <a
+                      href={order.tracking_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-satoshi text-honey-600 hover:text-honey-500 text-sm hover:underline mt-1 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 rounded-sm"
+                    >
                       Track on courier website →
                     </a>
                   )}
@@ -182,16 +262,18 @@ export default function TrackPage() {
               )}
 
               {order.items?.length > 0 && (
-                <div className="mt-6 border-t border-[#E5E7EB] pt-6">
-                  <p className="font-jakarta text-charcoal font-semibold text-sm mb-3">Items</p>
+                <div className="mt-6 border-t border-sand pt-6">
+                  <p className="font-clash text-charcoal font-semibold text-sm mb-3">Items</p>
                   <div className="space-y-2">
                     {order.items.map((item: any) => (
-                      <div key={item.id} className="flex items-center justify-between">
+                      <div key={item.id} className="flex items-center justify-between gap-4">
                         <div>
-                          <p className="font-jakarta text-charcoal text-sm">{item.product_name}</p>
-                          <p className="font-jakarta text-gray-400 text-xs">Qty: {item.quantity}</p>
+                          <p className="font-satoshi text-charcoal text-sm">{item.product_name}</p>
+                          <p className="font-satoshi text-earth-light text-xs">Qty: {item.quantity}</p>
                         </div>
-                        <p className="font-jakarta text-charcoal text-sm font-medium">{formatPrice(item.total)}</p>
+                        <p className="font-satoshi text-charcoal text-sm font-medium">
+                          {formatPrice(item.total)}
+                        </p>
                       </div>
                     ))}
                   </div>

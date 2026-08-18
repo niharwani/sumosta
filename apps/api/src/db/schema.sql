@@ -53,7 +53,10 @@ CREATE TABLE IF NOT EXISTS products (
     cost_price           REAL,
     stock                INTEGER NOT NULL DEFAULT 0,
     low_stock_threshold  INTEGER NOT NULL DEFAULT 5,
-    weight               REAL,
+    weight               REAL,                            -- kg (Shiprocket unit)
+    length_cm            REAL NOT NULL DEFAULT 15,        -- package L (cm) — Shiprocket volumetric weight
+    width_cm             REAL NOT NULL DEFAULT 12,        -- package B (cm)
+    height_cm            REAL NOT NULL DEFAULT 10,        -- package H (cm)
     tags                 TEXT NOT NULL DEFAULT '[]',   -- JSON array
     is_featured          INTEGER NOT NULL DEFAULT 0,
     is_active            INTEGER NOT NULL DEFAULT 1,
@@ -160,14 +163,23 @@ CREATE TABLE IF NOT EXISTS orders (
     tax                       REAL NOT NULL DEFAULT 0,
     total                     REAL NOT NULL,
     coupon_code               TEXT,
-    tracking_number           TEXT,
-    tracking_url              TEXT,
+    payment_method            TEXT,                       -- 'razorpay' | 'cod' | 'phonepe'
+    tracking_number           TEXT,                       -- AWB (mirrors awb_code) — kept for backward compat
+    tracking_url              TEXT,                       -- Shiprocket's public tracking URL
     estimated_delivery_date   TEXT,
     phonepe_merchant_txn_id   TEXT UNIQUE,
     phonepe_txn_id            TEXT,
     razorpay_order_id         TEXT,
     razorpay_payment_id       TEXT,
     razorpay_signature        TEXT,
+    shiprocket_order_id       INTEGER,
+    shiprocket_shipment_id    INTEGER,
+    awb_code                  TEXT,
+    courier_name              TEXT,
+    courier_company_id        INTEGER,
+    shipment_status           TEXT,                       -- Shiprocket state, e.g. "PICKUP SCHEDULED"
+    shipment_status_updated_at TEXT,
+    shipment_last_error       TEXT,                       -- populated when automation fails
     paid_at                   TEXT,
     shipped_at                TEXT,
     delivered_at              TEXT,
@@ -181,6 +193,8 @@ CREATE INDEX IF NOT EXISTS idx_orders_payment    ON orders(payment_status);
 CREATE INDEX IF NOT EXISTS idx_orders_number     ON orders(order_number);
 CREATE INDEX IF NOT EXISTS idx_orders_phonepe    ON orders(phonepe_merchant_txn_id);
 CREATE INDEX IF NOT EXISTS idx_orders_razorpay   ON orders(razorpay_order_id);
+CREATE INDEX IF NOT EXISTS idx_orders_awb        ON orders(awb_code);
+CREATE INDEX IF NOT EXISTS idx_orders_shiprocket ON orders(shiprocket_shipment_id);
 
 -- ============================================================
 -- ORDER ITEMS

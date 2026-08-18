@@ -3,13 +3,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Star, Check, X } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = localStorage.getItem('sumosta_access_token');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
 
 type FilterTab = 'pending' | 'approved' | 'all';
 
@@ -24,7 +20,7 @@ export default function AdminReviewsPage() {
       // Map tab → approved param: pending=0, approved=1, all=undefined
       if (tab === 'pending')  params.set('approved', '0');
       if (tab === 'approved') params.set('approved', '1');
-      const res = await fetch(`${API}/api/admin/reviews?${params}`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/reviews?${params}`);
       return res.json();
     },
   });
@@ -33,9 +29,8 @@ export default function AdminReviewsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, is_approved }: { id: string; is_approved: boolean }) => {
-      const res = await fetch(`${API}/api/admin/reviews/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/reviews/${id}`, {
         method: 'PATCH',
-        headers: authHeaders(),
         body: JSON.stringify({ is_approved }),
       });
       return res.json();
@@ -45,9 +40,8 @@ export default function AdminReviewsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API}/api/admin/reviews/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/reviews/${id}`, {
         method: 'DELETE',
-        headers: authHeaders(),
       });
       return res.json();
     },

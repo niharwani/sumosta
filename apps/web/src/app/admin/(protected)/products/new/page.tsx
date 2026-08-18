@@ -8,13 +8,9 @@ import { z } from 'zod';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = localStorage.getItem('sumosta_access_token');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
 
 const schema = z.object({
   name: z.string().min(2),
@@ -48,7 +44,7 @@ export default function NewProductPage() {
   const { data: catData } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/categories`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/categories`);
       return res.json();
     },
   });
@@ -98,9 +94,8 @@ export default function NewProductPage() {
         variants,
       };
 
-      const res = await fetch(`${API}/api/admin/products`, {
+      const res = await adminFetch(`${API}/api/admin/products`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       const json = await res.json();

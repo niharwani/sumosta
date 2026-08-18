@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Package, Copy, Check, Truck } from 'lucide-react';
 import { ordersApi } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice, cn } from '@/lib/utils';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 
@@ -51,6 +52,11 @@ const LIMIT = 10;
 export default function OrdersPage() {
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]['key']>('all');
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
+  const isAuthReady = useAuthStore((s) => s.isInitialized && !!s.user);
+
+  // Diagnostic — remove once orders-list loading is confirmed stable
+  // eslint-disable-next-line no-console
+  console.info('[orders] render', { isAuthReady });
 
   const {
     data,
@@ -65,12 +71,28 @@ export default function OrdersPage() {
     queryKey: ['orders', status],
     initialPageParam: 1,
     retry: false,
-    queryFn: ({ pageParam }) =>
-      ordersApi.list({
-        page: pageParam as number,
-        limit: LIMIT,
-        ...(status !== 'all' ? { status } : {}),
-      } as never) as Promise<OrderListResponse>,
+    // Wait for the auth store to finish hydrating before requesting. Prevents
+    // a race where useInfiniteQuery fires before initAuth has set the access
+    // token, which would cause an unauthenticated request and a broken retry.
+    enabled: isAuthReady,
+    queryFn: async ({ pageParam }) => {
+      // eslint-disable-next-line no-console
+      console.info('[orders] fetching', { page: pageParam, status });
+      try {
+        const res = (await ordersApi.list({
+          page: pageParam as number,
+          limit: LIMIT,
+          ...(status !== 'all' ? { status } : {}),
+        } as never)) as OrderListResponse;
+        // eslint-disable-next-line no-console
+        console.info('[orders] fetch ok', { count: res?.orders?.length, total: res?.total });
+        return res;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[orders] fetch failed', err);
+        throw err;
+      }
+    },
     getNextPageParam: (last) =>
       last.page < last.totalPages ? last.page + 1 : undefined,
   });

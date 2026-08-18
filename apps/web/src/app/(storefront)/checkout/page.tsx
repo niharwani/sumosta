@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, Tag, LogIn, ShoppingBag, Info, Truck, Lock, CreditCard, Wallet } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Tag, LogIn, ShoppingBag, Info, Truck, Lock, CreditCard, Wallet, AlertTriangle } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice } from '@/lib/utils';
@@ -69,10 +69,24 @@ export default function CheckoutPage() {
   });
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState('');
+  const [accountExists, setAccountExists] = useState<null | { field: 'email' | 'phone'; msg: string }>(null);
   const [chipLoading, setChipLoading] = useState<string | null>(null);
   const [chipError, setChipError] = useState<{ code: string; msg: string } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  // Shiprocket serviceability for the entered pincode. `null` = not-yet-checked;
+  // once populated we know whether COD is offered to this pincode and can
+  // grey out the option (or force-switch to Prepaid).
+  const [serviceability, setServiceability] = useState<{
+    checked:     boolean;
+    checking:    boolean;
+    pincode:     string | null;
+    serviceable: boolean;
+    cod:         boolean;
+    prepaid:     boolean;
+    etd_days:    number | null;
+  }>({ checked: false, checking: false, pincode: null, serviceable: true, cod: true, prepaid: true, etd_days: null });
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstileMounted = useRef(false);
@@ -80,11 +94,16 @@ export default function CheckoutPage() {
   useEffect(() => {
     setMounted(true);
     if (user) {
+      // Google OAuth signups + guest auto-created accounts get a synthetic
+      // "google:..." / "guest:..." placeholder in users.phone (the column is
+      // NOT NULL + UNIQUE). Don't leak that placeholder into the checkout form.
+      const rawPhone = (user as any).phone as string | undefined;
+      const realPhone = rawPhone && !/^(google|guest):/i.test(rawPhone) ? rawPhone : '';
       setForm((f) => ({
         ...f,
         name:  user.name  ?? '',
         email: user.email ?? '',
-        phone: (user as any).phone ?? '',
+        phone: realPhone,
       }));
     }
   }, [user]);
@@ -112,6 +131,76 @@ export default function CheckoutPage() {
       clearTimeout(timer);
     };
   }, [form.pincode]);
+
+  // Auto-remove PREPAID5 when switching to COD — it's prepaid-only.
+  useEffect(() => {
+    if (paymentMethod === 'cod' && coupons.some((c) => c.code === PREPAID_COUPON_CODE)) {
+      removeCoupon(PREPAID_COUPON_CODE);
+    }
+  }, [paymentMethod, coupons, removeCoupon]);
+
+  // Serviceability check — hit our /api/shipping/serviceability whenever the
+  // 6-digit pincode changes. Debounced 600ms to avoid spamming the API when
+  // the user is still typing.
+  useEffect(() => {
+    if (!/^\d{6}$/.test(form.pincode)) {
+      setServiceability((s) => ({ ...s, checked: false, checking: false, pincode: null }));
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setServiceability((s) => ({ ...s, checking: true }));
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+        // Rough weight estimate for the request — Shiprocket doesn't need
+        // exact figures for serviceability, just enough to bracket the tier.
+        const approxWeight = Math.max(0.3, items.reduce((sum, i) => sum + i.quantity * 0.55, 0));
+        const res = await fetch(
+          `${API_URL}/api/shipping/serviceability?pincode=${form.pincode}&weight=${approxWeight.toFixed(2)}`,
+          { signal: controller.signal },
+        );
+        const json = await res.json();
+        if (json?.success && json.data) {
+          setServiceability({
+            checked:     true,
+            checking:    false,
+            pincode:     form.pincode,
+            serviceable: !!json.data.serviceable,
+            cod:         !!json.data.cod_available,
+            prepaid:     !!json.data.prepaid_available,
+            etd_days:    json.data.etd_days ?? null,
+          });
+        } else {
+          // fail-open: allow both payment modes
+          setServiceability({
+            checked: true, checking: false, pincode: form.pincode,
+            serviceable: true, cod: true, prepaid: true, etd_days: null,
+          });
+        }
+      } catch {
+        setServiceability({
+          checked: true, checking: false, pincode: form.pincode,
+          serviceable: true, cod: true, prepaid: true, etd_days: null,
+        });
+      }
+    }, 600);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+    // items ref intentionally excluded — cart-driven weight is a stable
+    // enough proxy per session; a rare stale weight is fine here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.pincode]);
+
+  // If we discover the pincode doesn't support COD and the user has COD
+  // selected, force-switch to online. This ensures they can't click "Place
+  // Order" only to fail later.
+  useEffect(() => {
+    if (serviceability.checked && !serviceability.cod && paymentMethod === 'cod') {
+      setPaymentMethod('online');
+    }
+  }, [serviceability.checked, serviceability.cod, paymentMethod]);
 
   // Fire begin_checkout once when the page mounts with items
   const beginCheckoutFired = useRef(false);
@@ -177,42 +266,8 @@ export default function CheckoutPage() {
     );
   }
 
-  // Auth gate — checkout requires a signed-in customer.
-  if (isInitialized && !user) {
-    return (
-      <div className="min-h-[calc(100vh-var(--header-height))] flex items-center justify-center px-6 py-20 bg-cream">
-        <div className="w-full max-w-md bg-cream-warm rounded-2xl border border-sand p-8 text-center">
-          <div className="w-14 h-14 rounded-full bg-honey-100 mx-auto mb-4 flex items-center justify-center">
-            <LogIn size={22} className="text-honey-600" aria-hidden />
-          </div>
-          <h1 className="font-clash font-bold text-charcoal text-2xl mb-2">Please sign in to place your order</h1>
-          <p className="font-satoshi text-earth text-sm mb-6">
-            Signing in lets us save your order to your account so you can track it, reorder easily, and access support.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => router.push(`/auth/login?next=${encodeURIComponent('/checkout')}`)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-honey-500 hover:bg-honey-600 text-cream font-satoshi font-semibold text-sm rounded-full px-6 py-3 transition-colors min-h-[44px]"
-            >
-              Sign in to continue
-            </button>
-            <button
-              onClick={() => router.push(`/auth/register?next=${encodeURIComponent('/checkout')}`)}
-              className="w-full inline-flex items-center justify-center bg-cream border border-sand hover:border-honey-400 text-charcoal font-satoshi font-semibold text-sm rounded-full px-6 py-3 transition-colors min-h-[44px]"
-            >
-              Create an account
-            </button>
-            <Link
-              href="/cart"
-              className="font-satoshi text-xs text-earth hover:text-charcoal mt-1"
-            >
-              ← Back to cart
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Guest checkout is allowed. Signed-in users get their profile pre-filled;
+  // guests fill in email/phone/address and can optionally sign in for faster future checkouts.
 
   // Waiting on auth init
   if (!isInitialized) {
@@ -228,6 +283,10 @@ export default function CheckoutPage() {
 
   const applyCode = async (code: string) => {
     if (coupons.some((c) => c.code === code)) return;
+    if (code === PREPAID_COUPON_CODE && paymentMethod === 'cod') {
+      setChipError({ code, msg: 'PREPAID5 is only valid for prepaid orders. Switch to Pay Online to use it.' });
+      return;
+    }
     setChipLoading(code);
     setChipError(null);
     try {
@@ -271,7 +330,7 @@ export default function CheckoutPage() {
 
   const handleCodPay = async () => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-    const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
+    const token = typeof window !== 'undefined' ? useAuthStore.getState().accessToken : null;
     const res = await fetch(`${API_URL}/api/checkout`, {
       method: 'POST',
       headers: {
@@ -283,13 +342,31 @@ export default function CheckoutPage() {
         couponCodes:     coupons.map((c) => c.code),
         email:           form.email,
         paymentMethod:   'cod',
+        items: items.map((i) => ({
+          productId:   i.productId,
+          variantId:   i.variantId ?? null,
+          quantity:    i.quantity,
+          unitPrice:   i.unitPrice,
+          productName: i.product.name,
+        })),
       }),
     });
     const data = await res.json();
     if (data.success && data.data?.orderId) {
+      // If the backend auto-created a passwordless account for this guest,
+      // sign them in on the client before navigating so "View Order" works.
+      if (data.data.user && data.data.accessToken && data.data.refreshToken) {
+        useAuthStore.getState().login(
+          data.data.user,
+          data.data.accessToken,
+          data.data.refreshToken,
+        );
+      }
       clearCart();
       const oid = data.data.orderId;
       window.location.href = `/order-confirmation/${oid}/?orderId=${encodeURIComponent(oid)}&email=${encodeURIComponent(form.email)}`;
+    } else if (data?.code === 'ACCOUNT_EXISTS') {
+      setAccountExists({ field: data.field, msg: errText(data.error, 'This account already exists. Please sign in.') });
     } else {
       setPayError(errText(data.error, 'Could not place COD order. Please try again.'));
     }
@@ -306,7 +383,7 @@ export default function CheckoutPage() {
       setPayError('Payment library is still loading. Please try again in a moment.');
       return;
     }
-    const token = localStorage.getItem('sumosta_access_token');
+    const token = useAuthStore.getState().accessToken;
 
     const createRes = await fetch(`${API_URL}/api/razorpay/create-order`, {
       method: 'POST',
@@ -329,7 +406,11 @@ export default function CheckoutPage() {
     });
     const created = await createRes.json();
     if (!createRes.ok || !created.success) {
-      setPayError(errText(created.error, 'Could not start payment. Please try again.'));
+      if (created?.code === 'ACCOUNT_EXISTS') {
+        setAccountExists({ field: created.field, msg: errText(created.error, 'This account already exists. Please sign in.') });
+      } else {
+        setPayError(errText(created.error, 'Could not start payment. Please try again.'));
+      }
       return;
     }
     const { orderId, razorpayOrderId, amount, currency } = created.data as {
@@ -379,6 +460,13 @@ export default function CheckoutPage() {
             });
             const verified = await verifyRes.json();
             if (verifyRes.ok && verified.success) {
+              if (verified.data.user && verified.data.accessToken && verified.data.refreshToken) {
+                useAuthStore.getState().login(
+                  verified.data.user,
+                  verified.data.accessToken,
+                  verified.data.refreshToken,
+                );
+              }
               clearCart();
               const finalOid = verified.data.orderId ?? orderId;
               window.location.href = `/order-confirmation/${finalOid}/?orderId=${encodeURIComponent(finalOid)}&email=${encodeURIComponent(form.email)}`;
@@ -408,6 +496,7 @@ export default function CheckoutPage() {
     if (!isFormValid || !turnstileOk) return;
     setPaying(true);
     setPayError('');
+    setAccountExists(null);
     try {
       if (paymentMethod === 'cod') {
         await handleCodPay();
@@ -427,7 +516,14 @@ export default function CheckoutPage() {
   const codHandlingFee = paymentMethod === 'cod' ? COD_FEE : 0;
   const grandTotal = total + codHandlingFee;
 
-  const canPay = isFormValid && turnstileOk;
+  // Block pay if we've confirmed the pincode is not serviceable. If we
+  // haven't checked yet, or Shiprocket failed open, we still allow the pay
+  // click (fallback: order gets created, admin retries shipment manually).
+  const pincodeServiceable =
+    !serviceability.checked ||
+    serviceability.pincode !== form.pincode ||
+    serviceability.serviceable;
+  const canPay = isFormValid && turnstileOk && pincodeServiceable;
 
   return (
     <div className="bg-cream min-h-screen">
@@ -502,7 +598,15 @@ export default function CheckoutPage() {
                       aria-describedby="pincode-hint"
                     />
                     <p id="pincode-hint" className="font-satoshi text-[11px] text-earth mt-1">
-                      City & state auto-fill from pincode
+                      {serviceability.checking
+                        ? 'Checking deliverability…'
+                        : serviceability.checked && serviceability.pincode === form.pincode
+                          ? serviceability.serviceable
+                            ? serviceability.etd_days
+                              ? `Deliverable · Est. ${serviceability.etd_days} day${serviceability.etd_days === 1 ? '' : 's'}${serviceability.cod ? '' : ' · COD unavailable'}`
+                              : `Deliverable${serviceability.cod ? '' : ' · COD unavailable'}`
+                            : 'Not deliverable to this pincode'
+                          : 'City & state auto-fill from pincode'}
                     </p>
                   </div>
                   <div>
@@ -539,17 +643,20 @@ export default function CheckoutPage() {
                   const isApplied = coupons.some((c) => c.code === offer.code);
                   const isLoading = chipLoading === offer.code;
                   const err = chipError?.code === offer.code ? chipError.msg : null;
+                  const isPrepaidBlocked = offer.code === PREPAID_COUPON_CODE && paymentMethod === 'cod';
+                  const isDisabled = isLoading || isPrepaidBlocked;
                   return (
                     <div key={offer.code}>
                       <button
                         onClick={() => isApplied ? removeCoupon(offer.code) : applyCode(offer.code)}
-                        disabled={isLoading}
+                        disabled={isDisabled}
                         aria-pressed={isApplied}
+                        title={isPrepaidBlocked ? 'Only valid on prepaid orders — switch to Pay Online.' : undefined}
                         className={`w-full flex items-center justify-between text-left rounded-lg px-3.5 py-3 transition-all min-h-[44px] ${
                           isApplied
                             ? 'bg-cream-warm border border-honey-400'
                             : 'bg-cream border border-dashed border-sand hover:border-honey-400'
-                        } ${isLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+                        } ${isLoading ? 'opacity-60 cursor-wait' : isPrepaidBlocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
                         <div className="flex items-center gap-2.5">
                           <Tag size={13} className={isApplied ? 'text-honey-600' : 'text-earth-light'} aria-hidden />
@@ -562,7 +669,7 @@ export default function CheckoutPage() {
                             <p className={`font-satoshi text-[11px] m-0 ${
                               isApplied ? 'text-honey-600' : 'text-earth'
                             }`}>
-                              {offer.label}
+                              {isPrepaidBlocked ? 'Switch to Pay Online to use this' : offer.label}
                             </p>
                           </div>
                         </div>
@@ -705,37 +812,55 @@ export default function CheckoutPage() {
                 </label>
 
                 {/* COD */}
-                <label
-                  className={`w-full flex items-center gap-2.5 rounded-lg px-3.5 py-3 cursor-pointer transition-all border ${
-                    paymentMethod === 'cod'
-                      ? 'bg-honey-50 border-honey-400'
-                      : 'bg-cream border-sand hover:border-earth-light'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="cod"
-                    checked={paymentMethod === 'cod'}
-                    onChange={() => setPaymentMethod('cod')}
-                    className="sr-only"
-                  />
-                  <span
-                    aria-hidden
-                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      paymentMethod === 'cod' ? 'border-honey-500 bg-honey-500' : 'border-earth-light bg-cream'
-                    }`}
-                  >
-                    {paymentMethod === 'cod' && (
-                      <span className="w-1.5 h-1.5 bg-cream rounded-full block" />
-                    )}
-                  </span>
-                  <Wallet size={16} className={paymentMethod === 'cod' ? 'text-honey-600' : 'text-earth'} aria-hidden />
-                  <div className="flex-1">
-                    <p className="font-satoshi font-bold text-[13px] text-charcoal m-0">Cash on Delivery</p>
-                    <p className="font-satoshi text-[11px] text-earth m-0">Pay when your order arrives · +₹69 handling fee</p>
-                  </div>
-                </label>
+                {(() => {
+                  const codUnavailable = serviceability.checked
+                    && serviceability.pincode === form.pincode
+                    && !serviceability.cod;
+                  return (
+                    <label
+                      className={`w-full flex items-center gap-2.5 rounded-lg px-3.5 py-3 transition-all border ${
+                        codUnavailable
+                          ? 'bg-cream border-sand opacity-50 cursor-not-allowed'
+                          : paymentMethod === 'cod'
+                            ? 'bg-honey-50 border-honey-400 cursor-pointer'
+                            : 'bg-cream border-sand hover:border-earth-light cursor-pointer'
+                      }`}
+                      title={codUnavailable ? 'COD is not available for this pincode' : undefined}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="cod"
+                        checked={paymentMethod === 'cod'}
+                        onChange={() => !codUnavailable && setPaymentMethod('cod')}
+                        disabled={codUnavailable}
+                        className="sr-only"
+                      />
+                      <span
+                        aria-hidden
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                          paymentMethod === 'cod' && !codUnavailable ? 'border-honey-500 bg-honey-500' : 'border-earth-light bg-cream'
+                        }`}
+                      >
+                        {paymentMethod === 'cod' && !codUnavailable && (
+                          <span className="w-1.5 h-1.5 bg-cream rounded-full block" />
+                        )}
+                      </span>
+                      <Wallet size={16} className={paymentMethod === 'cod' && !codUnavailable ? 'text-honey-600' : 'text-earth'} aria-hidden />
+                      <div className="flex-1">
+                        <p className="font-satoshi font-bold text-[13px] text-charcoal m-0">Cash on Delivery</p>
+                        <p className="font-satoshi text-[11px] text-earth m-0">
+                          {codUnavailable
+                            ? 'Not available for this pincode'
+                            : 'Pay when your order arrives · +₹69 handling fee'}
+                        </p>
+                      </div>
+                      {codUnavailable && (
+                        <AlertTriangle size={14} className="text-terracotta shrink-0" aria-hidden />
+                      )}
+                    </label>
+                  );
+                })()}
 
                 {/* PREPAID5 nudge when COD is selected */}
                 {paymentMethod === 'cod' && (
@@ -768,8 +893,29 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {/* Existing-account prompt: block checkout and route to sign-in */}
+              {accountExists && (
+                <div
+                  role="alert"
+                  className="bg-honey-50 border border-honey-200 rounded-lg px-4 py-3 mb-3.5"
+                >
+                  <p className="font-satoshi text-sm text-charcoal font-semibold m-0 mb-1">
+                    You&apos;re already registered with us
+                  </p>
+                  <p className="font-satoshi text-sm text-bark m-0 mb-3">
+                    {accountExists.msg} Once you&apos;re signed in, come back to finish this order — your cart will still be here.
+                  </p>
+                  <a
+                    href={`/auth/login/?next=${encodeURIComponent('/checkout/')}`}
+                    className="inline-flex items-center gap-2 bg-honey-500 hover:bg-honey-600 text-cream font-satoshi font-semibold text-sm rounded-full px-5 py-2.5 min-h-[40px] transition-colors"
+                  >
+                    Sign in to continue
+                  </a>
+                </div>
+              )}
+
               {/* Error */}
-              {payError && (
+              {payError && !accountExists && (
                 <p role="alert" className="font-satoshi text-sm text-terracotta bg-terracotta-light rounded-lg px-3.5 py-2.5 mb-3.5">
                   {payError}
                 </p>
@@ -805,7 +951,12 @@ export default function CheckoutPage() {
                   Fill in all required fields to continue
                 </p>
               )}
-              {isFormValid && !turnstileOk && turnstileSiteKey && (
+              {isFormValid && !pincodeServiceable && (
+                <p className="font-satoshi text-[11px] text-terracotta text-center m-0">
+                  We don&apos;t currently deliver to this pincode. Please try another address.
+                </p>
+              )}
+              {isFormValid && pincodeServiceable && !turnstileOk && turnstileSiteKey && (
                 <p className="font-satoshi text-[11px] text-earth-light text-center m-0">
                   Complete the security check to continue
                 </p>

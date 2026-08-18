@@ -4,13 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, AlertTriangle, TrendingDown } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders(): Record<string, string> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -32,9 +28,7 @@ export default function AdminAbandonmentPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-abandonment', period],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/abandonment?period=${period}&limit=50`, {
-        headers: authHeaders(),
-      });
+      const res = await adminFetch(`${API}/api/admin/abandonment?period=${period}&limit=50`);
       return res.json();
     },
   });

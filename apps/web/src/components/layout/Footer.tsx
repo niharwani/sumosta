@@ -211,22 +211,26 @@ export default function Footer() {
           <p className="uppercase tracking-[0.12em] text-earth text-[10px] font-semibold mb-4">
             Certified &amp; Compliant
           </p>
-          <div className="flex flex-wrap items-center gap-7">
+          {/* Left-aligned single row. Logos normalized on HEIGHT (not width)
+              so the landscape marks (FSSAI, Make in India) and the square
+              marks (Jaivik, NABL) read at the same visual weight. */}
+          <div className="flex flex-nowrap items-center justify-start gap-4 md:flex-wrap md:gap-7">
             {[
               { src: '/images/brand/fssai-logo-freelogovectors.net_.png',    alt: 'FSSAI Registered',            desc: 'Food Safety Certified', w: 80, h: 36 },
               { src: '/images/brand/makeinindia.png',                        alt: 'Make in India',               desc: 'Proudly Indian',         w: 80, h: 36 },
               { src: '/images/brand/Jaivik_Bharat_eng.png',                  alt: 'Jaivik Bharat / NPOP APEDA',  desc: 'Organic Certified',      w: 56, h: 56 },
               { src: '/images/brand/nabl-india-logo-png_seeklogo-96699.png', alt: 'NABL ISO/IEC 17025',          desc: 'Lab Tested',             w: 56, h: 56 },
             ].map((cert) => (
-              <div key={cert.alt} className="flex flex-col items-center gap-1.5">
+              <div key={cert.alt} className="flex flex-col items-start gap-1 md:gap-1.5 shrink-0">
                 <Image
                   src={cert.src}
                   alt={cert.alt}
                   width={cert.w}
                   height={cert.h}
+                  className="w-auto h-7 md:h-9"
                   style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.8 }}
                 />
-                <span className="text-earth text-[9px] tracking-[0.04em]">{cert.desc}</span>
+                <span className="hidden md:inline text-earth text-[9px] tracking-[0.04em]">{cert.desc}</span>
               </div>
             ))}
           </div>

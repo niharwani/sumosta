@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Bindings } from '../index';
 import { authMiddleware } from '../middleware/auth';
+import { ShiprocketService, isShiprocketConfigured, type ShiprocketTrackData } from '../services/shiprocket';
 
 type AppEnv = {
   Bindings: Bindings;
@@ -24,11 +25,13 @@ app.get('/:id/receipt', async (c) => {
   const order = await c.env.DB.prepare(`
     SELECT
       o.id, o.order_number, o.user_id, o.guest_email, o.status, o.payment_status,
+      o.payment_method,
       o.shipping_name, o.shipping_phone,
       o.shipping_address_line1, o.shipping_address_line2,
       o.shipping_city, o.shipping_state, o.shipping_pincode,
       o.subtotal, o.discount, o.shipping_amount, o.tax, o.total,
       o.coupon_code, o.tracking_number, o.tracking_url, o.estimated_delivery_date,
+      o.awb_code, o.courier_name, o.shipment_status,
       o.paid_at, o.created_at
     FROM orders o
     WHERE o.id = ?
@@ -73,9 +76,10 @@ app.get('/track', async (c) => {
 
   const order = await c.env.DB.prepare(`
     SELECT
-      o.id, o.order_number, o.status, o.payment_status,
+      o.id, o.order_number, o.status, o.payment_status, o.payment_method,
       o.total, o.tracking_number, o.tracking_url,
       o.estimated_delivery_date, o.created_at,
+      o.awb_code, o.courier_name, o.shipment_status,
       o.shipping_name, o.shipping_city, o.shipping_state
     FROM orders o
     WHERE o.order_number = ?
@@ -94,6 +98,34 @@ app.get('/track', async (c) => {
   `).bind((order as any).id).all();
 
   return c.json({ success: true, data: { ...order, items: items.results } });
+});
+
+// Public live tracking (order_number + email verified). Returns real-time
+// Shiprocket checkpoints for the /track page and post-purchase screens.
+app.get('/track/live', async (c) => {
+  const orderNumber = c.req.query('orderNumber');
+  const email = c.req.query('email');
+  if (!orderNumber || !email) {
+    return c.json({ success: false, error: 'Order number and email are required', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const order = await c.env.DB.prepare(`
+    SELECT o.id, o.awb_code, o.tracking_url, o.courier_name, o.shipment_status
+    FROM orders o
+    WHERE o.order_number = ?
+      AND (o.guest_email = ? OR EXISTS (
+        SELECT 1 FROM users u WHERE u.id = o.user_id AND u.email = ?
+      ))
+  `).bind(orderNumber, email, email).first<{
+    id: string; awb_code: string | null; tracking_url: string | null;
+    courier_name: string | null; shipment_status: string | null;
+  }>();
+
+  if (!order) {
+    return c.json({ success: false, error: 'Order not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json({ success: true, data: await fetchTrackingForOrder(c.env, order) });
 });
 
 // All subsequent order routes require authentication
@@ -159,11 +191,15 @@ app.get('/:id', async (c) => {
   const order = await c.env.DB.prepare(`
     SELECT
       o.id, o.order_number, o.user_id, o.guest_email, o.status, o.payment_status,
+      o.payment_method,
       o.shipping_name, o.shipping_phone,
       o.shipping_address_line1, o.shipping_address_line2,
       o.shipping_city, o.shipping_state, o.shipping_pincode,
       o.subtotal, o.discount, o.shipping_amount, o.tax, o.total,
       o.coupon_code, o.tracking_number, o.tracking_url, o.estimated_delivery_date,
+      o.awb_code, o.courier_name, o.courier_company_id,
+      o.shipment_status, o.shipment_status_updated_at, o.shipment_last_error,
+      o.shiprocket_order_id, o.shiprocket_shipment_id,
       o.paid_at, o.shipped_at, o.delivered_at, o.created_at, o.updated_at
     FROM orders o
     WHERE o.id = ?
@@ -228,5 +264,185 @@ app.post('/:id/cancel', async (c) => {
 
   return c.json({ success: true, data: { id: orderId } });
 });
+
+// ─── GET /api/orders/:id/tracking — live tracking from Shiprocket ───
+// Public (email-verified for guest orders, session for authed). Cached
+// in KV for 5 minutes so we don't hammer Shiprocket when a customer
+// leaves the tab open.
+const TRACKING_CACHE_TTL = 5 * 60;
+
+interface TrackingResponse {
+  awb_code:        string | null;
+  courier_name:    string | null;
+  current_status:  string | null;
+  edd:             string | null;
+  tracking_url:    string | null;
+  origin:          string | null;
+  destination:     string | null;
+  activities: Array<{
+    date:     string;
+    status:   string;
+    activity: string;
+    location: string;
+  }>;
+}
+
+function shapeTracking(data: ShiprocketTrackData, fallbackUrl: string | null): TrackingResponse {
+  const t = data.shipment_track[0];
+  return {
+    awb_code:       t?.awb_code ?? null,
+    courier_name:   t?.courier_name ?? null,
+    current_status: t?.current_status ?? null,
+    edd:            t?.edd ?? null,
+    tracking_url:   data.track_url ?? fallbackUrl,
+    origin:         t?.origin ?? null,
+    destination:    t?.destination ?? null,
+    activities:     (data.shipment_track_activities ?? []).map((a) => ({
+      date:     a.date,
+      status:   a.status,
+      activity: a.activity,
+      location: a.location,
+    })),
+  };
+}
+
+// Auth-scoped variant — used by the order detail page for signed-in users
+// (Note: this handler runs AFTER `app.use('*', authMiddleware)` above, so
+// the request always has a valid userId.)
+app.get('/:id/tracking', async (c) => {
+  const userId  = (c as any).get('userId') as string;
+  const role    = (c as any).get('userRole') as string;
+  const orderId = c.req.param('id');
+
+  const order = await c.env.DB.prepare(`
+    SELECT o.id, o.user_id, o.awb_code, o.tracking_url, o.courier_name, o.shipment_status
+    FROM orders o
+    WHERE o.id = ?
+  `).bind(orderId).first<{
+    id: string; user_id: string | null;
+    awb_code: string | null; tracking_url: string | null;
+    courier_name: string | null; shipment_status: string | null;
+  }>();
+
+  if (!order) {
+    return c.json({ success: false, error: 'Order not found', code: 'NOT_FOUND' }, 404);
+  }
+  const isAdmin = ['admin', 'superadmin'].includes(role);
+  if (!isAdmin && order.user_id !== userId) {
+    return c.json({ success: false, error: 'Access denied', code: 'FORBIDDEN' }, 403);
+  }
+
+  return c.json({ success: true, data: await fetchTrackingForOrder(c.env, order) });
+});
+
+async function fetchTrackingForOrder(
+  env: Bindings,
+  order: {
+    id: string; awb_code: string | null; tracking_url: string | null;
+    courier_name: string | null; shipment_status: string | null;
+  },
+): Promise<TrackingResponse & { awb_pending: boolean }> {
+  // No AWB yet — shipment is still being created (or automation failed).
+  if (!order.awb_code) {
+    return {
+      awb_code:       null,
+      courier_name:   order.courier_name,
+      current_status: order.shipment_status ?? 'Preparing shipment',
+      edd:            null,
+      tracking_url:   order.tracking_url,
+      origin:         null,
+      destination:    null,
+      activities:     [],
+      awb_pending:    true,
+    };
+  }
+
+  const cacheKey = `track:awb:${order.awb_code}`;
+  const cached = await env.KV_CACHE.get(cacheKey);
+  if (cached) {
+    try {
+      return { ...(JSON.parse(cached) as TrackingResponse), awb_pending: false };
+    } catch { /* re-fetch */ }
+  }
+
+  if (!isShiprocketConfigured(env)) {
+    return {
+      awb_code:       order.awb_code,
+      courier_name:   order.courier_name,
+      current_status: order.shipment_status ?? 'In transit',
+      edd:            null,
+      tracking_url:   order.tracking_url,
+      origin:         null,
+      destination:    null,
+      activities:     [],
+      awb_pending:    false,
+    };
+  }
+
+  try {
+    const sr   = new ShiprocketService(env);
+    const data = await sr.trackByAwb(order.awb_code);
+    if (!data) {
+      // Shiprocket hasn't picked up the AWB in their tracking system yet.
+      return {
+        awb_code:       order.awb_code,
+        courier_name:   order.courier_name,
+        current_status: order.shipment_status ?? 'Awaiting pickup',
+        edd:            null,
+        tracking_url:   order.tracking_url,
+        origin:         null,
+        destination:    null,
+        activities:     [],
+        awb_pending:    false,
+      };
+    }
+
+    const shaped = shapeTracking(data, order.tracking_url);
+    await env.KV_CACHE.put(cacheKey, JSON.stringify(shaped), {
+      expirationTtl: TRACKING_CACHE_TTL,
+    });
+
+    // Sync latest status back to the order row so admin UI and list views
+    // reflect the current state without needing a Shiprocket call.
+    if (shaped.current_status) {
+      const statusUpper = shaped.current_status.toUpperCase();
+      const localStatus =
+        statusUpper.includes('DELIVERED') ? 'delivered'
+        : statusUpper.includes('OUT FOR DELIVERY') || statusUpper.includes('IN TRANSIT')
+          || statusUpper.includes('PICKED') || statusUpper.includes('SHIPPED') ? 'shipped'
+        : null;
+
+      const updates: string[] = ['shipment_status = ?', 'shipment_status_updated_at = datetime(\'now\')'];
+      const bindings: unknown[] = [shaped.current_status];
+      if (localStatus === 'delivered') {
+        updates.push('status = ?', 'delivered_at = COALESCE(delivered_at, datetime(\'now\'))');
+        bindings.push('delivered');
+      } else if (localStatus === 'shipped') {
+        updates.push('status = ?', 'shipped_at = COALESCE(shipped_at, datetime(\'now\'))');
+        bindings.push('shipped');
+      }
+      bindings.push(order.id);
+
+      await env.DB.prepare(
+        `UPDATE orders SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = ?`,
+      ).bind(...bindings).run();
+    }
+
+    return { ...shaped, awb_pending: false };
+  } catch (err) {
+    console.error('[orders/tracking] Shiprocket lookup failed for', order.awb_code, err);
+    return {
+      awb_code:       order.awb_code,
+      courier_name:   order.courier_name,
+      current_status: order.shipment_status ?? 'Tracking unavailable',
+      edd:            null,
+      tracking_url:   order.tracking_url,
+      origin:         null,
+      destination:    null,
+      activities:     [],
+      awb_pending:    false,
+    };
+  }
+}
 
 export default app;

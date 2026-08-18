@@ -20,6 +20,7 @@ import analyticsRoute   from './routes/analytics';
 import contactRoute     from './routes/contact';
 import newsletterRoute  from './routes/newsletter';
 import addressesRoute   from './routes/addresses';
+import shippingRoute    from './routes/shipping';
 
 import googleAuthRoute       from './routes/google-auth';
 
@@ -55,6 +56,14 @@ export type Bindings = {
   GOOGLE_CLIENT_ID:     string;
   GOOGLE_CLIENT_SECRET: string;
   RESEND_FROM:          string;
+  RESEND_FROM_ORDERS:   string;   // e.g. "SUMOSTA Orders <orders@sumosta.com>"
+  RESEND_FROM_NOREPLY:  string;   // e.g. "SUMOSTA <no-reply@sumosta.com>"
+  SUPPORT_EMAIL:        string;   // reply-to inbox for transactional email
+  FIREBASE_PROJECT_ID:  string;
+  SHIPROCKET_EMAIL:          string;
+  SHIPROCKET_PASSWORD:       string;
+  SHIPROCKET_PICKUP_LOCATION: string;
+  SHIPROCKET_WEBHOOK_TOKEN:   string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -90,6 +99,7 @@ app.route('/api/analytics',  analyticsRoute);
 app.route('/api/contact',    contactRoute);
 app.route('/api/newsletter', newsletterRoute);
 app.route('/api/addresses',  addressesRoute);
+app.route('/api/shipping',   shippingRoute);
 
 // ============================================================
 // PUBLIC MEDIA SERVING (R2 → browser)

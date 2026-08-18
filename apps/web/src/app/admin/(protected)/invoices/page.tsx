@@ -5,13 +5,9 @@ import Link from 'next/link';
 import { FileText, Download } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders(): Record<string, string> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 export default function AdminInvoicesPage() {
   const [search, setSearch] = useState('');
@@ -22,7 +18,7 @@ export default function AdminInvoicesPage() {
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '20', page: String(page), payment_status: 'captured' });
       if (search) params.set('search', search);
-      const res = await fetch(`${API}/api/admin/orders?${params}`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/orders?${params}`);
       return res.json();
     },
   });

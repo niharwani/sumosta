@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -29,10 +30,7 @@ export default function AdminCustomerDetailPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-customer', id],
     queryFn: async () => {
-      const token = localStorage.getItem('sumosta_access_token');
-      const res = await fetch(`${API}/api/admin/customers/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch(`${API}/api/admin/customers/${id}`);
       return res.json();
     },
     enabled: !!id && id !== '_placeholder',

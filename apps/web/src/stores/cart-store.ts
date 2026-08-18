@@ -55,8 +55,12 @@ function computeUnitPrice(
   return product.price + (variant?.priceAdjust ?? 0);
 }
 
+// Kept in lock-step with the backend so displayed cart total exactly
+// matches what Razorpay/COD ends up charging.
+//   Backend: apps/api/src/lib/utils.ts (calcShipping) — must stay in sync.
+//   Backend: apps/api/src/routes/{checkout,razorpay}.ts (coupon amount rounding).
 function computeDerived(items: CartItem[], coupons: Coupon[]): CartDerived {
-  const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const subtotal = round2(items.reduce((sum, item) => sum + item.lineTotal, 0));
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const couponDiscounts: CouponDiscount[] = [];
@@ -68,19 +72,24 @@ function computeDerived(items: CartItem[], coupons: Coupon[]): CartDerived {
 
     const amount =
       coupon.type === 'percentage'
-        ? Math.round((subtotal * coupon.value) / 100)
-        : coupon.value;
+        ? round2(subtotal * coupon.value / 100)
+        : Math.min(coupon.value, subtotal);
 
     couponDiscounts.push({ code: coupon.code, amount });
     totalDiscount += amount;
   }
 
-  const discount = totalDiscount;
-  const afterDiscount = Math.max(0, subtotal - discount);
-  const shipping = afterDiscount >= 499 ? 0 : 49;
-  const total = afterDiscount + shipping;
+  const discount = round2(totalDiscount);
+  const afterDiscount = Math.max(0, round2(subtotal - discount));
+  // Matches backend calcShipping — customer-facing threshold ₹499, fee ₹69
+  const shipping = afterDiscount >= 499 ? 0 : 69;
+  const total = round2(afterDiscount + shipping);
 
   return { subtotal, discount, shipping, total, itemCount, couponDiscounts };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 type CartStore = CartState & CartDerived & CartActions;
@@ -88,8 +97,8 @@ type CartStore = CartState & CartDerived & CartActions;
 const DERIVED_ZERO: CartDerived = {
   subtotal: 0,
   discount: 0,
-  shipping: 49,
-  total: 49,
+  shipping: 69,
+  total: 69,
   itemCount: 0,
   couponDiscounts: [],
 };

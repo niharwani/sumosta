@@ -3,12 +3,9 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Upload, Trash2, Copy, Check } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authToken() {
-  return localStorage.getItem('sumosta_access_token');
-}
 
 export default function AdminMediaPage() {
   const [uploading, setUploading] = useState(false);
@@ -20,9 +17,7 @@ export default function AdminMediaPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-media'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/media`, {
-        headers: { Authorization: `Bearer ${authToken()}` },
-      });
+      const res = await adminFetch(`${API}/api/admin/media`);
       return res.json();
     },
   });
@@ -31,9 +26,8 @@ export default function AdminMediaPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (key: string) => {
-      const res = await fetch(`${API}/api/admin/media/${encodeURIComponent(key)}`, {
+      const res = await adminFetch(`${API}/api/admin/media/${encodeURIComponent(key)}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${authToken()}` },
       });
       return res.json();
     },
@@ -51,10 +45,9 @@ export default function AdminMediaPage() {
       for (const file of Array.from(files)) {
         const fd = new FormData();
         fd.append('file', file);
-        await fetch(`${API}/api/admin/media/upload`, {
+        await adminFetch(`${API}/api/admin/media/upload`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${authToken()}` },
-          body: fd,
+          body:   fd,
         });
       }
       qc.invalidateQueries({ queryKey: ['admin-media'] });

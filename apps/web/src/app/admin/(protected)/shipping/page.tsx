@@ -3,13 +3,9 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Truck, Package, Clock, Save, Check } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-  return { Authorization: `Bearer ${token ?? ''}`, 'Content-Type': 'application/json' };
-}
 
 const inputClass =
   'w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-satoshi text-gray-700 focus:outline-none focus:border-honey-400 transition-colors';
@@ -38,7 +34,7 @@ export default function AdminShippingPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-settings'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/settings`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/settings`);
       return res.json();
     },
   });
@@ -59,9 +55,8 @@ export default function AdminShippingPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API}/api/admin/settings`, {
+      const res = await adminFetch(`${API}/api/admin/settings`, {
         method: 'PUT',
-        headers: authHeaders(),
         body: JSON.stringify(form),
       });
       return res.json();

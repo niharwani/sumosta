@@ -5,13 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Settings, Truck, CreditCard, Users } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
 
 const TABS = [
   { href: '/admin/settings', label: 'General', icon: Settings },
@@ -62,7 +58,7 @@ export default function AdminSettingsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-settings'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/settings`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/settings`);
       return res.json();
     },
   });
@@ -90,9 +86,8 @@ export default function AdminSettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API}/api/admin/settings`, {
+      const res = await adminFetch(`${API}/api/admin/settings`, {
         method: 'PUT',
-        headers: authHeaders(),
         body: JSON.stringify({
           siteName:             form.siteName,
           tagline:              form.tagline,

@@ -10,6 +10,14 @@ import { generateId } from '../lib/utils';
 import { registerSchema, loginSchema, forgotPasswordSchema } from '../lib/validators';
 import { authMiddleware } from '../middleware/auth';
 import { sendPasswordReset } from '../services/email';
+import { verifyFirebaseIdToken } from '../lib/firebase';
+
+// Passwordless account marker — same convention as guest checkout.
+const UNUSABLE_PASSWORD_HASH = '!' + Array.from({ length: 59 }, () =>
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(
+    Math.floor(Math.random() * 62),
+  ),
+).join('');
 
 // ─── Local Zod schemas (kept inside route to respect file scope) ──────
 const resetPasswordSchema = z.object({
@@ -31,6 +39,10 @@ const sessionExchangeSchema = z.object({
   code: z.string().min(10, 'Invalid session code'),
 });
 
+const firebasePhoneVerifySchema = z.object({
+  idToken: z.string().min(20, 'Missing Firebase ID token'),
+});
+
 type AuthVariables = {
   userId: string;
   userRole: string;
@@ -50,10 +62,14 @@ function isProdEnv(baseUrl: string): boolean {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setRefreshCookie(c: any, token: string): void {
+  const isProd = isProdEnv(c.env.BASE_URL as string);
   setCookie(c, REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure:   isProdEnv(c.env.BASE_URL as string),
-    sameSite: 'Lax',
+    secure:   isProd,
+    // Frontend (.pages.dev / sumosta.com) and API (.workers.dev) are cross-site,
+    // so cookies MUST be SameSite=None+Secure to survive XHR calls like /refresh.
+    // Falls back to Lax for localhost dev where cross-site issues don't apply.
+    sameSite: isProd ? 'None' : 'Lax',
     path:     '/',
     maxAge:   REFRESH_TOKEN_TTL,
   });
@@ -61,9 +77,11 @@ function setRefreshCookie(c: any, token: string): void {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function clearRefreshCookie(c: any): void {
+  const isProd = isProdEnv(c.env.BASE_URL as string);
   deleteCookie(c, REFRESH_COOKIE_NAME, {
-    path:   '/',
-    secure: isProdEnv(c.env.BASE_URL as string),
+    path:     '/',
+    secure:   isProd,
+    sameSite: isProd ? 'None' : 'Lax',
   });
 }
 
@@ -495,8 +513,13 @@ app.post('/forgot-password', zValidator('json', forgotPasswordSchema), async (c)
   if (c.env.RESEND_API_KEY) {
     // Fire and forget; log failures but do not surface
     c.executionCtx.waitUntil(
-      sendPasswordReset(email, resetUrl, c.env.RESEND_API_KEY, c.env.RESEND_FROM ?? 'SUMOSTA <orders@sumosta.com>')
-        .catch((err) => console.error('[Auth] sendPasswordReset failed:', err)),
+      sendPasswordReset(
+        email,
+        resetUrl,
+        c.env.RESEND_API_KEY,
+        c.env.RESEND_FROM_NOREPLY || c.env.RESEND_FROM || 'SUMOSTA <no-reply@sumosta.com>',
+        c.env.SUPPORT_EMAIL || null,
+      ).catch((err) => console.error('[Auth] sendPasswordReset failed:', err)),
     );
   } else {
     console.warn('[Auth] RESEND_API_KEY missing — password reset email not sent. URL:', resetUrl);
@@ -594,5 +617,124 @@ app.post('/session-exchange', zValidator('json', sessionExchangeSchema), async (
     },
   });
 });
+
+// ============================================================
+// POST /api/auth/firebase-phone/verify
+// ------------------------------------------------------------
+// Hybrid phone-OTP flow: the client completes phone verification
+// with Firebase Auth, then hands us the resulting Firebase ID token.
+// We verify it against Google's JWKS, pull the phone_number claim,
+// then either sign in an existing user with that phone or create a
+// new passwordless account — and issue OUR normal access/refresh
+// tokens so the rest of the app behaves identically to email login.
+// ============================================================
+app.post(
+  '/firebase-phone/verify',
+  zValidator('json', firebasePhoneVerifySchema),
+  async (c) => {
+    const { idToken } = c.req.valid('json');
+
+    if (!c.env.FIREBASE_PROJECT_ID) {
+      return c.json(
+        { success: false, error: 'Phone sign-in is not configured', code: 'FIREBASE_NOT_CONFIGURED' },
+        503,
+      );
+    }
+
+    let claims;
+    try {
+      claims = await verifyFirebaseIdToken(idToken, c.env.FIREBASE_PROJECT_ID);
+    } catch (err) {
+      console.warn('[firebase-phone/verify] invalid id token', err);
+      return c.json(
+        { success: false, error: 'Invalid or expired verification. Please try again.', code: 'INVALID_TOKEN' },
+        401,
+      );
+    }
+
+    if (claims.firebase?.sign_in_provider !== 'phone') {
+      return c.json(
+        { success: false, error: 'Token is not a phone-verification token', code: 'WRONG_PROVIDER' },
+        400,
+      );
+    }
+    const e164 = claims.phone_number;
+    if (!e164) {
+      return c.json(
+        { success: false, error: 'Phone number missing from verification', code: 'MISSING_PHONE' },
+        400,
+      );
+    }
+
+    // Firebase gives us E.164 (e.g. "+919876543210"). Our DB stores 10-digit
+    // Indian numbers today. Normalise to 10 digits for lookup / storage.
+    const local10 = e164.replace(/[^0-9]/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(local10)) {
+      return c.json(
+        { success: false, error: 'Only Indian mobile numbers are supported right now', code: 'UNSUPPORTED_PHONE' },
+        400,
+      );
+    }
+
+    // Look up existing user by phone.
+    let user = await c.env.DB.prepare(
+      'SELECT id, name, email, phone, role FROM users WHERE phone = ? AND is_active = 1',
+    ).bind(local10).first<{ id: string; name: string; email: string; phone: string; role: string }>();
+
+    if (!user) {
+      // Create a passwordless account. Email is required by schema so we
+      // fabricate a placeholder the user can replace later from the profile page.
+      const newId = generateId('usr');
+      const placeholderEmail = `phone-${local10}@sumosta.local`;
+      const displayName      = `User ${local10.slice(-4)}`;
+
+      try {
+        await c.env.DB.prepare(
+          'INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+        ).bind(newId, displayName, placeholderEmail, local10, UNUSABLE_PASSWORD_HASH, 'customer').run();
+      } catch (err) {
+        // Email placeholder collision (same 10-digit tail existed once, was deleted, etc.) — retry once with a randomised email.
+        const fallbackEmail = `phone-${local10}-${newId.slice(-6)}@sumosta.local`;
+        console.warn('[firebase-phone/verify] user insert retry with fallback email', err);
+        await c.env.DB.prepare(
+          'INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+        ).bind(newId, displayName, fallbackEmail, local10, UNUSABLE_PASSWORD_HASH, 'customer').run();
+      }
+
+      user = { id: newId, name: displayName, email: placeholderEmail, phone: local10, role: 'customer' };
+    }
+
+    // Issue our own session — identical shape to /login and /register.
+    const accessToken  = await signJwt(
+      { sub: user.id, email: user.email, role: user.role },
+      c.env.JWT_SECRET,
+      '15m',
+    );
+    const refreshToken = generateRefreshToken();
+
+    await c.env.KV_SESSIONS.put(`refresh:${user.id}:${refreshToken}`, user.id, {
+      expirationTtl: REFRESH_TOKEN_TTL,
+    });
+    await c.env.KV_SESSIONS.put(`rt_lookup:${refreshToken}`, user.id, {
+      expirationTtl: REFRESH_TOKEN_TTL,
+    });
+    setRefreshCookie(c, refreshToken);
+
+    return c.json({
+      success: true,
+      data: {
+        user: {
+          id:    user.id,
+          name:  user.name,
+          email: user.email,
+          phone: user.phone,
+          role:  user.role,
+        },
+        accessToken,
+        refreshToken,
+      },
+    });
+  },
+);
 
 export default app;

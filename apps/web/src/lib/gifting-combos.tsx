@@ -3,39 +3,43 @@ import { STATIC_PRODUCTS } from './content';
 
 const bySlug = (slug: string) => STATIC_PRODUCTS.find((p) => p.slug === slug)!;
 
-const WF    = bySlug('organic-certified-wild-forest-honey');
+const WF    = bySlug('organic-wild-forest-honey');
 const DAMM  = bySlug('rare-dammer-bee-honey');
 const ARTIS = bySlug('artisanal-heritage-forest-honey');
 const DEW   = bySlug('canopy-dew-forest-honey');
 const BLOOD = bySlug('bloodseed-forest-honey');
 const FIVE  = bySlug('5-elements-collection');
 
-// 250g helpers — variant[0]
-function price250(p: typeof WF) {
-  const v = p.variants?.[0];
+// Per-variant price/mrp resolved against the D1-seeded variant priceAdjust
+// (variant[0] = 250g, variant[1] = 500g). variantIdx === -1 → no variant.
+export function priceForVariant(p: typeof WF, variantIdx: number): number {
+  if (variantIdx < 0) return p.price;
+  const v = p.variants?.[variantIdx];
   return v ? p.price + v.priceAdjust : p.price;
 }
-function mrp250(p: typeof WF) {
-  const v = p.variants?.[0] as any;
-  return v?.compareAtPriceAdjust != null
+export function mrpForVariant(p: typeof WF, variantIdx: number): number {
+  if (variantIdx < 0) return p.compareAtPrice ?? p.price;
+  const v = p.variants?.[variantIdx] as any;
+  if (!v) return p.compareAtPrice ?? priceForVariant(p, variantIdx);
+  return v.compareAtPriceAdjust != null
     ? (p.compareAtPrice ?? 0) + v.compareAtPriceAdjust
-    : p.compareAtPrice ?? price250(p);
-}
-
-// 500g helpers — variant[1] (priceAdjust = 0, base price IS the 500g price)
-function price500(p: typeof WF) {
-  return p.price;
-}
-function mrp500(p: typeof WF) {
-  return p.compareAtPrice ?? p.price;
+    : p.compareAtPrice ?? priceForVariant(p, variantIdx);
 }
 
 export interface ComboItem {
   product: typeof WF;
-  variantIdx: number;
   label: string;
   origin: string;
   flavor: string;
+}
+
+export type ComboSizeKey = '250g' | '500g' | '5x70g';
+
+export interface ComboSize {
+  key: ComboSizeKey;
+  variantIdx: number;    // idx into product.variants; -1 for single-SKU combos
+  label: string;         // e.g. "3 × 250g" — used in headers & summaries
+  perItemLabel: string;  // e.g. "250g" — used on the size toggle button
 }
 
 export interface Combo {
@@ -47,10 +51,43 @@ export interface Combo {
   benefits: { icon: React.ReactNode; text: string }[];
   accent: string;
   accentDark: string;
-  comboPrice: number;
-  mrpPrice: number;
   giftNote: string;
-  sizeLabel: string;
+  sizes: ComboSize[];
+  defaultSizeIdx: number;
+  // Optional cover-image override. Used when the combo has a single ComboItem
+  // that would otherwise render as one placeholder tile (e.g. the 5-Elements
+  // set, where showing all five honey jars is more representative than the
+  // single product's fallback image). `objectPosition` shifts the focal point
+  // for images where the jars sit in the lower half.
+  coverImages?: { url: string; alt: string; objectPosition?: string }[];
+}
+
+// Sum item prices/MRPs at the chosen size — reflects live D1 pricing per variant.
+export function comboPriceAt(c: Combo, sizeIdx: number): number {
+  const size = c.sizes[sizeIdx] ?? c.sizes[c.defaultSizeIdx];
+  return c.items.reduce((sum, ci) => sum + priceForVariant(ci.product, size.variantIdx), 0);
+}
+export function comboMrpAt(c: Combo, sizeIdx: number): number {
+  const size = c.sizes[sizeIdx] ?? c.sizes[c.defaultSizeIdx];
+  return c.items.reduce((sum, ci) => sum + mrpForVariant(ci.product, size.variantIdx), 0);
+}
+export function defaultComboPrice(c: Combo): number {
+  return comboPriceAt(c, c.defaultSizeIdx);
+}
+export function defaultComboMrp(c: Combo): number {
+  return comboMrpAt(c, c.defaultSizeIdx);
+}
+
+// All raw-honey combos support 250g + 500g swaps (every jar SKU has both).
+function multiSize(itemsCount: number, defaultKey: ComboSizeKey = '250g'): {
+  sizes: ComboSize[];
+  defaultSizeIdx: number;
+} {
+  const sizes: ComboSize[] = [
+    { key: '250g', variantIdx: 0, label: `${itemsCount} × 250g`, perItemLabel: '250g' },
+    { key: '500g', variantIdx: 1, label: `${itemsCount} × 500g`, perItemLabel: '500g' },
+  ];
+  return { sizes, defaultSizeIdx: sizes.findIndex((s) => s.key === defaultKey) };
 }
 
 export const COMBOS: Combo[] = [
@@ -63,12 +100,18 @@ export const COMBOS: Combo[] = [
     giftNote: 'The perfect introduction to India\'s rarest forest honeys.',
     accent: '#B45309',
     accentDark: '#92400E',
-    sizeLabel: '5 × 70g',
+    sizes: [{ key: '5x70g', variantIdx: -1, label: '5 × 70g', perItemLabel: '5×70g' }],
+    defaultSizeIdx: 0,
     items: [
-      { product: FIVE, variantIdx: -1, label: '5 Honeys in 70g Tasting Jars', origin: 'Pan-India Forests', flavor: 'All 5 Varieties' },
+      { product: FIVE, label: '5 Honeys in 70g Tasting Jars', origin: 'Pan-India Forests', flavor: 'All 5 Varieties' },
     ],
-    comboPrice: FIVE.price,
-    mrpPrice:   FIVE.compareAtPrice ?? FIVE.price,
+    coverImages: [
+      {
+        url: 'https://sumosta-api.sumosta-dev.workers.dev/api/media/products/1786381859416-2.png',
+        alt: 'The 5 Elements Collection Gift Box',
+        objectPosition: 'center 85%',
+      },
+    ],
     benefits: [
       { icon: <Gift size={13}/>,  text: 'Beautiful gift-ready packaging included' },
       { icon: <Star size={13}/>,  text: 'All 5 single-origin wild forest honeys' },
@@ -81,19 +124,17 @@ export const COMBOS: Combo[] = [
     id: 'quartet-main',
     tier: 'Quartet',
     name: 'The Forest Quartet',
-    tagline: 'Four of India\'s finest 250g wild forest honeys — a truly comprehensive collection.',
+    tagline: 'Four of India\'s finest wild forest honeys — a truly comprehensive collection.',
     giftNote: 'The complete forest honey journey for the discerning recipient.',
     accent: '#6D28D9',
     accentDark: '#5B21B6',
-    sizeLabel: '4 × 250g',
+    ...multiSize(4, '250g'),
     items: [
-      { product: DEW,   variantIdx: 0, label: 'Canopy Dew Forest',   origin: 'Saranda, Jharkhand',        flavor: 'Dark · Mineral' },
-      { product: WF,    variantIdx: 0, label: 'Organic Wild Forest',  origin: 'Madhya Pradesh',            flavor: 'Woody · Floral' },
-      { product: BLOOD, variantIdx: 0, label: 'Bloodseed Forest',     origin: 'Abujhmarh, Chhattisgarh',   flavor: 'Smoky · Iron-rich' },
-      { product: ARTIS, variantIdx: 0, label: 'Artisanal Heritage',   origin: 'Kandhamal, Odisha',         flavor: 'Earthy · Caramel' },
+      { product: DEW,   label: 'Canopy Dew Forest',   origin: 'Saranda, Jharkhand',        flavor: 'Dark · Mineral' },
+      { product: WF,    label: 'Organic Wild Forest', origin: 'Central India',             flavor: 'Woody · Floral' },
+      { product: BLOOD, label: 'Bloodseed Forest',    origin: 'Abujhmarh, Chhattisgarh',   flavor: 'Smoky · Iron-rich' },
+      { product: ARTIS, label: 'Artisanal Heritage',  origin: 'Kandhamal, Odisha',         flavor: 'Earthy · Caramel' },
     ],
-    comboPrice: price250(DEW)+price250(WF)+price250(BLOOD)+price250(ARTIS),
-    mrpPrice:   mrp250(DEW)  +mrp250(WF)  +mrp250(BLOOD)  +mrp250(ARTIS),
     benefits: [
       { icon: <Star size={13}/>,     text: '4 distinct forest terroirs in one gift' },
       { icon: <Zap size={13}/>,      text: 'Full spectrum antioxidants, minerals & iron' },
@@ -110,14 +151,12 @@ export const COMBOS: Combo[] = [
     giftNote: 'The most thoughtful wellness gift you can give.',
     accent: '#166534',
     accentDark: '#14532D',
-    sizeLabel: '3 × 250g',
+    ...multiSize(3, '250g'),
     items: [
-      { product: WF,    variantIdx: 0, label: 'Organic Wild Forest', origin: 'Madhya Pradesh',    flavor: 'Woody · Floral' },
-      { product: BLOOD, variantIdx: 0, label: 'Bloodseed Forest',    origin: 'Chhattisgarh',      flavor: 'Smoky · Spiced' },
-      { product: ARTIS, variantIdx: 0, label: 'Artisanal Heritage',  origin: 'Kandhamal, Odisha', flavor: 'Earthy · Caramel' },
+      { product: WF,    label: 'Organic Wild Forest', origin: 'Central India',     flavor: 'Woody · Floral' },
+      { product: BLOOD, label: 'Bloodseed Forest',    origin: 'Chhattisgarh',      flavor: 'Smoky · Spiced' },
+      { product: ARTIS, label: 'Artisanal Heritage',  origin: 'Kandhamal, Odisha', flavor: 'Earthy · Caramel' },
     ],
-    comboPrice: price250(WF)+price250(BLOOD)+price250(ARTIS),
-    mrpPrice:   mrp250(WF)  +mrp250(BLOOD)  +mrp250(ARTIS),
     benefits: [
       { icon: <Leaf size={13}/>,      text: 'Certified organic with NABL tested purity' },
       { icon: <Heart size={13}/>,     text: 'Gut, immunity & energy — all three covered' },
@@ -132,14 +171,12 @@ export const COMBOS: Combo[] = [
     giftNote: 'For those who appreciate provenance and origin.',
     accent: '#1E3A5F',
     accentDark: '#162C47',
-    sizeLabel: '3 × 250g',
+    ...multiSize(3, '250g'),
     items: [
-      { product: BLOOD, variantIdx: 0, label: 'Bloodseed Forest',   origin: 'Chhattisgarh',        flavor: 'Smoky · Iron-rich' },
-      { product: ARTIS, variantIdx: 0, label: 'Artisanal Heritage', origin: 'Kandhamal, Odisha',   flavor: 'Earthy · Caramel' },
-      { product: DEW,   variantIdx: 0, label: 'Canopy Dew Forest',  origin: 'Saranda, Jharkhand',  flavor: 'Dark · Mineral' },
+      { product: BLOOD, label: 'Bloodseed Forest',   origin: 'Chhattisgarh',        flavor: 'Smoky · Iron-rich' },
+      { product: ARTIS, label: 'Artisanal Heritage', origin: 'Kandhamal, Odisha',   flavor: 'Earthy · Caramel' },
+      { product: DEW,   label: 'Canopy Dew Forest',  origin: 'Saranda, Jharkhand',  flavor: 'Dark · Mineral' },
     ],
-    comboPrice: price250(BLOOD)+price250(ARTIS)+price250(DEW),
-    mrpPrice:   mrp250(BLOOD)  +mrp250(ARTIS)  +mrp250(DEW),
     benefits: [
       { icon: <Star size={13}/>,  text: '3 forest terroirs · 3 tribal communities' },
       { icon: <Zap size={13}/>,   text: 'Iron, antioxidants & rare minerals' },
@@ -147,22 +184,20 @@ export const COMBOS: Combo[] = [
     ],
   },
 
-  // ── Duos (all 500g) ─────────────────────────────────────────────────────────
+  // ── Duos ────────────────────────────────────────────────────────────────────
   {
     id: 'duo-bloodseed-artisanal',
     tier: 'Duo',
     name: 'Bloodseed & Artisanal Heritage',
-    tagline: 'Iron-rich blood tonic meets wild-crafted tribal heritage — both in full 500g jars.',
+    tagline: 'Iron-rich blood tonic meets wild-crafted tribal heritage — pick your size.',
     giftNote: 'A bold wellness gift for the active recipient.',
     accent: '#B91C1C',
     accentDark: '#991B1B',
-    sizeLabel: '2 × 500g',
+    ...multiSize(2, '500g'),
     items: [
-      { product: BLOOD, variantIdx: 1, label: 'Bloodseed Forest',   origin: 'Abujhmarh, Chhattisgarh', flavor: 'Smoky · Spiced' },
-      { product: ARTIS, variantIdx: 1, label: 'Artisanal Heritage', origin: 'Kandhamal, Odisha',       flavor: 'Earthy · Caramel' },
+      { product: BLOOD, label: 'Bloodseed Forest',   origin: 'Abujhmarh, Chhattisgarh', flavor: 'Smoky · Spiced' },
+      { product: ARTIS, label: 'Artisanal Heritage', origin: 'Kandhamal, Odisha',       flavor: 'Earthy · Caramel' },
     ],
-    comboPrice: price500(BLOOD)+price500(ARTIS),
-    mrpPrice:   mrp500(BLOOD)  +mrp500(ARTIS),
     benefits: [
       { icon: <Zap size={13}/>,   text: 'High bio-available iron & anthocyanins' },
       { icon: <Heart size={13}/>, text: 'Natural blood tonic & anti-inflammatory' },
@@ -173,17 +208,15 @@ export const COMBOS: Combo[] = [
     id: 'duo-wild-artisanal',
     tier: 'Duo',
     name: 'Organic Wild Forest & Artisanal Heritage',
-    tagline: 'Certified organic meets wild-crafted biodiversity — full 500g jars.',
+    tagline: 'Certified organic meets wild-crafted biodiversity — choose 250g or 500g jars.',
     giftNote: 'Ideal for health-conscious professionals.',
     accent: '#065F46',
     accentDark: '#064E3B',
-    sizeLabel: '2 × 500g',
+    ...multiSize(2, '500g'),
     items: [
-      { product: WF,    variantIdx: 1, label: 'Organic Wild Forest', origin: 'Madhya Pradesh',   flavor: 'Woody · Floral' },
-      { product: ARTIS, variantIdx: 1, label: 'Artisanal Heritage',  origin: 'Kandhamal, Odisha', flavor: 'Earthy · Caramel' },
+      { product: WF,    label: 'Organic Wild Forest', origin: 'Central India',     flavor: 'Woody · Floral' },
+      { product: ARTIS, label: 'Artisanal Heritage',  origin: 'Kandhamal, Odisha', flavor: 'Earthy · Caramel' },
     ],
-    comboPrice: price500(WF)+price500(ARTIS),
-    mrpPrice:   mrp500(WF)  +mrp500(ARTIS),
     benefits: [
       { icon: <Leaf size={13}/>,  text: 'NPOP APEDA Organic certified' },
       { icon: <Heart size={13}/>, text: 'Gut-friendly prebiotics & enzymes' },
@@ -194,17 +227,15 @@ export const COMBOS: Combo[] = [
     id: 'duo-bloodseed-wild',
     tier: 'Duo',
     name: 'Bloodseed Forest & Organic Wild Forest',
-    tagline: 'Two powerhouse honeys — iron-rich Bloodseed and certified Organic Wild in 500g.',
+    tagline: 'Two powerhouse honeys — iron-rich Bloodseed and certified Organic Wild.',
     giftNote: 'A wellness gift for the active, health-driven recipient.',
     accent: '#7A4D0B',
     accentDark: '#5C3800',
-    sizeLabel: '2 × 500g',
+    ...multiSize(2, '500g'),
     items: [
-      { product: BLOOD, variantIdx: 1, label: 'Bloodseed Forest',    origin: 'Abujhmarh, Chhattisgarh', flavor: 'Smoky · Iron-rich' },
-      { product: WF,    variantIdx: 1, label: 'Organic Wild Forest', origin: 'Madhya Pradesh',           flavor: 'Woody · Floral' },
+      { product: BLOOD, label: 'Bloodseed Forest',    origin: 'Abujhmarh, Chhattisgarh', flavor: 'Smoky · Iron-rich' },
+      { product: WF,    label: 'Organic Wild Forest', origin: 'Central India',           flavor: 'Woody · Floral' },
     ],
-    comboPrice: price500(BLOOD)+price500(WF),
-    mrpPrice:   mrp500(BLOOD)  +mrp500(WF),
     benefits: [
       { icon: <Zap size={13}/>,   text: 'High iron & NPOP Organic certified' },
       { icon: <Heart size={13}/>, text: 'Natural tonic & everyday wellness' },
@@ -219,13 +250,11 @@ export const COMBOS: Combo[] = [
     giftNote: 'A prestigious pair for the most discerning recipient.',
     accent: '#7C3AED',
     accentDark: '#5B21B6',
-    sizeLabel: '2 × 500g',
+    ...multiSize(2, '500g'),
     items: [
-      { product: DAMM, variantIdx: 1, label: 'Rare Dammer Bee',    origin: 'Nagaland',           flavor: 'Tangy · Medicinal' },
-      { product: DEW,  variantIdx: 1, label: 'Canopy Dew Forest',  origin: 'Saranda, Jharkhand', flavor: 'Dark · Mineral' },
+      { product: DAMM, label: 'Rare Dammer Bee',    origin: 'Nagaland',           flavor: 'Tangy · Medicinal' },
+      { product: DEW,  label: 'Canopy Dew Forest',  origin: 'Saranda, Jharkhand', flavor: 'Dark · Mineral' },
     ],
-    comboPrice: price500(DAMM)+price500(DEW),
-    mrpPrice:   mrp500(DAMM)  +mrp500(DEW),
     benefits: [
       { icon: <Zap size={13}/>,   text: 'Highest antioxidant & mineral density' },
       { icon: <Heart size={13}/>, text: 'Propolis-rich immunity & gut support' },

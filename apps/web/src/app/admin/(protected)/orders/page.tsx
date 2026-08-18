@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatPrice } from '@/lib/utils';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    'bg-yellow-50 text-yellow-700',
@@ -23,13 +24,10 @@ export default function AdminOrdersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-orders', status, search],
     queryFn:  async () => {
-      const token = localStorage.getItem('sumosta_access_token');
       const params = new URLSearchParams({ limit: '20' });
       if (status) params.set('status', status);
       if (search) params.set('search', search);
-      const res = await fetch(`${API}/api/admin/orders?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch(`${API}/api/admin/orders?${params}`);
       return res.json();
     },
   });

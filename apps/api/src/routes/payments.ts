@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Bindings } from '../index';
 import { PhonePeService } from '../services/phonepe';
 import { sendOrderConfirmation } from '../services/email';
+import { automateShipmentForOrder } from '../services/shipment-automation';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -106,6 +107,7 @@ app.post('/phonepe/callback', async (c) => {
     await c.env.DB.prepare(`
       UPDATE orders
       SET payment_status = 'captured', status = 'confirmed',
+          payment_method = 'phonepe',
           phonepe_txn_id = ?, paid_at = datetime('now'), updated_at = datetime('now')
       WHERE id = ?
     `).bind(transactionId ?? null, order.id).run();
@@ -129,6 +131,14 @@ app.post('/phonepe/callback', async (c) => {
     if (stockUpdates.length > 0) {
       await c.env.DB.batch(stockUpdates);
     }
+
+    // Fire off Shiprocket automation without blocking the callback response.
+    // Failures are logged and stashed on the order row for admin retry.
+    c.executionCtx.waitUntil(
+      automateShipmentForOrder(c.env, order.id).catch((err) => {
+        console.error('[phonepe/callback] shipment automation crashed for', order.id, err);
+      }),
+    );
 
     // Send confirmation email (best-effort)
     try {
@@ -172,6 +182,8 @@ app.post('/phonepe/callback', async (c) => {
           })),
         },
         c.env.RESEND_API_KEY,
+        c.env.RESEND_FROM_ORDERS || c.env.RESEND_FROM || undefined,
+        c.env.SUPPORT_EMAIL || null,
       );
     } catch (emailErr) {
       console.error('[PhonePe Callback] Email send failed:', emailErr);

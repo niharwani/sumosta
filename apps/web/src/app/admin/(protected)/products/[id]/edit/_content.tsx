@@ -8,15 +8,9 @@ import { z } from 'zod';
 import { ArrowLeft, Plus, Trash2, Upload, Star, X, Image as ImageIcon, Video, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders(contentType = 'application/json') {
-  const token = localStorage.getItem('sumosta_access_token');
-  const h: Record<string, string> = { Authorization: `Bearer ${token}` };
-  if (contentType) h['Content-Type'] = contentType;
-  return h;
-}
 
 const schema = z.object({
   name:                z.string().min(2),
@@ -69,10 +63,9 @@ function MediaSection({ productId, images, onRefresh }: {
       fd.append('file', file);
       fd.append('folder', 'products');
 
-      const uploadRes = await fetch(`${API}/api/admin/media/upload`, {
+      const uploadRes = await adminFetch(`${API}/api/admin/media/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('sumosta_access_token')}` },
-        body: fd,
+        body:   fd,
       });
       const uploadJson = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadJson.error || 'Upload failed');
@@ -80,9 +73,8 @@ function MediaSection({ productId, images, onRefresh }: {
       const { publicUrl } = uploadJson.data;
       setUploadProgress('Linking to product…');
 
-      const linkRes = await fetch(`${API}/api/admin/products/${productId}/images`, {
+      const linkRes = await adminFetch(`${API}/api/admin/products/${productId}/images`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({
           url: publicUrl,
           altText: file.name.replace(/\.[^.]+$/, ''),
@@ -107,18 +99,16 @@ function MediaSection({ productId, images, onRefresh }: {
   }
 
   async function setPrimary(imageId: string) {
-    await fetch(`${API}/api/admin/products/${productId}/images/${imageId}/primary`, {
+    await adminFetch(`${API}/api/admin/products/${productId}/images/${imageId}/primary`, {
       method: 'PATCH',
-      headers: authHeaders(),
     });
     onRefresh();
   }
 
   async function deleteImage(imageId: string) {
     if (!confirm('Remove this media?')) return;
-    await fetch(`${API}/api/admin/products/${productId}/images/${imageId}`, {
+    await adminFetch(`${API}/api/admin/products/${productId}/images/${imageId}`, {
       method: 'DELETE',
-      headers: authHeaders(),
     });
     onRefresh();
   }
@@ -267,7 +257,7 @@ export default function EditProductContent() {
   const { data: catData } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/categories`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/categories`);
       return res.json();
     },
   });
@@ -275,7 +265,7 @@ export default function EditProductContent() {
   const { data: productData, isLoading: productLoading } = useQuery({
     queryKey: ['admin-product', id],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/products/${id}`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/products/${id}`);
       return res.json();
     },
     enabled: !!id && id !== '_placeholder',
@@ -358,9 +348,8 @@ export default function EditProductContent() {
         variants,
       };
 
-      const res = await fetch(`${API}/api/admin/products/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/products/${id}`, {
         method: 'PUT',
-        headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       const json = await res.json();

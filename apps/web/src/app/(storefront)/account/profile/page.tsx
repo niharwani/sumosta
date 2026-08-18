@@ -28,8 +28,10 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const prefersReducedMotion = useReducedMotion();
 
-  const isGoogleOnlyPhone = user?.phone?.startsWith('google:') ?? false;
-  const defaultPhone = isGoogleOnlyPhone ? '' : user?.phone ?? '';
+  // "google:..." (Google OAuth signups) and "guest:..." (auto-created guest
+  // checkout accounts) are synthetic placeholders in the DB; never display them.
+  const isSyntheticPhone = user?.phone ? /^(google|guest):/i.test(user.phone) : false;
+  const defaultPhone = isSyntheticPhone ? '' : user?.phone ?? '';
 
   const {
     register,
@@ -47,7 +49,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      const phone = user.phone?.startsWith('google:') ? '' : user.phone ?? '';
+      const phone = user.phone && /^(google|guest):/i.test(user.phone) ? '' : user.phone ?? '';
       reset({ name: user.name ?? '', phone });
     }
   }, [user, reset]);
@@ -160,7 +162,7 @@ export default function ProfilePage() {
               aria-describedby={
                 errors.phone
                   ? 'profile-phone-err'
-                  : isGoogleOnlyPhone
+                  : isSyntheticPhone
                   ? 'profile-phone-hint'
                   : undefined
               }
@@ -169,7 +171,7 @@ export default function ProfilePage() {
               <p id="profile-phone-err" className="font-satoshi text-[--terracotta] text-xs mt-1">
                 {errors.phone.message}
               </p>
-            ) : isGoogleOnlyPhone ? (
+            ) : isSyntheticPhone ? (
               <p id="profile-phone-hint" className="font-satoshi text-[--earth] text-xs mt-1">
                 Add your mobile number to enable order tracking updates.
               </p>

@@ -11,11 +11,11 @@ export const SITE_CONFIG = {
 };
 
 export const NAV_LINKS = [
-  { href: '/',              label: 'Home' },
-  { href: '/shop',          label: 'Shop' },
-  { href: '/gifting',       label: 'Gift Combos' },
-  { href: '/about',         label: 'Our Story' },
-  { href: '/evidence-hub',  label: 'Evidence Hub' },
+  { href: '/',                  label: 'Home' },
+  { href: '/shop',              label: 'Shop' },
+  { href: '/shop/gift-boxes',   label: 'Combos' },
+  { href: '/about',             label: 'Our Story' },
+  { href: '/evidence-hub',      label: 'Evidence Hub' },
 ] as const;
 
 /**
@@ -35,11 +35,9 @@ export const FOOTER_LINKS = {
     { href: '/shop',              label: 'All Products' },
     { href: '/shop/raw-honey',    label: 'Raw Honey' },
     { href: '/shop/gift-boxes',   label: 'Gift Boxes & Combos' },
-    { href: '/gifting',           label: 'Corporate Gifting' },
   ],
   company: [
     { href: '/about',             label: 'Our Story' },
-    { href: '/about#sourcing',    label: 'Sourcing' },
     { href: '/evidence-hub',      label: 'Evidence Hub' },
     { href: '/contact',           label: 'Contact' },
   ],

@@ -7,6 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import StatsCard from '@/components/admin/StatsCard';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -24,10 +25,7 @@ function useDashboard() {
   return useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-      const res = await fetch(`${API}/api/admin`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await adminFetch(`${API}/api/admin`);
       if (res.status === 401 || res.status === 403) throw new Error('UNAUTHORIZED');
       if (!res.ok) throw new Error('FETCH_ERROR');
       const data = await res.json();

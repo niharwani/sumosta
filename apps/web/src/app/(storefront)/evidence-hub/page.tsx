@@ -2,13 +2,22 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 
-const RESEARCH_STUDIES = [
+type Study = { title: string; journal: string; href: string; note: string };
+type Specimen = {
+  honey: string;
+  accent: string;
+  tag: string;
+  claim: string;
+  science: string;
+  studies: Study[];
+};
+
+const RESEARCH_STUDIES: Specimen[] = [
   {
     honey: 'Rare Dammer Bee Honey',
     accent: '#D4891A',
-    tag: 'Low Glycaemic',
-    icon: '🧬',
-    claim: 'The Low-GI Miracle: A Rare Sugar That Prevents Glucose Spikes While Fermenting in Propolis',
+    tag: 'Low glycaemic',
+    claim: 'The low-GI miracle: a rare sugar that prevents glucose spikes while fermenting in propolis.',
     science: 'Stingless bee honey is biologically distinct from standard honey. It contains massive natural concentrations of trehalulose — a rare, low-glycaemic disaccharide that is absorbed slowly without causing rapid insulin spikes. Additionally, because the bees cure this honey inside propolis (medicinal tree resin) pots instead of wax, it naturally undergoes a mild, health-boosting fermentation process that supercharges its antioxidant and anti-inflammatory properties.',
     studies: [
       {
@@ -35,8 +44,7 @@ const RESEARCH_STUDIES = [
     honey: 'Canopy Dew Forest Honey',
     accent: '#7A4D0B',
     tag: 'Prebiotic',
-    icon: '🌿',
-    claim: 'The Prebiotic Powerhouse: How Honeydew Honey Nourishes Gut Microflora and Outperforms Nectar Honey',
+    claim: 'The prebiotic powerhouse: how honeydew honey nourishes gut microflora and outperforms nectar honey.',
     science: 'Unlike blossom honeys, honeydew honey is incredibly rich in complex oligosaccharides (like melezitose and erlose). These non-digestible carbohydrates survive upper-intestinal digestion to act as highly effective prebiotics, feeding and multiplying beneficial gut bacteria (Lactobacillus and Bifidobacterium) while crowding out harmful pathogens. It also boasts a significantly higher mineral, protein, and amino acid profile.',
     studies: [
       {
@@ -63,8 +71,7 @@ const RESEARCH_STUDIES = [
     honey: 'Organic Wild Forest Honey',
     accent: '#5C8A3C',
     tag: 'Antimicrobial',
-    icon: '🛡️',
-    claim: 'Pure Forest Canopies: Why Wild Rock Bee Honey Has Superior Antimicrobial and Radical-Scavenging Action',
+    claim: 'Pure forest canopies: why wild rock bee honey has superior antimicrobial and radical-scavenging action.',
     science: 'Foraged by the giant Apis dorsata bee from untouched, highly biodiverse forest canopies, wild forest honey is naturally rich in unique phytochemicals. Studies prove that this multifloral, wild-harvested honey exhibits exceptionally potent antimicrobial activity against common pathogens and boasts a far superior free-radical scavenging capacity compared to industrially farmed honeys.',
     studies: [
       {
@@ -90,9 +97,8 @@ const RESEARCH_STUDIES = [
   {
     honey: 'Bloodseed Forest Honey',
     accent: '#8B2500',
-    tag: 'High Antioxidant',
-    icon: '⚡',
-    claim: 'The Science of Color: Why Deep, Dark Honeys Carry the Most Powerful Antioxidant Shield',
+    tag: 'High antioxidant',
+    claim: 'The science of colour: why deep, dark honeys carry the most powerful antioxidant shield.',
     science: 'In the scientific community, honey color is directly tied to medicinal value. Dark forest honeys derive their deep pigments from heavy concentrations of plant polyphenols, carotenoids, and flavonoids. These dark, nutrient-dense honeys contain significantly higher levels of antioxidants and trace minerals (like iron, magnesium, and zinc) compared to light-colored, mass-produced varieties.',
     studies: [
       {
@@ -113,8 +119,7 @@ const RESEARCH_STUDIES = [
     honey: 'Artisanal Heritage Honey',
     accent: '#5C4A32',
     tag: 'Antibacterial',
-    icon: '🌸',
-    claim: 'The Biosphere Effect: Why Tribal-Harvested Wild Honey Holds Unmatched Bioactive and Mineral Complexity',
+    claim: 'The biosphere effect: why tribal-harvested wild honey holds unmatched bioactive and mineral complexity.',
     science: 'Research focusing on wild-harvested tribal honeys shows they possess a highly potent, broad-spectrum antimicrobial defense system. The natural presence of organic acids (giving the honey a lower, more protective pH) combined with active hydrogen peroxide production and phytochemicals from wild forest blossoms effectively inhibits the growth of highly resilient, drug-resistant bacterial pathogens. This validates why tribal cultures have used these specific forest honeys as highly effective traditional wound-dressings and respiratory remedies for centuries.',
     studies: [
       {
@@ -140,9 +145,8 @@ const RESEARCH_STUDIES = [
   {
     honey: 'Raw vs Processed Honey',
     accent: '#2C2417',
-    tag: 'Why Raw Matters',
-    icon: '🔬',
-    claim: 'Heat vs. Healing: How Commercial Processing Kills Honey\'s Natural Enzymes and Bioactive Integrity',
+    tag: 'Why raw matters',
+    claim: 'Heat vs healing: how commercial processing kills honey\'s natural enzymes and bioactive integrity.',
     science: 'Standard commercial honeys are ultra-filtered and pasteurized at high temperatures to prevent crystallization, which completely destroys fragile, heat-sensitive enzymes (like amylase, catalase, and glucose oxidase) and drastically lowers total phenolic content. Raw, unheated forest honey preserves these "living enzymes" and natural antioxidants, allowing them to effectively neutralize systemic oxidative stress and support metabolic health.',
     studies: [
       {
@@ -167,23 +171,36 @@ const RESEARCH_STUDIES = [
   },
 ];
 
-const CERTIFICATIONS = [
+const CERTIFICATIONS: {
+  name: string;
+  desc: string;
+  pdfUrl: string;
+  pdfLabel: string;
+}[] = [
   {
-    name: 'NABL Accredited Lab Testing',
-    icon: '🧪',
-    desc: 'Every production batch is independently tested at a National Accreditation Board for Testing and Calibration Laboratories (NABL) accredited facility for purity, moisture content, HMF levels, adulteration markers, and absence of antibiotics. Lab test reports are available in the respective product section.',
+    name: 'NABL accredited lab testing',
+    desc: 'Every production batch is independently tested at a National Accreditation Board for Testing and Calibration Laboratories (NABL) accredited facility for purity, moisture content, HMF levels, adulteration markers, and absence of antibiotics. Full consolidated report available below; per-SKU reports are on each product page.',
+    pdfUrl: '/certificates/SUMOSTA_RawHoney_LabTestReport.pdf',
+    pdfLabel: 'Consolidated lab report',
   },
   {
-    name: 'NPOP APEDA Organic Certification',
-    icon: '🌿',
+    name: 'NPOP APEDA organic certification',
     desc: 'Our sourcing practices and apiaries are certified under the National Programme for Organic Production (NPOP), governed by APEDA (Agricultural and Processed Food Products Export Development Authority). This certifies that our wild forest honeys are free from synthetic pesticides, antibiotics, and chemical treatments.',
+    pdfUrl: '/certificates/Organic_Cert.pdf',
+    pdfLabel: 'Organic certificate',
   },
   {
-    name: 'FSSAI Registered',
-    icon: '✅',
-    desc: 'SUMOSTA is registered with the Food Safety and Standards Authority of India (FSSAI). Our products meet all mandated quality parameters & thresholds prescribed under Indian Food Safety law.',
+    name: 'FSSAI registered',
+    desc: 'SUMOSTA is registered with the Food Safety and Standards Authority of India (FSSAI). Our products meet all mandated quality parameters and thresholds prescribed under Indian Food Safety law.',
+    pdfUrl: '/certificates/YATRIS_FSSAI.pdf',
+    pdfLabel: 'FSSAI certificate',
   },
 ];
+
+const TOTAL_PAPERS = RESEARCH_STUDIES.reduce((n, s) => n + s.studies.length, 0);
+
+// Two-digit zero-padded label. Kept out of JSX so grep-for-string stays clean.
+const pad2 = (n: number) => n.toString().padStart(2, '0');
 
 export default function EvidenceHubPage() {
   useEffect(() => {
@@ -201,116 +218,667 @@ export default function EvidenceHubPage() {
   }, []);
 
   return (
-    <div style={{ background: '#FFFDF8', fontFamily: 'var(--font-manrope), var(--font-jakarta), sans-serif', color: '#2C2417', minHeight: '100vh' }}>
-
-      {/* Hero */}
-      <div style={{ background: '#1A150E', padding: '120px 24px 80px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: 0.06, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100' viewBox='0 0 56 100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zM28 100L0 84V66l28 16 28-16v18L28 100z' fill='none' stroke='%23F5A623' stroke-width='1'/%3E%3C/svg%3E")`, pointerEvents: 'none' }} />
-        <div style={{ maxWidth: '860px', margin: '0 auto', position: 'relative' }}>
-          <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#FFCC66', fontWeight: 700, margin: '0 0 20px' }}>Evidence Hub</p>
-          <h1 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(2rem,5vw,3.8rem)', lineHeight: 1.1, color: '#FFFDF8', margin: '0 0 24px' }}>
+    <div className="eh-root">
+      {/* ── HERO ─────────────────────────────────────────────────────── */}
+      <section className="eh-hero">
+        <div className="eh-hero-inner">
+          <p className="eh-eyebrow eh-eyebrow--onDark">Evidence Hub</p>
+          <h1 className="eh-h1">
             In a world of marketing claims,<br />we chose scientific facts.
           </h1>
-          <p style={{ fontSize: '17px', color: '#C4B39A', lineHeight: 1.75, maxWidth: '680px', margin: '0 auto 40px' }}>
-            Every claim we make about our honeys is backed by peer-reviewed research, NABL-certified lab testing, and organic certification. This page is our commitment to transparency — a living record of the science behind SUMOSTA.
+          <p className="eh-hero-lede">
+            Every claim we make is backed by peer-reviewed research, NABL-certified lab testing, and organic certification. This is our commitment to transparency — a living record of the science behind SUMOSTA.
           </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="#certifications" style={{ background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '14px', padding: '13px 28px', borderRadius: '8px', textDecoration: 'none', fontFamily: 'var(--font-bricolage), sans-serif' }}>View Certifications</a>
-            <a href="#research" style={{ background: 'transparent', color: '#FFCC66', fontWeight: 600, fontSize: '14px', padding: '13px 28px', borderRadius: '8px', textDecoration: 'none', border: '1px solid rgba(255,204,102,0.4)' }}>Read the Science</a>
+          <div className="eh-hero-ctas">
+            <a href="#certifications" className="eh-btn eh-btn--primary">View certifications</a>
+            <a href="#research" className="eh-btn eh-btn--ghost">Read the science</a>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Certifications */}
-      <div id="certifications" style={{ padding: '80px 24px', background: '#FDF6EC' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div data-reveal style={{ textAlign: 'center', marginBottom: '56px' }}>
-            <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 12px' }}>Certifications & Compliance</p>
-            <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', color: '#2C2417', margin: 0 }}>Third-Party Verified. Every Batch.</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }} className="sum-cert-grid">
-            {CERTIFICATIONS.map((cert) => (
-              <div key={cert.name} data-reveal style={{ background: '#FFFDF8', borderRadius: '16px', border: '1px solid #F0E6D3', padding: '32px 36px', display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '36px', flexShrink: 0, lineHeight: 1 }}>{cert.icon}</span>
-                <div>
-                  <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '18px', color: '#2C2417', margin: '0 0 10px' }}>{cert.name}</h3>
-                  <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#5C4A32', margin: 0 }}>{cert.desc}</p>
-                </div>
+      {/* ── RECEIPTS STRIP ───────────────────────────────────────────── */}
+      <section aria-label="At a glance" className="eh-strip">
+        <div className="eh-strip-inner">
+          <span className="eh-strip-item"><b>{pad2(RESEARCH_STUDIES.length)}</b> Specimens</span>
+          <span className="eh-strip-dot" aria-hidden>·</span>
+          <span className="eh-strip-item"><b>{pad2(TOTAL_PAPERS)}</b> Peer-reviewed papers</span>
+          <span className="eh-strip-dot" aria-hidden>·</span>
+          <span className="eh-strip-item"><b>{pad2(CERTIFICATIONS.length)}</b> Certifications</span>
+        </div>
+      </section>
+
+      {/* ── CERTIFICATIONS ───────────────────────────────────────────── */}
+      <section id="certifications" className="eh-section eh-section--cream">
+        <header className="eh-section-head" data-reveal>
+          <p className="eh-eyebrow">Certifications</p>
+          <h2 className="eh-h2">Third-party verified. Every batch.</h2>
+        </header>
+
+        <ol className="eh-cert-list">
+          {CERTIFICATIONS.map((cert, i) => (
+            <li key={cert.name} data-reveal className="eh-cert">
+              <span className="eh-cert-num" aria-hidden>{pad2(i + 1)}</span>
+              <div className="eh-cert-body">
+                <h3 className="eh-cert-name">{cert.name}</h3>
+                <p className="eh-cert-desc">{cert.desc}</p>
+                <a
+                  href={cert.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="eh-download"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <span>{cert.pdfLabel}</span>
+                </a>
               </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ── SPECIMENS INDEX + LIST ───────────────────────────────────── */}
+      <section id="research" className="eh-section">
+        <header className="eh-section-head" data-reveal>
+          <p className="eh-eyebrow">Research</p>
+          <h2 className="eh-h2">The science behind each honey.</h2>
+          <p className="eh-section-lede">
+            Six honeys. Fifteen peer-reviewed sources. Links below lead to NIH PubMed, MDPI, ScienceDirect, and ResearchGate — we don&apos;t fabricate claims, we summarise published science.
+          </p>
+        </header>
+
+        {/* Jump-to index — useful on mobile with 6 long specimens */}
+        <nav aria-label="Jump to specimen" className="eh-index" data-reveal>
+          <span className="eh-index-label">Jump to</span>
+          <ul className="eh-index-list">
+            {RESEARCH_STUDIES.map((s, i) => (
+              <li key={s.honey}>
+                <a href={`#specimen-${i + 1}`} className="eh-index-chip">
+                  <span className="eh-index-num">{pad2(i + 1)}</span>
+                  <span className="eh-index-name">{s.honey}</span>
+                </a>
+              </li>
             ))}
-          </div>
-        </div>
-      </div>
+          </ul>
+        </nav>
 
-      {/* Research Studies */}
-      <div id="research" style={{ padding: '80px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div data-reveal style={{ textAlign: 'center', marginBottom: '64px' }}>
-            <p style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#D4891A', fontWeight: 700, margin: '0 0 12px' }}>Research & Studies</p>
-            <h2 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', color: '#2C2417', margin: '0 0 16px' }}>The Science Behind Each Honey</h2>
-            <p style={{ fontSize: '15px', color: '#5C4A32', maxWidth: '620px', margin: '0 auto', lineHeight: 1.75 }}>Links below lead to peer-reviewed sources on NIH PubMed, MDPI, ScienceDirect, and ResearchGate. We do not fabricate claims — we summarise published science.</p>
-          </div>
+        <div className="eh-specimens">
+          {RESEARCH_STUDIES.map((s, i) => (
+            <article
+              key={s.honey}
+              id={`specimen-${i + 1}`}
+              data-reveal
+              className="eh-specimen"
+            >
+              <header className="eh-specimen-head">
+                <p className="eh-specimen-label" style={{ color: s.accent }}>
+                  Specimen — {pad2(i + 1)}
+                </p>
+                <h3 className="eh-specimen-name">{s.honey}</h3>
+                <p className="eh-specimen-tag">{s.tag}</p>
+              </header>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-            {RESEARCH_STUDIES.map((study) => (
-              <div key={study.honey} data-reveal style={{ background: '#FFFDF8', borderRadius: '20px', border: '1px solid #F0E6D3', overflow: 'hidden' }}>
-                {/* Header */}
-                <div style={{ padding: '28px 36px', background: '#FDF6EC', borderBottom: '1px solid #F0E6D3', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '28px', lineHeight: 1 }}>{study.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 800, fontSize: '20px', color: '#2C2417', margin: '0 0 4px' }}>{study.honey}</h3>
-                    <span style={{ display: 'inline-block', background: study.accent, color: '#FFFDF8', fontSize: '11px', fontWeight: 700, padding: '3px 12px', borderRadius: '999px', letterSpacing: '0.06em' }}>{study.tag}</span>
-                  </div>
-                </div>
-                {/* Content */}
-                <div style={{ padding: '28px 36px' }}>
-                  {/* Claim */}
-                  <div style={{ borderLeft: `3px solid ${study.accent}`, paddingLeft: '16px', marginBottom: '20px' }}>
-                    <p style={{ fontFamily: 'var(--font-bricolage), sans-serif', fontWeight: 700, fontSize: '16px', color: study.accent, margin: 0 }}>{study.claim}</p>
-                  </div>
-                  {/* Science */}
-                  <p style={{ fontSize: '14px', lineHeight: 1.85, color: '#5C4A32', margin: '0 0 24px' }}>{study.science}</p>
-                  {/* Studies */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8B7355', fontWeight: 700, margin: 0 }}>Supporting Research</p>
-                    {study.studies.map((s) => (
+              <div
+                className="eh-claim"
+                style={{ borderLeftColor: s.accent }}
+              >
+                <p className="eh-block-label">The claim</p>
+                <p className="eh-claim-text">{s.claim}</p>
+              </div>
+
+              <div className="eh-science">
+                <p className="eh-block-label">The science</p>
+                <p className="eh-science-text">{s.science}</p>
+              </div>
+
+              <div className="eh-evidence">
+                <p className="eh-block-label">
+                  Evidence — {pad2(s.studies.length)} {s.studies.length === 1 ? 'paper' : 'papers'}
+                </p>
+                <ol className="eh-papers">
+                  {s.studies.map((paper, j) => (
+                    <li key={paper.href} className="eh-paper">
                       <a
-                        key={s.href}
-                        href={s.href}
+                        href={paper.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: '#FFF9F0', border: '1px solid #FFE0A8', borderRadius: '10px', padding: '14px 18px', textDecoration: 'none', transition: 'border-color 0.2s' }}
+                        className="eh-paper-link"
                       >
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#2C2417', lineHeight: 1.4 }}>{s.title}</span>
-                        <span style={{ fontSize: '12px', color: '#D4891A', fontWeight: 600 }}>{s.journal}</span>
-                        <span style={{ fontSize: '12px', color: '#8B7355' }}>{s.note}</span>
+                        <span className="eh-paper-num" aria-hidden>{pad2(j + 1)}</span>
+                        <span className="eh-paper-body">
+                          <span className="eh-paper-title">{paper.title}</span>
+                          <span className="eh-paper-journal">{paper.journal}</span>
+                          <span className="eh-paper-note">{paper.note}</span>
+                        </span>
+                        <span className="eh-paper-arrow" aria-hidden>↗</span>
                       </a>
-                    ))}
-                  </div>
-                </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
-            ))}
-          </div>
+            </article>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* Disclaimer */}
-      <div style={{ background: '#FDF6EC', padding: '40px 24px', borderTop: '1px solid #F0E6D3' }}>
-        <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontSize: '12px', color: '#8B7355', lineHeight: 1.7, margin: '0 0 20px' }}>
-            <strong style={{ color: '#5C4A32' }}>Disclaimer:</strong> The scientific studies referenced on this page are independent third-party research published in peer-reviewed journals. SUMOSTA summarises these findings for educational purposes only. Our products are food products, not medicines, and are not intended to diagnose, treat, cure, or prevent any disease. Consult a qualified healthcare professional before using honey for specific health conditions.
+      {/* ── DISCLAIMER ───────────────────────────────────────────────── */}
+      <section className="eh-disclaimer">
+        <div className="eh-disclaimer-inner">
+          <p className="eh-block-label">Disclaimer</p>
+          <p className="eh-disclaimer-text">
+            The scientific studies referenced on this page are independent third-party research published in peer-reviewed journals. SUMOSTA summarises these findings for educational purposes only. Our products are food products, not medicines, and are not intended to diagnose, treat, cure, or prevent any disease. Consult a qualified healthcare professional before using honey for specific health conditions.
           </p>
-          <Link href="/shop" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F5A623', color: '#1A150E', fontWeight: 700, fontSize: '14px', padding: '14px 28px', borderRadius: '8px', textDecoration: 'none', fontFamily: 'var(--font-bricolage), sans-serif' }}>
-            Shop the Collection →
+          <Link href="/shop" className="eh-btn eh-btn--primary eh-btn--wideOnMobile">
+            Shop the collection →
           </Link>
         </div>
-      </div>
+      </section>
 
+      {/* ── STYLES ───────────────────────────────────────────────────── */}
       <style>{`
-        [data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity 0.65s ease, transform 0.65s ease; }
+        .eh-root {
+          background: #FFFDF8;
+          color: #2C2417;
+          min-height: 100vh;
+          font-family: var(--font-manrope), var(--font-jakarta), system-ui, sans-serif;
+        }
+
+        /* Mono utility — the page's signature voice. System stack, no import. */
+        .eh-eyebrow,
+        .eh-strip-item,
+        .eh-cert-num,
+        .eh-specimen-label,
+        .eh-block-label,
+        .eh-paper-num,
+        .eh-paper-journal,
+        .eh-index-label,
+        .eh-index-num {
+          font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+          letter-spacing: 0.05em;
+        }
+
+        [data-reveal] {
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity .6s ease, transform .6s ease;
+        }
         [data-reveal].revealed { opacity: 1; transform: none; }
-        @media (min-width: 768px) {
-          .sum-cert-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        @media (prefers-reduced-motion: reduce) {
+          [data-reveal] { opacity: 1; transform: none; transition: none; }
+        }
+
+        /* ── HERO ────────────────────────────────────────────────── */
+        .eh-hero {
+          background: #1A150E;
+          padding: 56px 20px 44px;
+          position: relative;
+          overflow: hidden;
+        }
+        .eh-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          opacity: 0.06;
+          pointer-events: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100' viewBox='0 0 56 100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zM28 100L0 84V66l28 16 28-16v18L28 100z' fill='none' stroke='%23F5A623' stroke-width='1'/%3E%3C/svg%3E");
+        }
+        .eh-hero-inner {
+          position: relative;
+          max-width: 860px;
+          margin: 0 auto;
+        }
+        .eh-eyebrow--onDark {
+          color: #FFCC66;
+        }
+        .eh-eyebrow {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #D4891A;
+          margin: 0 0 14px;
+        }
+        .eh-h1 {
+          font-family: var(--font-bricolage), sans-serif;
+          font-weight: 800;
+          font-size: clamp(1.6rem, 5vw, 3.6rem);
+          line-height: 1.12;
+          letter-spacing: -0.01em;
+          color: #FFFDF8;
+          margin: 0 0 18px;
+        }
+        .eh-hero-lede {
+          font-size: 14px;
+          line-height: 1.65;
+          color: #C4B39A;
+          margin: 0 0 28px;
+        }
+        .eh-hero-ctas {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        /* Buttons */
+        .eh-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-family: var(--font-bricolage), sans-serif;
+          font-weight: 700;
+          font-size: 13px;
+          padding: 13px 22px;
+          border-radius: 6px;
+          text-decoration: none;
+          transition: background .2s ease, color .2s ease, border-color .2s ease;
+          min-height: 44px;
+        }
+        .eh-btn--primary {
+          background: #F5A623;
+          color: #1A150E;
+        }
+        .eh-btn--primary:hover { background: #D4891A; }
+        .eh-btn--ghost {
+          background: transparent;
+          color: #FFCC66;
+          border: 1px solid rgba(255,204,102,0.4);
+        }
+        .eh-btn--ghost:hover {
+          border-color: #FFCC66;
+          background: rgba(255,204,102,0.08);
+        }
+        .eh-btn--wideOnMobile {
+          width: 100%;
+          max-width: 320px;
+        }
+
+        /* ── RECEIPTS STRIP ─────────────────────────────────────── */
+        .eh-strip {
+          background: #FDF6EC;
+          border-bottom: 1px solid #F0E6D3;
+          padding: 14px 20px;
+        }
+        .eh-strip-inner {
+          max-width: 860px;
+          margin: 0 auto;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
+          gap: 6px 10px;
+          font-size: 11px;
+          text-transform: uppercase;
+          color: #5C4A32;
+        }
+        .eh-strip-item b {
+          color: #D4891A;
+          font-weight: 700;
+        }
+        .eh-strip-dot { color: #C4B39A; }
+
+        /* ── SECTION SCAFFOLD ───────────────────────────────────── */
+        .eh-section {
+          padding: 56px 20px 64px;
+        }
+        .eh-section--cream {
+          background: #FDF6EC;
+          border-bottom: 1px solid #F0E6D3;
+        }
+        .eh-section-head {
+          max-width: 1100px;
+          margin: 0 auto 32px;
+        }
+        .eh-h2 {
+          font-family: var(--font-bricolage), sans-serif;
+          font-weight: 800;
+          font-size: clamp(1.5rem, 3.5vw, 2.6rem);
+          line-height: 1.15;
+          letter-spacing: -0.01em;
+          color: #2C2417;
+          margin: 0 0 8px;
+        }
+        .eh-section-lede {
+          font-size: 14px;
+          line-height: 1.6;
+          color: #5C4A32;
+          margin: 12px 0 0;
+          max-width: 620px;
+        }
+
+        /* ── CERTIFICATIONS ─────────────────────────────────────── */
+        .eh-cert-list {
+          max-width: 1100px;
+          margin: 0 auto;
+          list-style: none;
+          padding: 0;
+          border-top: 1px solid #F0E6D3;
+        }
+        .eh-cert {
+          display: grid;
+          grid-template-columns: 44px 1fr;
+          gap: 14px;
+          padding: 22px 0;
+          border-bottom: 1px solid #F0E6D3;
+        }
+        .eh-cert-num {
+          font-size: 22px;
+          font-weight: 700;
+          color: #D4891A;
+          line-height: 1;
+          padding-top: 3px;
+        }
+        .eh-cert-name {
+          font-family: var(--font-bricolage), sans-serif;
+          font-weight: 700;
+          font-size: 17px;
+          line-height: 1.3;
+          color: #2C2417;
+          margin: 0 0 8px;
+          text-transform: capitalize;
+        }
+        .eh-cert-desc {
+          font-size: 13.5px;
+          line-height: 1.65;
+          color: #5C4A32;
+          margin: 0 0 14px;
+        }
+        .eh-download {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #D4891A;
+          text-decoration: none;
+          border-bottom: 1px dashed rgba(212,137,26,0.35);
+          padding-bottom: 2px;
+          transition: color .2s ease, border-color .2s ease;
+        }
+        .eh-download:hover {
+          color: #A66A10;
+          border-color: #A66A10;
+        }
+
+        /* ── SPECIMENS INDEX (horizontal scroll pill row on mobile) ── */
+        .eh-index {
+          max-width: 1100px;
+          margin: 0 auto 32px;
+        }
+        .eh-index-label {
+          font-size: 10px;
+          text-transform: uppercase;
+          color: #8B7355;
+          display: block;
+          margin-bottom: 8px;
+        }
+        .eh-index-list {
+          list-style: none;
+          padding: 0 0 4px;
+          margin: 0;
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          scroll-snap-type: x proximity;
+        }
+        .eh-index-list::-webkit-scrollbar { display: none; }
+        .eh-index-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 14px;
+          background: #FFFDF8;
+          border: 1px solid #F0E6D3;
+          border-radius: 999px;
+          text-decoration: none;
+          color: #2C2417;
+          font-size: 12px;
+          line-height: 1;
+          white-space: nowrap;
+          flex-shrink: 0;
+          scroll-snap-align: start;
+          transition: border-color .2s ease, background .2s ease;
+        }
+        .eh-index-chip:hover {
+          border-color: #F5A623;
+          background: #FFF9F0;
+        }
+        .eh-index-num {
+          font-size: 11px;
+          font-weight: 700;
+          color: #D4891A;
+          flex-shrink: 0;
+        }
+        .eh-index-name {
+          font-weight: 600;
+        }
+
+        /* ── SPECIMEN CARDS (flush document, hairline-separated) ─ */
+        .eh-specimens {
+          max-width: 1100px;
+          margin: 0 auto;
+          border-top: 1px solid #F0E6D3;
+        }
+        .eh-specimen {
+          padding: 32px 0 40px;
+          border-bottom: 1px solid #F0E6D3;
+          /* offset for anchor jumps so header doesn't clip */
+          scroll-margin-top: calc(var(--header-height) + 16px);
+        }
+        .eh-specimen-head {
+          margin-bottom: 20px;
+        }
+        .eh-specimen-label {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          margin: 0 0 6px;
+        }
+        .eh-specimen-name {
+          font-family: var(--font-bricolage), sans-serif;
+          font-weight: 800;
+          font-size: 22px;
+          line-height: 1.2;
+          letter-spacing: -0.01em;
+          color: #2C2417;
+          margin: 0 0 6px;
+        }
+        .eh-specimen-tag {
+          font-size: 12px;
+          color: #8B7355;
+          margin: 0;
+          font-style: italic;
+          font-family: var(--font-instrument), serif;
+        }
+
+        /* Shared block label — mono, tiny, sets up each part */
+        .eh-block-label {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #8B7355;
+          margin: 0 0 8px;
+        }
+
+        .eh-claim {
+          border-left: 3px solid #D4891A; /* overridden inline per specimen */
+          padding: 4px 0 4px 14px;
+          margin-bottom: 22px;
+        }
+        .eh-claim-text {
+          font-family: var(--font-bricolage), sans-serif;
+          font-weight: 700;
+          font-size: 15.5px;
+          line-height: 1.35;
+          color: #2C2417;
+          margin: 0;
+        }
+        .eh-science { margin-bottom: 24px; }
+        .eh-science-text {
+          font-size: 13.5px;
+          line-height: 1.7;
+          color: #5C4A32;
+          margin: 0;
+        }
+
+        /* Papers */
+        .eh-papers {
+          list-style: none;
+          padding: 0;
+          margin: 12px 0 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .eh-paper-link {
+          display: grid;
+          grid-template-columns: 30px 1fr 20px;
+          gap: 10px;
+          align-items: start;
+          padding: 12px 14px;
+          background: #FFF9F0;
+          border: 1px solid #F0E6D3;
+          border-radius: 6px;
+          text-decoration: none;
+          transition: border-color .2s ease, background .2s ease;
+        }
+        .eh-paper-link:hover {
+          border-color: #F5A623;
+          background: #FFF0D6;
+        }
+        .eh-paper-num {
+          font-size: 11px;
+          font-weight: 700;
+          color: #D4891A;
+          padding-top: 2px;
+        }
+        .eh-paper-body {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+        }
+        .eh-paper-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #2C2417;
+          line-height: 1.35;
+        }
+        .eh-paper-journal {
+          font-size: 11px;
+          font-weight: 600;
+          color: #D4891A;
+        }
+        .eh-paper-note {
+          font-size: 11.5px;
+          color: #8B7355;
+          line-height: 1.5;
+        }
+        .eh-paper-arrow {
+          font-size: 14px;
+          color: #8B7355;
+          padding-top: 2px;
+        }
+        .eh-paper-link:hover .eh-paper-arrow {
+          color: #D4891A;
+        }
+
+        /* ── DISCLAIMER ─────────────────────────────────────────── */
+        .eh-disclaimer {
+          background: #FDF6EC;
+          border-top: 1px solid #F0E6D3;
+          padding: 36px 20px 48px;
+        }
+        .eh-disclaimer-inner {
+          max-width: 720px;
+          margin: 0 auto;
+          text-align: left;
+        }
+        .eh-disclaimer-text {
+          font-size: 12px;
+          line-height: 1.65;
+          color: #8B7355;
+          margin: 0 0 24px;
+        }
+
+        /* ── TABLET & ABOVE ─────────────────────────────────────── */
+        @media (min-width: 640px) {
+          .eh-hero { padding: 80px 32px 64px; }
+          .eh-hero-ctas { flex-direction: row; gap: 12px; }
+          .eh-section { padding: 80px 32px; }
+          .eh-cert { grid-template-columns: 60px 1fr; gap: 20px; padding: 28px 0; }
+          .eh-cert-num { font-size: 26px; }
+          .eh-cert-name { font-size: 19px; }
+          .eh-cert-desc { font-size: 14px; }
+          .eh-specimen { padding: 44px 0 52px; }
+          .eh-specimen-name { font-size: 28px; }
+          .eh-claim-text { font-size: 17px; }
+          .eh-science-text { font-size: 14.5px; line-height: 1.75; }
+          .eh-btn--wideOnMobile { width: auto; }
+        }
+
+        /* ── DESKTOP ────────────────────────────────────────────────
+           Everything stays LEFT-aligned to preserve the documentary
+           voice. Hero is the exception (centered — hero moment).
+           Specimens split into a 2-col layout: argument left, evidence
+           right, like an academic abstract with a citations sidebar. */
+        @media (min-width: 1024px) {
+          .eh-hero { padding: 120px 40px 96px; text-align: center; }
+          .eh-hero-inner { text-align: center; }
+          .eh-hero-lede { margin-left: auto; margin-right: auto; max-width: 640px; font-size: 15px; }
+          .eh-hero-ctas { justify-content: center; }
+          .eh-h1 { text-align: center; }
+
+          .eh-strip { padding: 18px 40px; }
+          .eh-strip-inner { justify-content: flex-start; font-size: 12px; }
+
+          .eh-section { padding: 96px 40px; }
+          .eh-section-head { margin: 0 auto 48px; max-width: 1100px; }
+          .eh-section-lede { max-width: 640px; }
+
+          .eh-cert { grid-template-columns: 72px 1fr 220px; gap: 32px; align-items: start; padding: 32px 0; }
+          .eh-cert-num { font-size: 30px; padding-top: 4px; }
+          .eh-cert-name { font-size: 22px; }
+          .eh-cert-desc { font-size: 14px; margin-bottom: 0; }
+          .eh-download { justify-self: end; align-self: start; margin-top: 4px; }
+
+          .eh-index { margin: 0 auto 48px; }
+          .eh-index-list { justify-content: flex-start; overflow-x: visible; flex-wrap: wrap; }
+
+          .eh-specimen {
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+            grid-template-areas:
+              "head     head"
+              "claim    evidence"
+              "science  evidence";
+            column-gap: 56px;
+            row-gap: 0;
+            padding: 56px 0 64px;
+          }
+          .eh-specimen-head { grid-area: head; margin-bottom: 28px; }
+          .eh-claim         { grid-area: claim; }
+          .eh-science       { grid-area: science; }
+          .eh-evidence      { grid-area: evidence; }
+          .eh-specimen-name { font-size: 36px; }
+          .eh-specimen-tag { font-size: 13px; }
+          .eh-claim { padding-left: 18px; margin-bottom: 24px; }
+          .eh-claim-text { font-size: 19px; line-height: 1.35; }
+          .eh-science { margin-bottom: 0; }
+          .eh-science-text { font-size: 15px; line-height: 1.8; }
+          .eh-evidence { align-self: start; }
+
+          .eh-disclaimer { padding: 56px 40px 72px; }
+        }
+
+        /* ── LARGE DESKTOP ─────────────────────────────────────── */
+        @media (min-width: 1400px) {
+          .eh-specimen-name { font-size: 42px; }
+          .eh-claim-text { font-size: 21px; }
         }
       `}</style>
     </div>

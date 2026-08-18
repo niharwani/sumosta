@@ -59,8 +59,10 @@ export interface Product {
   metaDescription:  string | null;
   images:           ProductImage[];
   variants:         ProductVariant[];
-  averageRating:    number;
-  reviewCount:      number;
+  // Optional so pre-launch SKUs with no reviews yet can omit these entirely.
+  // UI hides the rating summary when both are missing/zero.
+  averageRating?:   number;
+  reviewCount?:     number;
   createdAt:        string;
   updatedAt:        string;
 }

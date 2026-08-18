@@ -5,13 +5,9 @@ import { Plus, Pencil, Trash2, Search, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = localStorage.getItem('sumosta_access_token');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
 
 function useProducts(search: string, category: string) {
   return useQuery({
@@ -20,7 +16,7 @@ function useProducts(search: string, category: string) {
       const params = new URLSearchParams({ limit: '50' });
       if (search) params.set('search', search);
       if (category) params.set('category', category);
-      const res = await fetch(`${API}/api/admin/products?${params}`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/products?${params}`);
       return res.json();
     },
   });
@@ -30,7 +26,7 @@ function useCategories() {
   return useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/categories`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/categories`);
       return res.json();
     },
   });
@@ -49,9 +45,8 @@ export default function AdminProductsPage() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const res = await fetch(`${API}/api/admin/products/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/products/${id}`, {
         method: 'PATCH',
-        headers: authHeaders(),
         body: JSON.stringify({ is_active: active ? 0 : 1 }),
       });
       return res.json();
@@ -61,9 +56,8 @@ export default function AdminProductsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API}/api/admin/products/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/products/${id}`, {
         method: 'DELETE',
-        headers: authHeaders(),
       });
       return res.json();
     },

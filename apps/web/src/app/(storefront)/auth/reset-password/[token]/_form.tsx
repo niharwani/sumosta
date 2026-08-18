@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,8 +38,22 @@ interface ResetPasswordFormProps {
   token: string;
 }
 
-export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
+export default function ResetPasswordForm({ token: tokenProp }: ResetPasswordFormProps) {
   const reduce = useReducedMotion();
+
+  // On Cloudflare Pages static export the URL /auth/reset-password/{real-token}/
+  // is served by the pre-built _placeholder HTML, so the server-side page.tsx
+  // hands us `_placeholder` instead of the real token baked into the URL. Parse
+  // the pathname on the client to recover it.
+  const pathname = usePathname();
+  const token = useMemo(() => {
+    if (tokenProp && tokenProp !== '_placeholder') return tokenProp;
+    if (typeof window === 'undefined') return tokenProp;
+    const source = pathname ?? window.location.pathname;
+    const match  = source.match(/\/auth\/reset-password\/([^/]+)/);
+    const raw    = match?.[1] ?? '';
+    return raw === '_placeholder' ? tokenProp : decodeURIComponent(raw);
+  }, [tokenProp, pathname]);
 
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');

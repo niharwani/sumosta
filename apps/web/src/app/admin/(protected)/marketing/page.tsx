@@ -3,13 +3,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Mail, Users, UserX, MessageSquare, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('sumosta_access_token') : null;
-  return { Authorization: `Bearer ${token ?? ''}`, 'Content-Type': 'application/json' };
-}
 
 type Tab = 'subscribers' | 'messages';
 
@@ -27,7 +23,7 @@ export default function AdminMarketingPage() {
       const params = new URLSearchParams({ limit: '50', page: String(page) });
       if (search)       params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch(`${API}/api/admin/marketing/subscribers?${params}`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/marketing/subscribers?${params}`);
       return res.json();
     },
     enabled: tab === 'subscribers',
@@ -37,7 +33,7 @@ export default function AdminMarketingPage() {
   const { data: msgData, isLoading: msgLoading } = useQuery({
     queryKey: ['admin-messages'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/marketing/contact-messages?limit=50`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/marketing/contact-messages?limit=50`);
       return res.json();
     },
     enabled: tab === 'messages',
@@ -45,9 +41,8 @@ export default function AdminMarketingPage() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const res = await fetch(`${API}/api/admin/marketing/subscribers/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/marketing/subscribers/${id}`, {
         method: 'PATCH',
-        headers: authHeaders(),
         body: JSON.stringify({ is_active }),
       });
       return res.json();
@@ -57,9 +52,8 @@ export default function AdminMarketingPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API}/api/admin/marketing/subscribers/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/marketing/subscribers/${id}`, {
         method: 'DELETE',
-        headers: authHeaders(),
       });
       return res.json();
     },
@@ -68,9 +62,8 @@ export default function AdminMarketingPage() {
 
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API}/api/admin/marketing/contact-messages/${id}/read`, {
+      const res = await adminFetch(`${API}/api/admin/marketing/contact-messages/${id}/read`, {
         method: 'PATCH',
-        headers: authHeaders(),
       });
       return res.json();
     },

@@ -12,9 +12,10 @@ export default function Navbar() {
   const pathname = usePathname();
   const { itemCount, openCart } = useCartStore();
   const { user } = useAuthStore();
-  const { openMobileMenu } = useUIStore();
+  const { openMobileMenu, heroTone } = useUIStore();
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [heroFullBleed, setHeroFullBleed] = useState(false);
   const isHome = pathname === '/';
 
   useEffect(() => {
@@ -25,15 +26,43 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // The hero only sits behind the header (full-bleed) at ≥1600px — see
+  // .sum-hero-section in _content.tsx. Below that, the header renders on
+  // its own cream background, so slide-tone colors must not apply.
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1600px)');
+    const sync = () => setHeroFullBleed(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
   const frosted = !isHome || scrolled;
+  // On the homepage at <1600px the hero sits below the header (not full-
+  // bleed), so the transparent-over-hero look no longer applies — render a
+  // solid white bar instead.
+  const solidHome = isHome && !heroFullBleed;
+  // Transparent-over-hero: hero slide dictates text tone ONLY when the hero
+  // is actually behind the header. Otherwise (frosted, or narrow viewport)
+  // the dark palette wins.
+  const onDark = !frosted && heroTone === 'dark' && heroFullBleed;
+
+  const logoText = onDark ? 'text-cream' : 'text-charcoal';
+  const navLinkIdle = onDark ? 'text-cream/85 hover:text-cream' : 'text-bark hover:text-honey-500';
+  const navLinkActive = onDark ? 'text-cream' : 'text-charcoal';
+  const iconText = onDark ? 'text-cream hover:text-honey-300 hover:bg-white/10' : 'text-bark hover:text-honey-500 hover:bg-honey-500/10';
+  const signInText = onDark ? 'text-cream hover:text-honey-300' : 'text-bark hover:text-honey-500';
+  const hamburgerBar = onDark ? 'bg-cream group-hover:bg-honey-300' : 'bg-bark group-hover:bg-honey-500';
 
   return (
     <div
       className={
         'transition-[background,box-shadow] duration-300 ' +
-        (frosted
-          ? 'bg-cream/95 backdrop-blur-md shadow-sm'
-          : 'bg-transparent shadow-none')
+        (solidHome
+          ? 'bg-white shadow-sm'
+          : frosted
+            ? 'bg-cream/95 backdrop-blur-md shadow-sm'
+            : 'bg-transparent shadow-none')
       }
     >
       <div className="max-w-content mx-auto px-5 flex items-center justify-between gap-6 h-16">
@@ -43,10 +72,10 @@ export default function Navbar() {
           className="flex flex-col shrink-0 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream rounded-sm"
           aria-label="SUMOSTA — Home"
         >
-          <span className="font-clash font-bold text-charcoal text-[20px] leading-none tracking-[0.02em]">
+          <span className={`font-clash font-bold ${logoText} text-[20px] leading-none tracking-[0.02em] transition-colors duration-300`}>
             SUMOSTA
           </span>
-          <span className="font-bespoke italic text-charcoal text-[10px] font-bold leading-none tracking-[0.06em] mt-[2px]">
+          <span className={`font-bespoke italic ${logoText} text-[10px] font-bold leading-none tracking-[0.06em] mt-[2px] transition-colors duration-300`}>
             indulgence that cares
           </span>
         </Link>
@@ -69,8 +98,8 @@ export default function Navbar() {
                   'font-satoshi text-[14px] whitespace-nowrap transition-colors duration-200 ' +
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 rounded-sm px-1 py-0.5 ' +
                   (active
-                    ? 'text-charcoal font-semibold'
-                    : 'text-bark hover:text-honey-500 font-medium')
+                    ? `${navLinkActive} font-semibold`
+                    : `${navLinkIdle} font-medium`)
                 }
               >
                 {link.label}
@@ -85,7 +114,7 @@ export default function Navbar() {
           <Link
             href="/search"
             aria-label="Search products"
-            className="p-1.5 rounded-md text-bark hover:text-honey-500 hover:bg-honey-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 flex items-center justify-center"
+            className={`p-1.5 rounded-md ${iconText} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 flex items-center justify-center`}
           >
             <Search size={20} strokeWidth={1.8} />
           </Link>
@@ -98,7 +127,12 @@ export default function Navbar() {
                   href="/account/orders"
                   aria-label={`My Account — ${user.name ?? 'Signed in'}`}
                   title={user.name ?? 'My Account'}
-                  className="flex items-center justify-center w-[34px] h-[34px] rounded-full bg-honey-500/10 text-honey-500 hover:bg-honey-500/20 transition-colors font-clash font-bold text-[14px] no-underline shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400"
+                  className={
+                    'flex items-center justify-center w-[34px] h-[34px] rounded-full transition-colors font-clash font-bold text-[14px] no-underline shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 ' +
+                    (onDark
+                      ? 'bg-white/15 text-cream hover:bg-white/25'
+                      : 'bg-honey-500/10 text-honey-500 hover:bg-honey-500/20')
+                  }
                 >
                   {user.name?.charAt(0).toUpperCase() ?? 'U'}
                 </Link>
@@ -106,7 +140,7 @@ export default function Navbar() {
                 <Link
                   href="/auth/login"
                   aria-label="Sign in to your account"
-                  className="inline-flex items-center gap-1.5 font-satoshi text-[13px] text-bark hover:text-honey-500 transition-colors font-medium whitespace-nowrap no-underline px-2 py-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400"
+                  className={`inline-flex items-center gap-1.5 font-satoshi text-[13px] ${signInText} transition-colors font-medium whitespace-nowrap no-underline px-2 py-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400`}
                 >
                   <User size={16} strokeWidth={1.8} />
                   Sign In
@@ -120,7 +154,7 @@ export default function Navbar() {
             type="button"
             onClick={openCart}
             aria-label={mounted && itemCount > 0 ? `Open cart, ${itemCount} item${itemCount === 1 ? '' : 's'}` : 'Open cart'}
-            className="relative p-1.5 rounded-md text-bark hover:text-honey-500 hover:bg-honey-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 flex items-center justify-center"
+            className={`relative p-1.5 rounded-md ${iconText} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 flex items-center justify-center`}
           >
             <ShoppingCart size={20} strokeWidth={1.8} />
             {mounted && itemCount > 0 && (
@@ -141,9 +175,9 @@ export default function Navbar() {
             aria-haspopup="dialog"
             className="sum-hamburger flex lg:hidden flex-col justify-center items-start gap-[5px] py-[7px] px-[5px] rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-400 group"
           >
-            <span className="block w-[22px] h-[2px] rounded bg-bark group-hover:bg-honey-500 transition-colors" />
-            <span className="block w-[22px] h-[2px] rounded bg-bark group-hover:bg-honey-500 transition-colors" />
-            <span className="block w-[14px] h-[2px] rounded bg-bark group-hover:bg-honey-500 transition-colors" />
+            <span className={`block w-[22px] h-[2px] rounded ${hamburgerBar} transition-colors`} />
+            <span className={`block w-[22px] h-[2px] rounded ${hamburgerBar} transition-colors`} />
+            <span className={`block w-[14px] h-[2px] rounded ${hamburgerBar} transition-colors`} />
           </button>
         </div>
       </div>

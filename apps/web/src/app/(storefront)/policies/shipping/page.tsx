@@ -56,7 +56,7 @@ export default function ShippingPage() {
               </li>
               <li>
                 <span className="font-bold text-charcoal">Orders below the threshold:</span> A flat shipping fee of{' '}
-                <span className="font-bold text-charcoal">₹49</span> will be applied at checkout.
+                <span className="font-bold text-charcoal">₹69</span> will be applied at checkout.
               </li>
               <li>
                 <span className="font-bold text-charcoal">Cash on Delivery (COD):</span> COD is available for select pin codes. An additional COD handling fee of{' '}

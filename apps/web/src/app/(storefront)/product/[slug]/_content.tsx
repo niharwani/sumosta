@@ -7,8 +7,10 @@ import {
   Beaker,
   Check,
   ChevronRight,
+  Download,
   Droplet,
   Dumbbell,
+  FileText,
   Gem,
   Leaf,
   Minus,
@@ -26,6 +28,7 @@ import { useCartStore } from '@/stores/cart-store';
 import { useAuth } from '@/hooks/useAuth';
 import { STATIC_PRODUCTS, STATIC_COMBOS } from '@/lib/content';
 import { useProductImages, resolveProductImage } from '@/hooks/useProductImages';
+import { useProductBySlug } from '@/hooks/useProductBySlug';
 import { tracker } from '@/lib/tracker';
 import { formatPrice } from '@/lib/utils';
 import { HONEY_EASE_OUT } from '@/lib/animations';
@@ -74,6 +77,7 @@ export default function ProductContent({ slug }: { slug: string }) {
   const combo = !product ? STATIC_COMBOS.find((c) => c.slug === slug) ?? null : null;
 
   const dbImages = useProductImages();
+  const d1Product = useProductBySlug(slug);
   const [activeVariant, setActiveVariant] = useState(0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -110,6 +114,22 @@ export default function ProductContent({ slug }: { slug: string }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // The sticky Add-to-Cart bar is `position: fixed`, so it overlays whatever
+  // sits at the bottom of the scrollable page — including the Footer's
+  // copyright line. Reserve body padding for its height (68px mobile / 76px
+  // desktop + 4px breathing room) so scrolling all the way down clears it.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (stickyVisible) {
+      document.body.style.paddingBottom = '80px';
+    } else {
+      document.body.style.paddingBottom = '';
+    }
+    return () => {
+      document.body.style.paddingBottom = '';
+    };
+  }, [stickyVisible]);
 
   // Fire product_view once per slug
   const viewedRef = useRef<string | null>(null);
@@ -173,6 +193,16 @@ export default function ProductContent({ slug }: { slug: string }) {
   const howToUse = (product as any)?.howToUse as string[] | undefined;
   const ingredients = (product as any)?.ingredients as string | undefined;
   const trustBadges = (product as any)?.trustBadges as string[] | undefined;
+  const batchCertificate = (product as any)?.batchCertificate as
+    | {
+        batchNo: string;
+        testingDate: string;
+        expiryDate: string;
+        nablLab: string;
+        certificateNo: string;
+        pdfUrl?: string;
+      }
+    | undefined;
   const benefitsBody = (combo as any)?.benefitsBody as string | string[] | undefined;
   const averageRating = product?.averageRating ?? null;
   const reviewCount = product?.reviewCount ?? 0;
@@ -193,11 +223,35 @@ export default function ProductContent({ slug }: { slug: string }) {
   );
   const related = pickRelated(relatedPool, slug, 4);
 
-  // Resolve gallery images (map resolvable URLs through resolveProductImage)
-  const galleryImages = (product?.images ?? []).map((img) => ({
-    ...img,
-    url: resolveProductImage(dbImages, product?.id ?? '', img.url) ?? img.url,
-  }));
+  // Prefer full D1 image list (all uploaded images, in sort order) once loaded.
+  // While D1 is still loading, fall back to the static primary image so first paint is fast.
+  const galleryImages = (() => {
+    const d1Images = d1Product.product?.images ?? [];
+    if (d1Product.loaded && d1Images.length > 0) return d1Images;
+    return (product?.images ?? []).map((img) => ({
+      ...img,
+      url: resolveProductImage(dbImages, product?.id ?? '', img.url) ?? img.url,
+    }));
+  })();
+
+  // Map the selected variant to its matching gallery image. Uploaded 2nd image = 500g,
+  // 1st = 250g, so match size tokens (500g/250g/1kg/…) in the URL or alt text first;
+  // fall back to using variant position as the image index.
+  const variantImageIndex = useMemo(() => {
+    if (variants.length === 0 || galleryImages.length === 0) return 0;
+    const name = String(variants[activeVariant]?.name ?? '').toLowerCase();
+    const sizeMatch = name.match(/\d+\s?(kg|g|ml|l)\b/);
+    if (sizeMatch) {
+      const token = sizeMatch[0].replace(/\s+/g, '');
+      const hit = galleryImages.findIndex((img) => {
+        const url = (img.url ?? '').toLowerCase();
+        const alt = (img.altText ?? '').toLowerCase();
+        return url.includes(token) || alt.includes(token);
+      });
+      if (hit >= 0) return hit;
+    }
+    return Math.min(activeVariant, galleryImages.length - 1);
+  }, [activeVariant, variants, galleryImages]);
 
   // JSON-LD Product schema
   const jsonLd = useMemo(() => {
@@ -244,11 +298,11 @@ export default function ProductContent({ slug }: { slug: string }) {
 
       {/* Sticky add-to-cart bar (no auto-open cart) */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 bg-cream/95 backdrop-blur-md border-t border-sand shadow-lg transition-transform duration-300 ease-out ${
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-cream border-t border-sand shadow-lg transition-transform duration-300 ease-out ${
           stickyVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
-        <div className="max-w-content mx-auto px-6 md:px-8 h-[76px] flex items-center justify-between gap-4">
+        <div className="max-w-content mx-auto px-5 md:px-8 h-[68px] md:h-[76px] flex items-center justify-between gap-3 md:gap-4">
           <div className="min-w-0">
             <p className="font-satoshi text-charcoal text-sm font-bold truncate">{name}</p>
             <p className="font-satoshi text-honey-500 text-xs font-bold">
@@ -281,8 +335,8 @@ export default function ProductContent({ slug }: { slug: string }) {
       </div>
 
       {/* Product layout */}
-      <section className="max-w-content mx-auto px-6 md:px-8 pt-8 md:pt-12">
-        <nav aria-label="Breadcrumb" className="mb-8">
+      <section className="max-w-content mx-auto px-5 md:px-8 pt-4 md:pt-12">
+        <nav aria-label="Breadcrumb" className="mb-5 md:mb-8">
           <ol className="flex items-center gap-1.5 font-satoshi text-xs text-earth-light">
             <li><Link href="/" className="hover:text-honey-500 transition-colors">Home</Link></li>
             <li aria-hidden>/</li>
@@ -292,11 +346,15 @@ export default function ProductContent({ slug }: { slug: string }) {
           </ol>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-14">
           {/* Gallery */}
           <div>
             {galleryImages.length > 0 ? (
-              <ProductGallery images={galleryImages} productName={name} />
+              <ProductGallery
+                images={galleryImages}
+                productName={name}
+                activeIndex={variantImageIndex}
+              />
             ) : (
               <div className="relative aspect-square rounded-xl bg-cream-warm border border-sand flex items-center justify-center">
                 <span className="font-satoshi text-xs uppercase tracking-[0.08em] text-earth-light">
@@ -550,6 +608,33 @@ export default function ProductContent({ slug }: { slug: string }) {
                 );
               })}
             </div>
+
+            {/* Lab Test Report — one-tap link to the NABL-certified PDF */}
+            {batchCertificate?.pdfUrl && (
+              <a
+                href={batchCertificate.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 group flex items-center gap-3 w-full rounded-2xl border border-sand bg-cream-warm hover:border-honey-400 hover:bg-honey-50 px-5 py-4 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-honey-400"
+              >
+                <div className="w-10 h-10 rounded-full bg-honey-100 flex items-center justify-center shrink-0">
+                  <FileText size={18} className="text-honey-600" aria-hidden />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-satoshi text-[11px] font-bold uppercase tracking-[0.12em] text-honey-600 m-0">
+                    NABL Lab Test Report
+                  </p>
+                  <p className="font-satoshi text-charcoal text-sm font-semibold m-0 mt-0.5">
+                    View lab test report
+                  </p>
+                </div>
+                <Download
+                  size={18}
+                  className="text-earth group-hover:text-honey-600 shrink-0 transition-colors"
+                  aria-hidden
+                />
+              </a>
+            )}
           </div>
         </div>
       </section>

@@ -1,5 +1,22 @@
-/order-confirmation/* /order-confirmation/_placeholder/ 200
-/account/orders/:id /account/orders/_placeholder/ 200
-/admin/orders/:id /admin/orders/_placeholder/ 200
-/admin/customers/:id /admin/customers/_placeholder/ 200
-/admin/products/:id/edit /admin/products/_placeholder/edit/ 200
+# Explicit LIST-page passthroughs must come BEFORE wildcard rewrites below,
+# otherwise Cloudflare Pages first-match wins and the wildcard swallows
+# the empty-segment case (e.g. /account/orders/) into the [id] placeholder.
+/account/orders/                     /account/orders/                    200
+/admin/orders/                       /admin/orders/                      200
+/admin/customers/                    /admin/customers/                   200
+/admin/invoices/                     /admin/invoices/                    200
+/admin/products/                     /admin/products/                    200
+/auth/reset-password/                /auth/reset-password/               200
+
+# Legacy product-slug redirects (preserve SEO from old URLs)
+/product/organic-certified-wild-forest-honey  /product/organic-wild-forest-honey  301
+
+# Detail-page rewrites — serve the pre-built _placeholder HTML for any
+# real dynamic id/token; the client reads the actual value from the URL path.
+/order-confirmation/*                /order-confirmation/_placeholder/     200
+/auth/reset-password/*               /auth/reset-password/_placeholder/    200
+/account/orders/*                    /account/orders/_placeholder/         200
+/admin/orders/*                      /admin/orders/_placeholder/           200
+/admin/customers/*                   /admin/customers/_placeholder/        200
+/admin/invoices/*                    /admin/invoices/_placeholder/         200
+/admin/products/*/edit               /admin/products/_placeholder/edit/    200

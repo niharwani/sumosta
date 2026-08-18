@@ -48,7 +48,15 @@ function readRefreshToken(): string | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { useAuthStore } = require('@/stores/auth-store');
-    return useAuthStore.getState().refreshToken ?? null;
+    const inStore = useAuthStore.getState().refreshToken ?? null;
+    if (inStore) return inStore;
+  } catch {
+    /* store unavailable, fall through */
+  }
+  // Fallback for the very first /refresh call after a hard reload, or when the
+  // store hasn't hydrated yet — localStorage is written by auth-store on login.
+  try {
+    return localStorage.getItem('sumosta_refresh_token');
   } catch {
     return null;
   }
@@ -400,6 +408,13 @@ export const authApi = {
       body:   data,
       _skipAuthRetry: true,
     }),
+
+  firebasePhoneVerify: (data: { idToken: string }) =>
+    request<AuthSession>('/api/auth/firebase-phone/verify', {
+      method: 'POST',
+      body:   data,
+      _skipAuthRetry: true,
+    }),
 };
 
 // ============================================================
@@ -440,6 +455,25 @@ export const checkoutApi = {
 // ============================================================
 // ORDERS
 // ============================================================
+export interface TrackingActivity {
+  date:     string;
+  status:   string;
+  activity: string;
+  location: string;
+}
+
+export interface TrackingResponse {
+  awb_code:        string | null;
+  courier_name:    string | null;
+  current_status:  string | null;
+  edd:             string | null;
+  tracking_url:    string | null;
+  origin:          string | null;
+  destination:     string | null;
+  activities:      TrackingActivity[];
+  awb_pending:     boolean;
+}
+
 export const ordersApi = {
   list: (params?: { page?: number; limit?: number; status?: string }) =>
     request<{
@@ -453,6 +487,12 @@ export const ordersApi = {
     request<{ success: true }>(`/api/orders/${id}/cancel`, { method: 'POST' }),
   receipt: (id: string, email: string) =>
     request<any>(`/api/orders/${id}/receipt`, { params: { email } }),
+  tracking: (id: string) =>
+    request<TrackingResponse>(`/api/orders/${id}/tracking`),
+  trackingByNumber: (orderNumber: string, email: string) =>
+    request<TrackingResponse>('/api/orders/track/live', {
+      params: { orderNumber, email },
+    }),
 };
 
 // ============================================================

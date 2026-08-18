@@ -32,6 +32,8 @@ export interface BatchCertificate {
   expiryDate: string;
   nablLab: string;
   certificateNo: string;
+  /** Public URL to the downloadable PDF lab report for this SKU. */
+  pdfUrl?: string;
   parameters: {
     name: string;
     result: string;
@@ -240,6 +242,7 @@ export const MOCK_CERTIFICATES: Record<string, BatchCertificate> = {
     expiryDate: '2028-05-13',
     nablLab: 'NABL Accredited Food Diagnostics Labs, Mumbai',
     certificateNo: 'TC-998811',
+    pdfUrl: '/certificates/OrganicWild_LabTestReport.pdf',
     parameters: [
       { name: 'Moisture Content', result: '17.4%', fssaiLimit: 'Max 20%', status: 'Pass' },
       { name: 'HMF (Freshness Marker)', result: '11.8 mg/kg', fssaiLimit: 'Max 80 mg/kg', status: 'Pass' },
@@ -256,6 +259,7 @@ export const MOCK_CERTIFICATES: Record<string, BatchCertificate> = {
     expiryDate: '2029-06-01',
     nablLab: 'NABL Center for Bio-Chemical Testing, Kohima',
     certificateNo: 'TC-998902',
+    pdfUrl: '/certificates/RareDammer_LabTestReport.pdf',
     parameters: [
       { name: 'Moisture Content', result: '24.2%', fssaiLimit: 'Max 30% (Stingless Special)', status: 'Pass' },
       { name: 'HMF (Freshness Marker)', result: '8.4 mg/kg', fssaiLimit: 'Max 80 mg/kg', status: 'Pass' },
@@ -272,6 +276,7 @@ export const MOCK_CERTIFICATES: Record<string, BatchCertificate> = {
     expiryDate: '2028-04-19',
     nablLab: 'NABL Regional Analytical Lab, Bhubaneswar',
     certificateNo: 'TC-998744',
+    pdfUrl: '/certificates/ArtisanalHeritage_LabTestReport.pdf',
     parameters: [
       { name: 'Moisture Content', result: '18.1%', fssaiLimit: 'Max 20%', status: 'Pass' },
       { name: 'HMF (Freshness Marker)', result: '14.2 mg/kg', fssaiLimit: 'Max 80 mg/kg', status: 'Pass' },
@@ -287,6 +292,7 @@ export const MOCK_CERTIFICATES: Record<string, BatchCertificate> = {
     expiryDate: '2028-05-27',
     nablLab: 'NABL Quality Lab, Ranchi',
     certificateNo: 'TC-998890',
+    pdfUrl: '/certificates/CanopyDew_LabTestReport.pdf',
     parameters: [
       { name: 'Moisture Content', result: '16.8%', fssaiLimit: 'Max 20%', status: 'Pass' },
       { name: 'HMF (Freshness Marker)', result: '16.5 mg/kg', fssaiLimit: 'Max 80 mg/kg', status: 'Pass' },
@@ -302,6 +308,7 @@ export const MOCK_CERTIFICATES: Record<string, BatchCertificate> = {
     expiryDate: '2028-06-09',
     nablLab: 'NABL Analytical Diagnostics, Raipur',
     certificateNo: 'TC-999012',
+    pdfUrl: '/certificates/Bloodseed_LabTestReport.pdf',
     parameters: [
       { name: 'Moisture Content', result: '17.9%', fssaiLimit: 'Max 20%', status: 'Pass' },
       { name: 'HMF (Freshness Marker)', result: '9.5 mg/kg', fssaiLimit: 'Max 80 mg/kg', status: 'Pass' },
@@ -331,7 +338,7 @@ export const STATIC_PRODUCTS: (Product & {
   {
     id: 'prod_wf_honey_500',
     name: 'Organic Wild Forest Honey',
-    slug: 'organic-certified-wild-forest-honey',
+    slug: 'organic-wild-forest-honey',
     sku: 'SM-WF-500',
     categoryId: 'cat_raw_honey',
     category: STATIC_CATEGORIES['raw-honey'],
@@ -375,8 +382,6 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'var_wf_250g', name: '250g Glass Jar', sku: 'SM-WF-250', priceAdjust: -250, compareAtPriceAdjust: -300, stock: 50 },
       { id: 'var_wf_500g', name: '500g Glass Jar', sku: 'SM-WF-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 100 }
     ],
-    averageRating: 4.8,
-    reviewCount: 43,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['wild-forest'],
@@ -433,8 +438,6 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'var_st_250g', name: '250g Glass Jar', sku: 'SM-STB-250', priceAdjust: -600, compareAtPriceAdjust: -800, stock: 15 },
       { id: 'var_st_500g', name: '500g Glass Jar', sku: 'SM-STB-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 10 }
     ],
-    averageRating: 4.9,
-    reviewCount: 18,
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['stingless'],
@@ -495,8 +498,6 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'var_tb_250g', name: '250g Glass Jar', sku: 'SM-TF-250', priceAdjust: -300, compareAtPriceAdjust: -350, stock: 40 },
       { id: 'var_tb_500g', name: '500g Glass Jar', sku: 'SM-TF-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 40 }
     ],
-    averageRating: 4.7,
-    reviewCount: 31,
     createdAt: '2026-01-10T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['tribal'],
@@ -552,8 +553,6 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'var_hd_250g', name: '250g Glass Jar', sku: 'SM-HD-250', priceAdjust: -300, compareAtPriceAdjust: -350, stock: 25 },
       { id: 'var_hd_500g', name: '500g Glass Jar', sku: 'SM-HD-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 20 }
     ],
-    averageRating: 4.6,
-    reviewCount: 22,
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['honeydew'],
@@ -614,8 +613,6 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'var_rb_250g', name: '250g Glass Jar', sku: 'SM-RB-250', priceAdjust: -300, compareAtPriceAdjust: -350, stock: 25 },
       { id: 'var_rb_500g', name: '500g Glass Jar', sku: 'SM-RB-500', priceAdjust: 0, compareAtPriceAdjust: 0, stock: 10 }
     ],
-    averageRating: 4.9,
-    reviewCount: 14,
     createdAt: '2026-04-01T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     batchCertificate: MOCK_CERTIFICATES['raktbeej'],
@@ -657,8 +654,6 @@ export const STATIC_PRODUCTS: (Product & {
       { id: 'img_tb_box_1', url: '/images/products/wild-forest-250-hero.png', altText: 'The 5 Elements Collection Gift Box', sortOrder: 1, isPrimary: true }
     ],
     variants: [],
-    averageRating: 4.8,
-    reviewCount: 5,
     createdAt: '2026-05-01T00:00:00Z',
     updatedAt: '2026-06-01T00:00:00Z',
     sourcingHighlights: {

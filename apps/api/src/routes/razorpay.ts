@@ -1,11 +1,34 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import { setCookie } from 'hono/cookie';
 import type { Bindings } from '../index';
-import { verifyJwt } from '../lib/jwt';
+import { verifyJwt, signJwt, generateRefreshToken } from '../lib/jwt';
 import { RazorpayService } from '../services/razorpay';
-import { generateId, generateOrderNumber, calcShipping, calcTax } from '../lib/utils';
+import { generateId, generateOrderNumber, calcShipping, calcTax, hasQualifyingPriorOrder } from '../lib/utils';
 import { sendOrderConfirmation } from '../services/email';
+import { automateShipmentForOrder } from '../services/shipment-automation';
+
+const UNUSABLE_PASSWORD_HASH = '!' + Array.from({ length: 59 }, () =>
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(
+    Math.floor(Math.random() * 62),
+  ),
+).join('');
+
+const REFRESH_TOKEN_TTL   = 7 * 24 * 60 * 60;
+const REFRESH_COOKIE_NAME = 'sumosta_rt';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setRefreshCookieRZP(c: any, token: string): void {
+  const isProd = (c.env.BASE_URL as string).startsWith('https://');
+  setCookie(c, REFRESH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure:   isProd,
+    sameSite: isProd ? 'None' : 'Lax',
+    path:     '/',
+    maxAge:   REFRESH_TOKEN_TTL,
+  });
+}
 
 // ── Resolved-from-DB item (never trusts client-supplied price) ─
 interface ResolvedItem {
@@ -118,6 +141,30 @@ app.post(
       if (exists) userId = rawUserId;
       else console.warn(`[razorpay] JWT userId ${rawUserId} not in users table — treating as guest`);
     }
+
+    // If anonymous but email/phone is already registered, force sign-in first.
+    if (!userId) {
+      const conflict = await c.env.DB.prepare(
+        'SELECT email, phone FROM users WHERE (email = ? OR phone = ?) AND is_active = 1 LIMIT 1',
+      ).bind(email, shippingAddress.phone).first<{ email: string; phone: string }>();
+
+      if (conflict) {
+        const field: 'email' | 'phone' =
+          conflict.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone';
+        return c.json(
+          {
+            success: false,
+            code:    'ACCOUNT_EXISTS',
+            error:   field === 'email'
+              ? 'This email is already registered. Please sign in and try again.'
+              : 'This phone number is already registered. Please sign in and try again.',
+            field,
+          },
+          409,
+        );
+      }
+    }
+
     // 1. Resolve each cart item against D1 — this is the source of truth for
     //    both stock and price. Client-supplied prices are ignored.
     const resolved: ResolvedItem[] = [];
@@ -211,21 +258,27 @@ app.post(
       ) / 100,
     };
 
-    // 3. Apply coupons (accepts an array from the frontend to match current cart-store behavior)
+    // 3. Apply coupons (accepts an array from the frontend to match current cart-store behavior).
+    // First-order-only coupons (WELCOME10) require an authenticated user with
+    // no prior qualifying order so the client can't bypass /coupons/validate.
     let discount = 0;
     const appliedCoupons: { id: string; code: string }[] = [];
     const subtotal = cart.subtotal;
+    let firstOrderChecked = false;
+    let userIsEligibleForFirstOrder = false;
 
     for (const rawCode of couponCodes) {
       const code = rawCode.toUpperCase();
       const coupon = await c.env.DB.prepare(`
-        SELECT id, code, type, value, min_order_amount, max_usage, usage_count, expires_at
+        SELECT id, code, type, value, min_order_amount, max_usage, usage_count,
+               is_first_order_only, expires_at
         FROM coupons
         WHERE code = ? AND is_active = 1
       `).bind(code).first<{
         id: string; code: string; type: 'percentage' | 'fixed';
         value: number; min_order_amount: number | null;
-        max_usage: number | null; usage_count: number; expires_at: string | null;
+        max_usage: number | null; usage_count: number;
+        is_first_order_only: number; expires_at: string | null;
       }>();
       if (!coupon) continue;
 
@@ -234,6 +287,15 @@ app.post(
         (!coupon.max_usage        || coupon.usage_count < coupon.max_usage) &&
         (!coupon.expires_at       || new Date(coupon.expires_at) > new Date());
       if (!valid) continue;
+
+      if (coupon.is_first_order_only) {
+        if (!userId) continue; // guests can't use first-order-only coupons
+        if (!firstOrderChecked) {
+          userIsEligibleForFirstOrder = !(await hasQualifyingPriorOrder(c.env.DB, userId));
+          firstOrderChecked = true;
+        }
+        if (!userIsEligibleForFirstOrder) continue;
+      }
 
       const amount = coupon.type === 'percentage'
         ? Math.round(subtotal * (coupon.value / 100) * 100) / 100
@@ -363,7 +425,7 @@ app.post(
     // 1. Look up our order and confirm ownership
     const order = await c.env.DB.prepare(`
       SELECT id, user_id, guest_email, order_number, payment_status, total, razorpay_order_id,
-             shipping_name, shipping_address_line1, shipping_address_line2,
+             shipping_name, shipping_phone, shipping_address_line1, shipping_address_line2,
              shipping_city, shipping_state, shipping_pincode,
              subtotal, discount, shipping_amount, tax, coupon_code, estimated_delivery_date
       FROM orders
@@ -371,7 +433,8 @@ app.post(
     `).bind(body.orderId).first<{
       id: string; user_id: string | null; guest_email: string | null;
       order_number: string; payment_status: string; total: number; razorpay_order_id: string | null;
-      shipping_name: string; shipping_address_line1: string; shipping_address_line2: string | null;
+      shipping_name: string; shipping_phone: string | null;
+      shipping_address_line1: string; shipping_address_line2: string | null;
       shipping_city: string; shipping_state: string; shipping_pincode: string;
       subtotal: number; discount: number; shipping_amount: number; tax: number;
       coupon_code: string | null; estimated_delivery_date: string | null;
@@ -414,6 +477,7 @@ app.post(
     await c.env.DB.prepare(`
       UPDATE orders
       SET payment_status = 'captured', status = 'confirmed',
+          payment_method = 'razorpay',
           razorpay_payment_id = ?, razorpay_signature = ?,
           paid_at = datetime('now'), updated_at = datetime('now')
       WHERE id = ?
@@ -437,6 +501,14 @@ app.post(
     if (userId) {
       await c.env.KV_CACHE.delete(`cart:user:${userId}`);
     }
+
+    // 5a. Fire off Shiprocket automation without blocking the response.
+    // Failures are logged and stashed on the order row for admin retry.
+    c.executionCtx.waitUntil(
+      automateShipmentForOrder(c.env, order.id).catch((err) => {
+        console.error('[razorpay/verify] shipment automation crashed for', order.id, err);
+      }),
+    );
 
     // 5b. Bump coupon usage_count now that payment succeeded (avoids inflating
     //     the count when payment fails or is abandoned).
@@ -491,14 +563,85 @@ app.post(
           })),
         },
         c.env.RESEND_API_KEY,
+        c.env.RESEND_FROM_ORDERS || c.env.RESEND_FROM || undefined,
+        c.env.SUPPORT_EMAIL || null,
       );
     } catch (emailErr) {
       console.error('[Razorpay verify] email send failed:', emailErr);
     }
 
+    // 7. Auto-create + sign in guest buyer so post-payment "View Order" works.
+    // Same rules as /api/checkout: if email already exists, link the order but
+    // don't hand out a session (avoids account hijack via known email).
+    let issuedSession: {
+      user: { id: string; name: string; email: string; phone: string; role: string };
+      accessToken: string;
+      refreshToken: string;
+    } | null = null;
+
+    const buyerEmail = order.guest_email;
+    if (!userId && !order.user_id && buyerEmail) {
+      try {
+        const existing = await c.env.DB.prepare(
+          'SELECT id FROM users WHERE email = ? AND is_active = 1',
+        ).bind(buyerEmail).first<{ id: string }>();
+
+        if (existing) {
+          await c.env.DB.prepare('UPDATE orders SET user_id = ? WHERE id = ?')
+            .bind(existing.id, order.id).run();
+        } else {
+          const newId = generateId('usr');
+          try {
+            await c.env.DB.prepare(
+              'INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+            ).bind(newId, order.shipping_name, buyerEmail, order.shipping_phone ?? `guest:${newId}`, UNUSABLE_PASSWORD_HASH, 'customer').run();
+          } catch (err) {
+            console.warn('[razorpay/verify] user insert failed, retrying with synthetic phone', err);
+            await c.env.DB.prepare(
+              'INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+            ).bind(newId, order.shipping_name, buyerEmail, `guest:${newId}`, UNUSABLE_PASSWORD_HASH, 'customer').run();
+          }
+          await c.env.DB.prepare('UPDATE orders SET user_id = ? WHERE id = ?')
+            .bind(newId, order.id).run();
+
+          const accessToken  = await signJwt(
+            { sub: newId, email: buyerEmail, role: 'customer' },
+            c.env.JWT_SECRET,
+            '15m',
+          );
+          const refreshToken = generateRefreshToken();
+          await c.env.KV_SESSIONS.put(`refresh:${newId}:${refreshToken}`, newId, {
+            expirationTtl: REFRESH_TOKEN_TTL,
+          });
+          await c.env.KV_SESSIONS.put(`rt_lookup:${refreshToken}`, newId, {
+            expirationTtl: REFRESH_TOKEN_TTL,
+          });
+          setRefreshCookieRZP(c, refreshToken);
+
+          issuedSession = {
+            user:         { id: newId, name: order.shipping_name, email: buyerEmail, phone: order.shipping_phone ?? '', role: 'customer' },
+            accessToken,
+            refreshToken,
+          };
+        }
+      } catch (err) {
+        console.warn('[razorpay/verify] auto-account creation failed, continuing', err);
+      }
+    }
+
     return c.json({
       success: true,
-      data: { orderId: order.id, orderNumber: order.order_number },
+      data: {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        ...(issuedSession
+          ? {
+              user:         issuedSession.user,
+              accessToken:  issuedSession.accessToken,
+              refreshToken: issuedSession.refreshToken,
+            }
+          : {}),
+      },
     });
   },
 );

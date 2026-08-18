@@ -1,219 +1,483 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import { setCookie } from 'hono/cookie';
 import type { Bindings } from '../index';
-import { authMiddleware } from '../middleware/auth';
-import { checkoutSchema } from '../lib/validators';
-import { generateId, generateOrderNumber, calcShipping, calcTax } from '../lib/utils';
-import { PhonePeService } from '../services/phonepe';
+import { verifyJwt, signJwt, generateRefreshToken } from '../lib/jwt';
+import { generateId, generateOrderNumber, calcShipping, calcTax, hasQualifyingPriorOrder } from '../lib/utils';
+import { sendOrderConfirmation } from '../services/email';
+import { automateShipmentForOrder } from '../services/shipment-automation';
 
-// ── Cart KV types (mirrors cart.ts) ─────────────────────────
-interface CartItemKV {
+// Passwordless guest accounts get an "unusable" bcrypt-shaped hash so no
+// plaintext password can ever match. They set a real password via reset
+// flow or sign in via OTP once we roll that out.
+const UNUSABLE_PASSWORD_HASH = '!' + Array.from({ length: 59 }, () =>
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(
+    Math.floor(Math.random() * 62),
+  ),
+).join('');
+
+const REFRESH_TOKEN_TTL   = 7 * 24 * 60 * 60;
+const REFRESH_COOKIE_NAME = 'sumosta_rt';
+
+function isProdEnv(baseUrl: string): boolean {
+  return baseUrl.startsWith('https://');
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setRefreshCookie(c: any, token: string): void {
+  const isProd = isProdEnv(c.env.BASE_URL as string);
+  setCookie(c, REFRESH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure:   isProd,
+    sameSite: isProd ? 'None' : 'Lax',
+    path:     '/',
+    maxAge:   REFRESH_TOKEN_TTL,
+  });
+}
+
+// ============================================================
+// POST /api/checkout — Cash-on-Delivery order placement
+// ------------------------------------------------------------
+// Guest-friendly. If a valid JWT is present the order is linked
+// to the user; otherwise it's stored as a guest order via
+// guest_email.
+// COD fee (₹69) is added to the total on the server so the
+// client can't spoof it away.
+// ============================================================
+
+type AppEnv = {
+  Bindings: Bindings;
+  Variables: Record<string, never>;
+};
+
+const app = new Hono<AppEnv>();
+
+// ── Constants — must match the frontend UI copy ──────────────
+const COD_HANDLING_FEE     = 69;
+const PREPAID_COUPON_CODE  = 'PREPAID5';
+const FALLBACK_CATEGORY_ID = 'cat_raw_honey';
+
+// ── Schemas ──────────────────────────────────────────────────
+const shippingSchema = z.object({
+  name:    z.string().min(2),
+  phone:   z.string().regex(/^\d{10}$/),
+  line1:   z.string().min(5),
+  line2:   z.string().optional().nullable(),
+  city:    z.string().min(2),
+  state:   z.string().min(2),
+  pincode: z.string().regex(/^\d{6}$/),
+});
+
+const cartItemSchema = z.object({
+  productId:   z.string().min(1),
+  variantId:   z.string().min(1).nullable().optional(),
+  quantity:    z.number().int().min(1).max(50),
+  unitPrice:   z.number().positive().optional(),
+  productName: z.string().min(1).optional(),
+});
+
+const codCheckoutSchema = z.object({
+  email:           z.string().email(),
+  shippingAddress: shippingSchema,
+  couponCodes:     z.array(z.string()).optional().default([]),
+  paymentMethod:   z.literal('cod'),
+  items:           z.array(cartItemSchema).min(1, 'Cart is empty'),
+});
+
+// Best-effort user extraction. Never rejects.
+async function resolveOptionalUser(
+  authHeader: string | undefined,
+  jwtSecret: string,
+): Promise<string | null> {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const payload = await verifyJwt(authHeader.slice(7), jwtSecret);
+    return (payload.sub as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+interface ResolvedItem {
   productId:   string;
   variantId:   string | null;
   quantity:    number;
   unitPrice:   number;
   productName: string;
   imageUrl:    string | null;
-}
-interface CartKV {
-  items:    CartItemKV[];
-  subtotal: number;
+  fromFallback: boolean;
 }
 
-// ── Hono contexts ────────────────────────────────────────────
-
-type AppEnv = {
-  Bindings: Bindings;
-  Variables: { userId: string; userRole: string; userEmail: string };
-};
-
-const app = new Hono<AppEnv>();
-
-// ─── POST /api/checkout ──────────────────────────────────────
 app.post(
   '/',
-  authMiddleware as any,
-  zValidator('json', checkoutSchema),
+  zValidator('json', codCheckoutSchema),
   async (c) => {
-    const userId    = (c as any).get('userId') as string;
-    const userEmail = (c as any).get('userEmail') as string;
-    const body      = c.req.valid('json');
-    const { email, phone, shippingAddress, couponCode } = body;
+    const { email, shippingAddress, couponCodes, items } = c.req.valid('json');
 
-    // 1. Load cart from KV
-    const cartKey = `cart:user:${userId}`;
-    const cartRaw = await c.env.KV_CACHE.get(cartKey);
-    if (!cartRaw) {
-      return c.json({ success: false, error: 'Cart is empty', code: 'EMPTY_CART' }, 400);
+    // 1. Optional user resolution — guest orders are welcome
+    const rawUserId = await resolveOptionalUser(c.req.header('Authorization'), c.env.JWT_SECRET);
+    let userId: string | null = null;
+    if (rawUserId) {
+      const exists = await c.env.DB.prepare('SELECT id FROM users WHERE id = ?')
+        .bind(rawUserId).first<{ id: string }>();
+      if (exists) userId = rawUserId;
     }
-    const cart = JSON.parse(cartRaw) as CartKV;
+    // Track whether the request came in already-authenticated so we know
+    // whether to mint tokens for a fresh auto-created account.
+    const camWithSession = userId !== null;
 
-    if (!cart.items.length) {
-      return c.json({ success: false, error: 'Cart is empty', code: 'EMPTY_CART' }, 400);
-    }
+    // If the request is anonymous but the supplied email OR phone already
+    // belongs to a registered account, block the order and tell the client
+    // to sign in first. This prevents someone from silently attaching a new
+    // order (with their own shipping address) to another user's account.
+    if (!camWithSession) {
+      const conflict = await c.env.DB.prepare(
+        'SELECT email, phone FROM users WHERE (email = ? OR phone = ?) AND is_active = 1 LIMIT 1',
+      ).bind(email, shippingAddress.phone).first<{ email: string; phone: string }>();
 
-    // 2. Validate stock for every item
-    for (const item of cart.items) {
-      let available: number;
-      if (item.variantId) {
-        const row = await c.env.DB.prepare(
-          'SELECT stock FROM product_variants WHERE id = ?',
-        ).bind(item.variantId).first<{ stock: number }>();
-        available = row?.stock ?? 0;
-      } else {
-        const row = await c.env.DB.prepare(
-          'SELECT stock FROM products WHERE id = ? AND is_active = 1',
-        ).bind(item.productId).first<{ stock: number }>();
-        available = row?.stock ?? 0;
+      if (conflict) {
+        const field: 'email' | 'phone' =
+          conflict.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone';
+        return c.json(
+          {
+            success: false,
+            code:    'ACCOUNT_EXISTS',
+            error:   field === 'email'
+              ? 'This email is already registered. Please sign in and try again.'
+              : 'This phone number is already registered. Please sign in and try again.',
+            field,
+          },
+          409,
+        );
       }
+    }
 
-      if (available < item.quantity) {
+    // 2. Resolve items against D1 (server is source of truth for prices)
+    const resolved: ResolvedItem[] = [];
+    for (const it of items) {
+      const variantId = it.variantId ?? null;
+      const row = variantId
+        ? await c.env.DB.prepare(`
+            SELECT pv.stock, pv.price, p.name, pi.url AS image_url
+            FROM product_variants pv
+            JOIN products p ON p.id = pv.product_id
+            LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
+            WHERE pv.id = ? AND p.id = ? AND p.is_active = 1
+          `).bind(variantId, it.productId)
+            .first<{ stock: number; price: number; name: string; image_url: string | null }>()
+        : await c.env.DB.prepare(`
+            SELECT p.stock, p.price, p.name, pi.url AS image_url
+            FROM products p
+            LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
+            WHERE p.id = ? AND p.is_active = 1
+          `).bind(it.productId)
+            .first<{ stock: number; price: number; name: string; image_url: string | null }>();
+
+      if (!row) {
+        // Fallback: accept client-supplied price/name for static-catalog products
+        if (typeof it.unitPrice === 'number' && it.productName) {
+          resolved.push({
+            productId:   it.productId,
+            variantId:   null,
+            quantity:    it.quantity,
+            unitPrice:   it.unitPrice,
+            productName: it.productName,
+            imageUrl:    null,
+            fromFallback: true,
+          });
+          continue;
+        }
         return c.json({
           success: false,
-          error:   `Insufficient stock for "${item.productName}" (${available} available)`,
+          error:   `Product ${it.productId} not found or inactive`,
+          code:    'PRODUCT_NOT_FOUND',
+        }, 404);
+      }
+
+      if (row.stock < it.quantity) {
+        return c.json({
+          success: false,
+          error:   `Insufficient stock for "${row.name}" (${row.stock} available)`,
           code:    'INSUFFICIENT_STOCK',
         }, 409);
       }
+
+      resolved.push({
+        productId:   it.productId,
+        variantId,
+        quantity:    it.quantity,
+        unitPrice:   row.price,
+        productName: row.name,
+        imageUrl:    row.image_url,
+        fromFallback: false,
+      });
     }
 
-    // 3. Apply coupon (if provided)
-    let discount   = 0;
-    let appliedCoupon: { id: string; code: string } | null = null;
+    // 3. Stub-insert fallback products so order_items FK holds
+    const stubInserts = resolved
+      .filter((r) => r.fromFallback)
+      .map((r) =>
+        c.env.DB.prepare(`
+          INSERT OR IGNORE INTO products (
+            id, name, slug, sku, category_id, short_description, description,
+            price, stock, is_active
+          ) VALUES (?, ?, ?, ?, ?, '', '', ?, 0, 0)
+        `).bind(
+          r.productId, r.productName, r.productId, r.productId,
+          FALLBACK_CATEGORY_ID, r.unitPrice,
+        ),
+      );
+    if (stubInserts.length) await c.env.DB.batch(stubInserts);
 
-    if (couponCode) {
+    const subtotal = Math.round(
+      resolved.reduce((s, i) => s + i.unitPrice * i.quantity, 0) * 100,
+    ) / 100;
+
+    // 4. Apply coupons — reject PREPAID5 on COD orders (prepaid-only offer).
+    // First-order-only coupons (WELCOME10) require an authenticated user with
+    // no prior qualifying order — matched against `is_first_order_only` on the
+    // coupon row so the client can't bypass the /validate check.
+    let discount = 0;
+    const appliedCoupons: { id: string; code: string }[] = [];
+    let firstOrderChecked = false;
+    let userIsEligibleForFirstOrder = false;
+    for (const rawCode of couponCodes) {
+      const code = rawCode.toUpperCase();
+      if (code === PREPAID_COUPON_CODE) continue; // silently ignore — frontend also blocks this
+
       const coupon = await c.env.DB.prepare(`
         SELECT id, code, type, value, min_order_amount, max_usage, usage_count,
                is_first_order_only, expires_at
         FROM coupons
         WHERE code = ? AND is_active = 1
-      `).bind(couponCode.toUpperCase())
-        .first<{
-          id: string; code: string; type: 'percentage' | 'fixed';
-          value: number; min_order_amount: number | null; max_usage: number | null;
-          usage_count: number; is_first_order_only: number; expires_at: string | null;
-        }>();
+      `).bind(code).first<{
+        id: string; code: string; type: 'percentage' | 'fixed';
+        value: number; min_order_amount: number | null;
+        max_usage: number | null; usage_count: number;
+        is_first_order_only: number; expires_at: string | null;
+      }>();
+      if (!coupon) continue;
 
-      if (coupon) {
-        const subtotal = cart.subtotal;
-        const valid    =
-          (!coupon.min_order_amount || subtotal >= coupon.min_order_amount) &&
-          (!coupon.max_usage        || coupon.usage_count < coupon.max_usage) &&
-          (!coupon.expires_at       || new Date(coupon.expires_at) > new Date());
+      const valid =
+        (!coupon.min_order_amount || subtotal >= coupon.min_order_amount) &&
+        (!coupon.max_usage        || coupon.usage_count < coupon.max_usage) &&
+        (!coupon.expires_at       || new Date(coupon.expires_at) > new Date());
+      if (!valid) continue;
 
-        if (valid) {
-          discount = coupon.type === 'percentage'
-            ? Math.round(subtotal * (coupon.value / 100) * 100) / 100
-            : Math.min(coupon.value, subtotal);
-          appliedCoupon = { id: coupon.id, code: coupon.code };
+      if (coupon.is_first_order_only) {
+        if (!userId) continue; // guests can't use first-order-only coupons
+        if (!firstOrderChecked) {
+          userIsEligibleForFirstOrder = !(await hasQualifyingPriorOrder(c.env.DB, userId));
+          firstOrderChecked = true;
         }
+        if (!userIsEligibleForFirstOrder) continue;
       }
+
+      const amount = coupon.type === 'percentage'
+        ? Math.round(subtotal * (coupon.value / 100) * 100) / 100
+        : Math.min(coupon.value, subtotal);
+      discount += amount;
+      appliedCoupons.push({ id: coupon.id, code: coupon.code });
+    }
+    discount = Math.min(discount, subtotal);
+
+    // 5. Compute totals (server is source of truth). COD fee is added on top.
+    const shipping = calcShipping(subtotal - discount);
+    const tax      = calcTax(subtotal - discount);
+    const total    = Math.round((subtotal - discount + shipping + tax + COD_HANDLING_FEE) * 100) / 100;
+
+    if (total < 1) {
+      return c.json({ success: false, error: 'Order total is below the minimum (₹1)', code: 'AMOUNT_TOO_LOW' }, 400);
     }
 
-    // 4. Compute totals
-    const subtotal       = cart.subtotal;
-    const shipping       = calcShipping(subtotal - discount);
-    const tax            = calcTax(subtotal - discount);
-    const total          = Math.round((subtotal - discount + shipping + tax) * 100) / 100;
-
-    // 5. Create order in D1
-    const orderId         = generateId('ord');
-    const orderNumber     = generateOrderNumber();
-    const estimatedDate   = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
-      .toISOString().split('T')[0]; // +5 days
+    // 6. Persist the order
+    const orderId       = generateId('ord');
+    const orderNumber   = generateOrderNumber();
+    const estimatedDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+      .toISOString().split('T')[0];
+    const couponSummary = appliedCoupons.map((cp) => cp.code).join(',') || null;
 
     await c.env.DB.prepare(`
       INSERT INTO orders (
-        id, order_number, user_id, guest_email, status, payment_status,
+        id, order_number, user_id, guest_email, status, payment_status, payment_method,
         shipping_name, shipping_phone,
         shipping_address_line1, shipping_address_line2,
         shipping_city, shipping_state, shipping_pincode,
         subtotal, discount, shipping_amount, tax, total,
         coupon_code, estimated_delivery_date
-      ) VALUES (?, ?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, 'confirmed', 'pending', 'cod', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      orderId, orderNumber, userId, null,
+      orderId, orderNumber, userId, email,
       shippingAddress.name, shippingAddress.phone,
-      shippingAddress.addressLine1, shippingAddress.addressLine2 ?? null,
+      shippingAddress.line1, shippingAddress.line2 ?? null,
       shippingAddress.city, shippingAddress.state, shippingAddress.pincode,
-      subtotal, discount, shipping, tax, total,
-      appliedCoupon?.code ?? null,
-      estimatedDate,
+      subtotal, discount, shipping + COD_HANDLING_FEE, tax, total,
+      couponSummary, estimatedDate,
     ).run();
 
-    // 6. Insert order items
-    const itemInserts = cart.items.map((item) =>
+    // 7. Insert order items
+    const itemInserts = resolved.map((item) =>
       c.env.DB.prepare(`
         INSERT INTO order_items (id, order_id, product_id, variant_id, product_name, sku, quantity, unit_price, line_total, image_url)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
-        generateId('oi'),
-        orderId,
-        item.productId,
-        item.variantId ?? null,
-        item.productName,
-        item.productId, // use productId as fallback SKU — real SKU fetched if needed
-        item.quantity,
-        item.unitPrice,
+        generateId('oi'), orderId, item.productId, item.variantId ?? null,
+        item.productName, item.productId, item.quantity, item.unitPrice,
         Math.round(item.unitPrice * item.quantity * 100) / 100,
         item.imageUrl ?? null,
       ),
     );
     await c.env.DB.batch(itemInserts);
 
-    // 7. Increment coupon usage
-    if (appliedCoupon) {
+    // 8. Bump coupon usage
+    for (const applied of appliedCoupons) {
       await c.env.DB.prepare(
         'UPDATE coupons SET usage_count = usage_count + 1 WHERE id = ?',
-      ).bind(appliedCoupon.id).run();
+      ).bind(applied.id).run();
     }
 
-    // 8. Initiate PhonePe payment
-    const phonepeBaseUrl = c.env.PHONEPE_ENV === 'production'
-      ? 'https://api.phonepe.com/apis/hermes'
-      : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+    // 9. Best-effort order-confirmation email — don't block the response on failure
+    if (c.env.RESEND_API_KEY) {
+      try {
+        await sendOrderConfirmation(
+          {
+            id:                    orderId,
+            orderNumber,
+            guestEmail:            userId ? null : email,
+            userEmail:             userId ? email : null,
+            shippingName:          shippingAddress.name,
+            shippingAddressLine1:  shippingAddress.line1,
+            shippingAddressLine2:  shippingAddress.line2 ?? null,
+            shippingCity:          shippingAddress.city,
+            shippingState:         shippingAddress.state,
+            shippingPincode:       shippingAddress.pincode,
+            subtotal,
+            discount,
+            shippingAmount:        shipping + COD_HANDLING_FEE,
+            tax,
+            total,
+            couponCode:            couponSummary,
+            estimatedDeliveryDate: estimatedDate,
+            items: resolved.map((r) => ({
+              productName: r.productName,
+              variantName: null,
+              quantity:    r.quantity,
+              unitPrice:   r.unitPrice,
+              lineTotal:   Math.round(r.unitPrice * r.quantity * 100) / 100,
+            })),
+          },
+          c.env.RESEND_API_KEY,
+          c.env.RESEND_FROM_ORDERS || c.env.RESEND_FROM,
+          c.env.SUPPORT_EMAIL || null,
+        );
+      } catch (err) {
+        console.warn('[checkout/cod] confirmation email failed', err);
+      }
+    }
 
-    const svc = new PhonePeService(
-      c.env.PHONEPE_MERCHANT_ID,
-      c.env.PHONEPE_SALT_KEY,
-      c.env.PHONEPE_SALT_INDEX,
-      phonepeBaseUrl,
+    // 10. Auto-create a passwordless customer account for guest checkouts,
+    // then sign them in so the "View Order" CTA on the confirmation page
+    // (which links to /account/orders/{id}) actually works.
+    // Behaviour:
+    //   - If an account with this email already exists → link the order to
+    //     that user but do NOT auto-sign-in (security: we don't know the
+    //     buyer really owns that account, only that they knew the email).
+    //   - Otherwise → create a new passwordless user. They can set a
+    //     password later via forgot-password, or sign in via OTP once we
+    //     ship that flow.
+    let issuedSession: { user: { id: string; name: string; email: string; phone: string; role: string }; accessToken: string; refreshToken: string } | null = null;
+
+    if (!camWithSession) {
+      try {
+        const existing = await c.env.DB.prepare(
+          'SELECT id, name, email, phone, role FROM users WHERE email = ? AND is_active = 1',
+        ).bind(email).first<{ id: string; name: string; email: string; phone: string; role: string }>();
+
+        if (existing) {
+          // Link the order to the existing account, don't hand out a session.
+          await c.env.DB.prepare('UPDATE orders SET user_id = ? WHERE id = ?')
+            .bind(existing.id, orderId).run();
+          userId = existing.id;
+        } else {
+          // Try creating a new passwordless account with the shipping details.
+          const newId = generateId('usr');
+          const displayName = shippingAddress.name;
+          const displayPhone = shippingAddress.phone;
+
+          try {
+            await c.env.DB.prepare(
+              'INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+            ).bind(newId, displayName, email, displayPhone, UNUSABLE_PASSWORD_HASH, 'customer').run();
+          } catch (err) {
+            // Phone unique constraint likely — retry with a synthetic phone so the account still gets created.
+            console.warn('[checkout/cod] user insert failed (likely phone conflict), retrying with synthetic phone', err);
+            await c.env.DB.prepare(
+              'INSERT INTO users (id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+            ).bind(newId, displayName, email, `guest:${newId}`, UNUSABLE_PASSWORD_HASH, 'customer').run();
+          }
+
+          // Link the order + mint a session
+          await c.env.DB.prepare('UPDATE orders SET user_id = ? WHERE id = ?')
+            .bind(newId, orderId).run();
+          userId = newId;
+
+          const accessToken  = await signJwt(
+            { sub: newId, email, role: 'customer' },
+            c.env.JWT_SECRET,
+            '15m',
+          );
+          const refreshToken = generateRefreshToken();
+          await c.env.KV_SESSIONS.put(`refresh:${newId}:${refreshToken}`, newId, {
+            expirationTtl: REFRESH_TOKEN_TTL,
+          });
+          await c.env.KV_SESSIONS.put(`rt_lookup:${refreshToken}`, newId, {
+            expirationTtl: REFRESH_TOKEN_TTL,
+          });
+          setRefreshCookie(c, refreshToken);
+
+          issuedSession = {
+            user: { id: newId, name: displayName, email, phone: displayPhone, role: 'customer' },
+            accessToken,
+            refreshToken,
+          };
+        }
+      } catch (err) {
+        // Never block the order response on account-creation issues.
+        console.warn('[checkout/cod] auto-account creation failed, continuing as guest', err);
+      }
+    }
+
+    // 11. Clear KV cart if authenticated (guest carts live in the browser)
+    if (userId) {
+      await c.env.KV_CACHE.delete(`cart:user:${userId}`);
+    }
+
+    // 12. Fire off Shiprocket automation without blocking the response.
+    // Failures are logged and stashed on the order row for admin retry.
+    c.executionCtx.waitUntil(
+      automateShipmentForOrder(c.env, orderId).catch((err) => {
+        console.error('[checkout/cod] shipment automation crashed for', orderId, err);
+      }),
     );
-
-    let merchantTransactionId: string;
-    let paymentUrl: string;
-
-    try {
-      const result = await svc.initiatePayment({
-        orderId,
-        userId,
-        amount:      total,
-        redirectUrl: `${c.env.BASE_URL}/api/payments/phonepe/redirect?orderId=${orderId}`,
-        callbackUrl: `${c.env.BASE_URL}/api/payments/phonepe/callback`,
-      });
-      merchantTransactionId = result.merchantTransactionId;
-      paymentUrl            = result.paymentUrl;
-    } catch (err) {
-      // Roll back order on PhonePe failure
-      await c.env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderId).run();
-      console.error('[Checkout] PhonePe init failed:', err);
-      return c.json({
-        success: false,
-        error:   'Payment gateway unavailable. Please try again.',
-        code:    'PAYMENT_GATEWAY_ERROR',
-      }, 502);
-    }
-
-    // 9. Store merchantTransactionId on order
-    await c.env.DB.prepare(
-      'UPDATE orders SET phonepe_merchant_txn_id = ? WHERE id = ?',
-    ).bind(merchantTransactionId, orderId).run();
-
-    // 10. Clear user cart
-    await c.env.KV_CACHE.delete(cartKey);
 
     return c.json({
       success: true,
-      data:    { orderId, orderNumber, paymentUrl, merchantTransactionId, total },
+      data: {
+        orderId,
+        orderNumber,
+        total,
+        paymentMethod: 'cod',
+        // Fresh session for auto-created guest accounts. Older clients that
+        // don't know about these fields simply ignore them.
+        ...(issuedSession
+          ? {
+              user:         issuedSession.user,
+              accessToken:  issuedSession.accessToken,
+              refreshToken: issuedSession.refreshToken,
+            }
+          : {}),
+      },
     });
   },
 );

@@ -8,6 +8,7 @@ import {
 import StatsCard from '@/components/admin/StatsCard';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -15,10 +16,7 @@ function useAnalytics(period = '30d') {
   return useQuery({
     queryKey: ['admin-analytics', period],
     queryFn: async () => {
-      const token = localStorage.getItem('sumosta_access_token');
-      const res   = await fetch(`${API}/api/admin/analytics/overview?period=${period}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch(`${API}/api/admin/analytics/overview?period=${period}`);
       return res.json();
     },
   });
@@ -28,10 +26,7 @@ function useSales(period = '30d') {
   return useQuery({
     queryKey: ['admin-analytics-sales', period],
     queryFn: async () => {
-      const token = localStorage.getItem('sumosta_access_token');
-      const res   = await fetch(`${API}/api/admin/analytics/sales?period=${period}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch(`${API}/api/admin/analytics/sales?period=${period}`);
       return res.json();
     },
   });
@@ -41,10 +36,7 @@ function useFunnel(period = '30d') {
   return useQuery({
     queryKey: ['admin-analytics-funnel', period],
     queryFn: async () => {
-      const token = localStorage.getItem('sumosta_access_token');
-      const res   = await fetch(`${API}/api/admin/analytics/funnel?period=${period}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch(`${API}/api/admin/analytics/funnel?period=${period}`);
       return res.json();
     },
   });

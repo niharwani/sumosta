@@ -4,13 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Tag } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-
-function authHeaders() {
-  const token = localStorage.getItem('sumosta_access_token');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
 
 const EMPTY_FORM = { code: '', type: 'percentage', value: '', minOrderAmount: '', maxUsage: '', expiresAt: '' };
 
@@ -23,7 +19,7 @@ export default function AdminCouponsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-coupons'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/coupons`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/coupons`);
       return res.json();
     },
   });
@@ -33,9 +29,8 @@ export default function AdminCouponsPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API}/api/admin/coupons`, {
+      const res = await adminFetch(`${API}/api/admin/coupons`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({
           code:           form.code.toUpperCase(),
           type:           form.type,
@@ -60,9 +55,8 @@ export default function AdminCouponsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API}/api/admin/coupons/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/coupons/${id}`, {
         method: 'DELETE',
-        headers: authHeaders(),
       });
       return res.json();
     },

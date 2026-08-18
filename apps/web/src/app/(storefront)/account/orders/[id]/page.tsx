@@ -9,7 +9,7 @@
 // If/when this app moves off `output: 'export'`, replace this file with:
 //   export const dynamic = 'force-dynamic';
 export function generateStaticParams() {
-  return [{ id: 'shell' }];
+  return [{ id: '_placeholder' }];
 }
 
 import Content from './_content';

@@ -17,3 +17,8 @@ export const metadata = {
   title: 'Reset password • SUMOSTA',
   description: 'Choose a new password for your SUMOSTA account.',
 };
+
+// Static export shim — token is consumed client-side; real values arrive via runtime navigation.
+export function generateStaticParams() {
+  return [{ token: '_placeholder' }];
+}

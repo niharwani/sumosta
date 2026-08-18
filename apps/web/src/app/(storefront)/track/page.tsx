@@ -4,10 +4,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Truck, MapPin, CheckCircle } from 'lucide-react';
+import { Package, Truck, MapPin, CheckCircle, Clock } from 'lucide-react';
 import { fadeUp } from '@/lib/animations';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import type { TrackingResponse } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
@@ -97,6 +98,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 export default function TrackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [order, setOrder] = useState<any>(null);
+  const [tracking, setTracking] = useState<TrackingResponse | null>(null);
   const [error, setError] = useState('');
   const orderNumberId = useId();
   const emailId = useId();
@@ -109,13 +111,21 @@ export default function TrackPage() {
     setSubmitting(true);
     setError('');
     setOrder(null);
+    setTracking(null);
     try {
-      const res = await fetch(
-        `${API}/api/orders/track?orderNumber=${encodeURIComponent(data.orderNumber)}&email=${encodeURIComponent(data.email)}`,
-      );
-      const json = await res.json();
-      if (!res.ok || !json.data) throw new Error(json.error || 'Order not found');
-      setOrder(json.data);
+      const [orderRes, trackingRes] = await Promise.all([
+        fetch(`${API}/api/orders/track?orderNumber=${encodeURIComponent(data.orderNumber)}&email=${encodeURIComponent(data.email)}`),
+        fetch(`${API}/api/orders/track/live?orderNumber=${encodeURIComponent(data.orderNumber)}&email=${encodeURIComponent(data.email)}`),
+      ]);
+      const orderJson = await orderRes.json();
+      if (!orderRes.ok || !orderJson.data) throw new Error(orderJson.error || 'Order not found');
+      setOrder(orderJson.data);
+
+      // Live tracking is best-effort — don't error the page if it fails
+      if (trackingRes.ok) {
+        const trackingJson = await trackingRes.json();
+        if (trackingJson.success && trackingJson.data) setTracking(trackingJson.data);
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -242,12 +252,14 @@ export default function TrackPage() {
                 <StatusTimeline currentStatus={order.status} />
               )}
 
-              {order.tracking_number && (
+              {(order.tracking_number || order.awb_code) && (
                 <div className="mt-6 p-4 bg-cream rounded-xl border border-sand">
                   <p className="font-satoshi text-earth text-xs uppercase tracking-wider mb-1">
-                    Tracking Number
+                    {order.courier_name ? `${order.courier_name} · AWB` : 'Tracking Number'}
                   </p>
-                  <p className="font-satoshi text-charcoal font-medium">{order.tracking_number}</p>
+                  <p className="font-satoshi text-charcoal font-medium">
+                    {order.awb_code ?? order.tracking_number}
+                  </p>
                   {order.tracking_url && (
                     <a
                       href={order.tracking_url}
@@ -257,6 +269,59 @@ export default function TrackPage() {
                     >
                       Track on courier website →
                     </a>
+                  )}
+                </div>
+              )}
+
+              {/* Live checkpoints from Shiprocket */}
+              {tracking && !['cancelled', 'refunded'].includes(order.status) && (tracking.awb_pending || tracking.awb_code) && (
+                <div className="mt-6 border-t border-sand pt-6">
+                  <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                    <p className="font-clash text-charcoal font-semibold text-sm m-0">Live tracking</p>
+                    {tracking.current_status && (
+                      <span className="font-satoshi text-xs font-medium bg-honey-100 text-honey-600 px-2.5 py-0.5 rounded-full">
+                        {tracking.current_status}
+                      </span>
+                    )}
+                  </div>
+
+                  {tracking.awb_pending ? (
+                    <div className="flex items-center gap-2.5 text-bark">
+                      <Clock size={14} className="text-honey-500" aria-hidden />
+                      <p className="font-satoshi text-sm m-0">
+                        Preparing your shipment. The courier and AWB will appear here shortly.
+                      </p>
+                    </div>
+                  ) : tracking.activities.length === 0 ? (
+                    <div className="flex items-center gap-2.5 text-bark">
+                      <Truck size={14} className="text-honey-500" aria-hidden />
+                      <p className="font-satoshi text-sm m-0">
+                        Awaiting the first courier update.
+                      </p>
+                    </div>
+                  ) : (
+                    <ol className="relative border-l-2 border-sand ml-1 space-y-3 pl-5 list-none">
+                      {tracking.activities.map((a, i) => (
+                        <li key={`${a.date}-${i}`} className="relative">
+                          <span
+                            aria-hidden
+                            className={`absolute -left-[26px] top-1 w-3 h-3 rounded-full border-2 ${
+                              i === 0 ? 'bg-honey-500 border-honey-500' : 'bg-cream-warm border-sand'
+                            }`}
+                          />
+                          <p className="font-satoshi text-charcoal text-sm font-medium m-0">
+                            {a.status}
+                          </p>
+                          {a.activity && a.activity !== a.status && (
+                            <p className="font-satoshi text-bark text-xs mt-0.5 m-0">{a.activity}</p>
+                          )}
+                          <p className="font-satoshi text-earth text-xs mt-0.5 m-0">
+                            {a.location && <span>{a.location} · </span>}
+                            {a.date}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
                   )}
                 </div>
               )}

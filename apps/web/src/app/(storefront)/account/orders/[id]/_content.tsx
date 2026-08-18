@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice, cn } from '@/lib/utils';
-import { ordersApi, reviewsApi, cartApi, ApiError } from '@/lib/api';
+import { ordersApi, reviewsApi, cartApi, ApiError, type TrackingResponse } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth-store';
 import { HONEY_EASE_OUT } from '@/lib/animations';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
@@ -63,6 +64,7 @@ type OrderDetail = {
   order_number: string;
   status: string;
   payment_status: string;
+  payment_method?: string | null;
   subtotal: number;
   discount: number;
   shipping_amount: number;
@@ -71,7 +73,11 @@ type OrderDetail = {
   paid_at: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
+  awb_code?: string | null;
+  courier_name?: string | null;
+  shipment_status?: string | null;
   estimated_delivery_date?: string | null;
+  guest_email?: string | null;
   shipping_name: string;
   shipping_phone: string;
   shipping_address_line1: string;
@@ -83,7 +89,22 @@ type OrderDetail = {
 };
 
 export default function OrderDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  // On Cloudflare Pages static export the URL /account/orders/ord_XXX/ is
+  // served by the pre-built _placeholder HTML, so useParams() returns the
+  // baked-in placeholder value, not the real id. The pathname does have
+  // the real segment — use it as the source of truth.
+  const paramsFromRoute = useParams<{ id: string }>();
+  const pathname = usePathname();
+  const idFromPath = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    const source = pathname ?? window.location.pathname;
+    const match  = source.match(/\/account\/orders\/([^/]+)/);
+    const raw    = match?.[1] ?? '';
+    return raw === '_placeholder' || raw === 'shell' ? '' : decodeURIComponent(raw);
+  }, [pathname]);
+  const paramId = paramsFromRoute?.id;
+  const id = idFromPath || (paramId && paramId !== '_placeholder' && paramId !== 'shell' ? paramId : '');
+
   const router = useRouter();
   const qc = useQueryClient();
   const prefersReducedMotion = useReducedMotion();
@@ -92,15 +113,28 @@ export default function OrderDetailPage() {
   const [reviewedItems, setReviewedItems] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const user = useAuthStore((s) => s.user);
 
-  const isShellRoute = !id || id === 'shell' || id === '_placeholder';
+  const isShellRoute = !id;
 
   const { data: order, isLoading, isError, error } = useQuery({
     queryKey: ['order', id],
     queryFn:  () => ordersApi.get(id as string) as Promise<OrderDetail>,
     enabled:  !!id && !isShellRoute,
     retry:    false,
+  });
+
+  // Live tracking — fetches Shiprocket checkpoints once we have an order.
+  // Refetched every 5 minutes while the tab is open so customers who leave
+  // the page open see updates (Shiprocket updates faster than our polling,
+  // but 5min is a friendly rate).
+  const { data: tracking } = useQuery({
+    queryKey: ['order-tracking', id],
+    queryFn:  () => ordersApi.tracking(id as string) as Promise<TrackingResponse>,
+    enabled:  !!id && !isShellRoute && !!order && !['cancelled', 'refunded'].includes(order.status),
+    refetchInterval: 5 * 60 * 1000,
+    retry:    false,
+    staleTime: 60 * 1000,
   });
 
   const pushToast = (text: string, tone: Toast['tone'] = 'info') => {
@@ -187,31 +221,17 @@ export default function OrderDetailPage() {
     reorderMutation.mutate(order.items);
   };
 
-  const handleDownloadInvoice = async () => {
+  const handleDownloadInvoice = () => {
     if (!order) return;
-    setDownloadingInvoice(true);
-    try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('sumosta_access_token')
-          : null;
-      const res = await fetch(`${API_URL}/api/orders/${order.id}/receipt`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error('Failed to download invoice');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${order.order_number}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      pushToast('Could not download invoice. Please try again.', 'error');
-    } finally {
-      setDownloadingInvoice(false);
+    // The receipt endpoint returns JSON, not a real PDF — building a PDF
+    // service is out of scope for launch. Open the printable order-confirmation
+    // page in a new tab instead; the customer can use the browser's built-in
+    // "Save as PDF" for a cleaner invoice than we could hand-render.
+    const email = order.guest_email ?? user?.email ?? '';
+    const url = `/order-confirmation/${order.id}/?orderId=${encodeURIComponent(order.id)}&email=${encodeURIComponent(email)}&print=1`;
+    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!w) {
+      pushToast('Please allow pop-ups to view the invoice.', 'error');
     }
   };
 
@@ -342,16 +362,16 @@ export default function OrderDetailPage() {
               })}
             </div>
           )}
-          {(order.tracking_number || order.estimated_delivery_date) && (
+          {(order.tracking_number || order.estimated_delivery_date || order.awb_code) && (
             <div className="mt-6 pt-4 border-t border-[--sand] flex flex-wrap items-center justify-between gap-4">
               <div>
-                {order.tracking_number && (
+                {(order.awb_code || order.tracking_number) && (
                   <>
                     <p className="font-satoshi text-[--earth] text-xs uppercase tracking-wider">
-                      Tracking Number
+                      AWB · {order.courier_name ?? 'Courier assigned'}
                     </p>
                     <p className="font-satoshi text-[--charcoal] font-medium mt-0.5">
-                      {order.tracking_number}
+                      {order.awb_code ?? order.tracking_number}
                     </p>
                   </>
                 )}
@@ -379,6 +399,70 @@ export default function OrderDetailPage() {
                 </a>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Live courier tracking — Shiprocket checkpoints */}
+      {!isTerminal && tracking && (tracking.awb_pending || tracking.awb_code) && (
+        <div className="bg-[--cream-warm] rounded-2xl border border-[--sand] p-6">
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <h2 className="font-clash text-[--charcoal] font-bold text-lg m-0">
+              Live tracking
+            </h2>
+            {tracking.current_status && (
+              <span className="font-satoshi text-xs font-medium bg-[--honey-100] text-[--honey-600] px-3 py-1 rounded-full">
+                {tracking.current_status}
+              </span>
+            )}
+          </div>
+
+          {tracking.awb_pending ? (
+            <div className="flex items-center gap-3 text-[--bark]">
+              <Clock size={16} className="text-[--honey-500]" aria-hidden />
+              <p className="font-satoshi text-sm m-0">
+                We&apos;re preparing your shipment — the courier and tracking
+                number will appear here as soon as it&apos;s picked up. Usually
+                within a few hours.
+              </p>
+            </div>
+          ) : tracking.activities.length === 0 ? (
+            <div className="flex items-center gap-3 text-[--bark]">
+              <Truck size={16} className="text-[--honey-500]" aria-hidden />
+              <p className="font-satoshi text-sm m-0">
+                Awaiting the first update from{' '}
+                <strong>{tracking.courier_name ?? 'the courier'}</strong>.
+                Check back shortly.
+              </p>
+            </div>
+          ) : (
+            <ol className="relative border-l-2 border-[--sand] ml-1.5 space-y-4 pl-6 pt-1 list-none">
+              {tracking.activities.map((a, i) => (
+                <li key={`${a.date}-${i}`} className="relative">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute -left-[30px] top-1 w-3.5 h-3.5 rounded-full border-2',
+                      i === 0
+                        ? 'bg-[--honey-400] border-[--honey-500]'
+                        : 'bg-[--cream-warm] border-[--sand]',
+                    )}
+                  />
+                  <p className="font-satoshi text-[--charcoal] text-sm font-medium m-0">
+                    {a.status}
+                  </p>
+                  {a.activity && a.activity !== a.status && (
+                    <p className="font-satoshi text-[--bark] text-xs mt-0.5 m-0">
+                      {a.activity}
+                    </p>
+                  )}
+                  <p className="font-satoshi text-[--earth] text-xs mt-1 m-0">
+                    {a.location && <span>{a.location} · </span>}
+                    {a.date}
+                  </p>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
       )}
@@ -558,20 +642,29 @@ export default function OrderDetailPage() {
           <h2 className="font-clash text-[--charcoal] font-bold text-lg m-0">Payment</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              'text-xs font-satoshi font-medium px-2.5 py-1 rounded-full capitalize',
-              order.payment_status === 'captured'
-                ? 'bg-[--sage-light] text-[--sage]'
-                : order.payment_status === 'pending'
-                ? 'bg-[--honey-100] text-[--honey-600]'
-                : 'bg-[--terracotta-light] text-[--terracotta]',
-            )}
-          >
-            {order.payment_status === 'captured'
+          {(() => {
+            const isCod = order.payment_method === 'cod';
+            const label = order.payment_status === 'captured'
               ? 'Paid'
-              : String(order.payment_status).replace('_', ' ')}
-          </span>
+              : isCod
+                ? 'Cash on delivery'
+                : String(order.payment_status).replace('_', ' ');
+            const tone = order.payment_status === 'captured'
+              ? 'bg-[--sage-light] text-[--sage]'
+              : order.payment_status === 'pending'
+                ? 'bg-[--honey-100] text-[--honey-600]'
+                : 'bg-[--terracotta-light] text-[--terracotta]';
+            return (
+              <span className={cn('text-xs font-satoshi font-medium px-2.5 py-1 rounded-full capitalize', tone)}>
+                {label}
+              </span>
+            );
+          })()}
+          {order.payment_method && order.payment_method !== 'cod' && (
+            <span className="font-satoshi text-[--earth] text-xs capitalize">
+              · {order.payment_method}
+            </span>
+          )}
           {order.paid_at && (
             <p className="font-satoshi text-[--earth] text-xs">
               Paid on{' '}
@@ -612,15 +705,10 @@ export default function OrderDetailPage() {
           <button
             type="button"
             onClick={handleDownloadInvoice}
-            disabled={downloadingInvoice}
-            className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 bg-[--cream] border border-[--sand] hover:border-[--honey-400] text-[--charcoal] font-satoshi font-semibold text-sm rounded-full px-6 py-3 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400] disabled:opacity-60"
+            className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 bg-[--cream] border border-[--sand] hover:border-[--honey-400] text-[--charcoal] font-satoshi font-semibold text-sm rounded-full px-6 py-3 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400]"
           >
-            {downloadingInvoice ? (
-              <HoneycombLoader size="sm" />
-            ) : (
-              <Download size={15} aria-hidden />
-            )}
-            {downloadingInvoice ? 'Downloading…' : 'Download invoice'}
+            <Download size={15} aria-hidden />
+            View / print invoice
           </button>
           {canCancel && (
             <button

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../index';
 import { verifyJwt } from '../lib/jwt';
+import { hasQualifyingPriorOrder } from '../lib/utils';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -96,14 +97,7 @@ app.post('/validate', zValidator('json', validateSchema), async (c) => {
       });
     }
 
-    // Check if the user has any previously paid orders
-    const previousOrder = await c.env.DB.prepare(`
-      SELECT id FROM orders
-      WHERE user_id = ? AND payment_status = 'captured'
-      LIMIT 1
-    `).bind(userId).first<{ id: string }>();
-
-    if (previousOrder) {
+    if (await hasQualifyingPriorOrder(c.env.DB, userId)) {
       return c.json({
         success: true,
         data: { valid: false, error: `${coupon.code} is for first-time customers only` },

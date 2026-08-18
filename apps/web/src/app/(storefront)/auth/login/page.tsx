@@ -15,6 +15,8 @@ import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthField } from '@/components/auth/AuthField';
 import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton';
 import { GoogleButton } from '@/components/auth/GoogleButton';
+import { PhoneOtpForm } from '@/components/auth/PhoneOtpForm';
+import { isFirebaseConfigured } from '@/lib/firebase';
 
 // -----------------------------------------------------------------------------
 // Query-param banner (?error=google_failed etc.)
@@ -40,6 +42,8 @@ function LoginForm() {
 
   const [formError, setFormError] = useState<string>('');
   const [retryAfter, setRetryAfter] = useState<number>(0);
+  const [method, setMethod] = useState<'email' | 'phone'>('email');
+  const phoneEnabled = isFirebaseConfigured();
 
   const {
     register,
@@ -89,12 +93,25 @@ function LoginForm() {
 
       <GoogleButton nextPath={nextPath} label="Continue with Google" />
 
+      {phoneEnabled ? (
+        <button
+          type="button"
+          onClick={() => setMethod(method === 'phone' ? 'email' : 'phone')}
+          className="mt-2 w-full inline-flex items-center justify-center gap-2 font-satoshi text-sm font-semibold text-[--charcoal] bg-[--cream-warm] border border-[--sand] hover:border-[--honey-400] rounded-full px-6 py-2.5 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400]"
+        >
+          {method === 'phone' ? 'Use email instead' : 'Continue with phone number'}
+        </button>
+      ) : null}
+
       <div className="flex items-center gap-3 my-5">
         <hr className="flex-1 border-[--sand]" />
         <span className="font-satoshi text-xs text-[--earth-light]">or</span>
         <hr className="flex-1 border-[--sand]" />
       </div>
 
+      {method === 'phone' ? (
+        <PhoneOtpForm nextPath={nextPath} onBack={() => setMethod('email')} />
+      ) : (
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
         <AuthField
           label="Email"
@@ -147,6 +164,7 @@ function LoginForm() {
           {retryAfter > 0 ? `Try again in ${retryAfter}s` : 'Sign In'}
         </AuthSubmitButton>
       </form>
+      )}
 
       <p className="font-satoshi text-[--earth] text-sm text-center mt-6">
         Don&apos;t have an account?{' '}

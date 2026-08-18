@@ -6,6 +6,8 @@ import { adminMiddleware } from '../../middleware/admin';
 import { generateId } from '../../lib/utils';
 import { PhonePeService } from '../../services/phonepe';
 import { sendOrderShipped, sendOrderDelivered } from '../../services/email';
+import { automateShipmentForOrder } from '../../services/shipment-automation';
+import { ShiprocketService, isShiprocketConfigured } from '../../services/shiprocket';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -48,10 +50,12 @@ async function notifyOrderStatusChange(
       trackingUrl:     order.tracking_url,
       estimatedDate:   order.estimated_delivery_date,
     };
+    const fromAddr = env.RESEND_FROM_ORDERS || env.RESEND_FROM || undefined;
+    const replyTo  = env.SUPPORT_EMAIL || null;
     if (newStatus === 'shipped') {
-      await sendOrderShipped(payload, env.RESEND_API_KEY, env.RESEND_FROM || undefined);
+      await sendOrderShipped(payload, env.RESEND_API_KEY, fromAddr, replyTo);
     } else {
-      await sendOrderDelivered(payload, env.RESEND_API_KEY, env.RESEND_FROM || undefined);
+      await sendOrderDelivered(payload, env.RESEND_API_KEY, fromAddr, replyTo);
     }
   } catch (err) {
     console.error(`[Admin/Orders] ${newStatus} email failed:`, err);
@@ -357,6 +361,119 @@ app.post('/:id/refund', zValidator('json', refundSchema), async (c) => {
   ).run();
 
   return c.json({ success: true, data: { orderId, refundAmount, refundResult } });
+});
+
+// ─── POST /api/admin/orders/:id/shipment/retry ──────────────────
+// Re-runs shipment automation for orders where the auto-shipment failed
+// (or was never triggered because Shiprocket wasn't configured at the time).
+// Idempotent — skips create if a shipment already exists, just tries to
+// (re)assign the AWB and request pickup.
+app.post('/:id/shipment/retry', async (c) => {
+  const orderId = c.req.param('id');
+  const adminId = (c as any).get('userId') as string;
+
+  const order = await c.env.DB.prepare(
+    'SELECT id FROM orders WHERE id = ?',
+  ).bind(orderId).first<{ id: string }>();
+  if (!order) {
+    return c.json({ success: false, error: 'Order not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  if (!isShiprocketConfigured(c.env)) {
+    return c.json({
+      success: false,
+      error:   'Shiprocket is not configured. Add SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD as secrets.',
+      code:    'NOT_CONFIGURED',
+    }, 400);
+  }
+
+  // If the AWB already exists, wipe it first so automation attempts a fresh assign.
+  // (Shipment id stays — Shiprocket keeps a 1:1 mapping to our order_number.)
+  await c.env.DB.prepare(`
+    UPDATE orders
+    SET awb_code = NULL, tracking_number = NULL, tracking_url = NULL,
+        shipment_last_error = NULL, updated_at = datetime('now')
+    WHERE id = ?
+  `).bind(orderId).run();
+
+  const result = await automateShipmentForOrder(c.env, orderId);
+
+  await c.env.DB.prepare(`
+    INSERT INTO admin_logs (id, admin_id, action, entity_type, entity_id, details)
+    VALUES (?, ?, 'shipment_retry', 'order', ?, ?)
+  `).bind(generateId('log'), adminId, orderId, JSON.stringify(result)).run();
+
+  if (!result.ok) {
+    return c.json({
+      success: false,
+      error:   result.reason ?? 'Shipment retry failed',
+      code:    'SHIPMENT_FAILED',
+    }, 502);
+  }
+
+  return c.json({ success: true, data: result });
+});
+
+// ─── POST /api/admin/orders/:id/shipment/cancel ─────────────────
+// Cancels a Shiprocket shipment (AWB and order). Order status stays as-is
+// so admin can still refund/refuse independently.
+app.post('/:id/shipment/cancel', async (c) => {
+  const orderId = c.req.param('id');
+  const adminId = (c as any).get('userId') as string;
+
+  const order = await c.env.DB.prepare(`
+    SELECT id, awb_code, shiprocket_order_id
+    FROM orders WHERE id = ?
+  `).bind(orderId).first<{
+    id: string; awb_code: string | null; shiprocket_order_id: number | null;
+  }>();
+
+  if (!order) {
+    return c.json({ success: false, error: 'Order not found', code: 'NOT_FOUND' }, 404);
+  }
+  if (!order.awb_code && !order.shiprocket_order_id) {
+    return c.json({
+      success: false,
+      error:   'This order has no active shipment to cancel.',
+      code:    'NO_SHIPMENT',
+    }, 400);
+  }
+  if (!isShiprocketConfigured(c.env)) {
+    return c.json({
+      success: false,
+      error:   'Shiprocket is not configured.',
+      code:    'NOT_CONFIGURED',
+    }, 400);
+  }
+
+  const sr = new ShiprocketService(c.env);
+  const errors: string[] = [];
+
+  if (order.awb_code) {
+    try { await sr.cancelShipment([order.awb_code]); }
+    catch (err) { errors.push(`awb: ${(err as Error).message}`); }
+  }
+  if (order.shiprocket_order_id) {
+    try { await sr.cancelOrder([order.shiprocket_order_id]); }
+    catch (err) { errors.push(`order: ${(err as Error).message}`); }
+  }
+
+  await c.env.DB.prepare(`
+    UPDATE orders
+    SET awb_code = NULL, tracking_number = NULL, tracking_url = NULL,
+        courier_name = NULL, courier_company_id = NULL,
+        shiprocket_shipment_id = NULL, shiprocket_order_id = NULL,
+        shipment_status = 'CANCELLED', shipment_status_updated_at = datetime('now'),
+        shipment_last_error = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).bind(errors.length ? errors.join('; ').slice(0, 500) : null, orderId).run();
+
+  await c.env.DB.prepare(`
+    INSERT INTO admin_logs (id, admin_id, action, entity_type, entity_id, details)
+    VALUES (?, ?, 'shipment_cancel', 'order', ?, ?)
+  `).bind(generateId('log'), adminId, orderId, JSON.stringify({ errors })).run();
+
+  return c.json({ success: true, data: { orderId, errors } });
 });
 
 export default app;

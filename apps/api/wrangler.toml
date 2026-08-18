@@ -7,7 +7,14 @@ compatibility_flags = ["nodejs_compat"]
 BASE_URL = "https://master.sumosta-web.pages.dev"
 WORKER_URL = "https://sumosta-api.sumosta-dev.workers.dev"
 PHONEPE_ENV = "sandbox"
-RESEND_FROM = "onboarding@resend.dev"
+RESEND_FROM          = "SUMOSTA <orders@sumosta.com>"
+RESEND_FROM_ORDERS   = "SUMOSTA Orders <orders@sumosta.com>"
+RESEND_FROM_NOREPLY  = "SUMOSTA <no-reply@sumosta.com>"
+SUPPORT_EMAIL        = "hello@sumosta.com"
+
+# Shiprocket — pickup nickname must exactly match the one saved in
+# Shiprocket panel → Settings → Pickup Addresses.
+SHIPROCKET_PICKUP_LOCATION = "Primary"
 
 [[d1_databases]]
 binding = "DB"
@@ -43,6 +50,10 @@ crons = ["0 18 * * *"]
 # JWT_SECRET
 # REFRESH_TOKEN_SECRET
 # RESEND_API_KEY
+# SHIPROCKET_EMAIL         — Shiprocket API user email (Panel → Settings → API)
+# SHIPROCKET_PASSWORD      — Shiprocket API user password
+# SHIPROCKET_WEBHOOK_TOKEN — Shared secret sent in x-api-key header by Shiprocket webhooks
+#                            (paste same value into Shiprocket Panel → Settings → Webhooks)
 
 [dev]
 port = 8787

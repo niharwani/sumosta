@@ -2,17 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Truck, RotateCcw, XCircle, ExternalLink, AlertCircle } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
+import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 const STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
-
-function authHeaders() {
-  const token = localStorage.getItem('sumosta_access_token');
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
 
 const STATUS_STYLES: Record<string, string> = {
   pending:    'bg-yellow-50 text-yellow-700',
@@ -36,7 +32,7 @@ export default function AdminOrderDetailPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-order', id],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/admin/orders/${id}`, { headers: authHeaders() });
+      const res = await adminFetch(`${API}/api/admin/orders/${id}`);
       return res.json();
     },
     enabled: !!id && id !== '_placeholder',
@@ -44,10 +40,29 @@ export default function AdminOrderDetailPage() {
 
   const updateMutation = useMutation({
     mutationFn: async (status: string) => {
-      const res = await fetch(`${API}/api/admin/orders/${id}`, {
+      const res = await adminFetch(`${API}/api/admin/orders/${id}`, {
         method: 'PATCH',
-        headers: authHeaders(),
         body: JSON.stringify({ status }),
+      });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-order', id] }),
+  });
+
+  const retryShipmentMutation = useMutation({
+    mutationFn: async () => {
+      const res = await adminFetch(`${API}/api/admin/orders/${id}/shipment/retry`, {
+        method: 'POST',
+      });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-order', id] }),
+  });
+
+  const cancelShipmentMutation = useMutation({
+    mutationFn: async () => {
+      const res = await adminFetch(`${API}/api/admin/orders/${id}/shipment/cancel`, {
+        method: 'POST',
       });
       return res.json();
     },
@@ -181,7 +196,9 @@ export default function AdminOrderDetailPage() {
             </div>
             <div>
               <p className="text-gray-400 text-xs mb-0.5">Method</p>
-              <p className="text-gray-700">PhonePe</p>
+              <p className="text-gray-700 capitalize">
+                {order.payment_method === 'cod' ? 'Cash on Delivery' : order.payment_method || '—'}
+              </p>
             </div>
             <div>
               <p className="text-gray-400 text-xs mb-0.5">Paid at</p>
@@ -190,6 +207,114 @@ export default function AdminOrderDetailPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Shipping / Shiprocket */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-satoshi text-gray-700 font-semibold text-sm uppercase tracking-wider flex items-center gap-2">
+              <Truck size={14} /> Shipping
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => retryShipmentMutation.mutate()}
+                disabled={retryShipmentMutation.isPending}
+                className="inline-flex items-center gap-1.5 text-xs font-satoshi font-medium text-honey-600 hover:text-honey-700 px-2.5 py-1.5 rounded-lg border border-honey-200 hover:bg-honey-50 disabled:opacity-50"
+                title={order.awb_code ? 'Force-reassign AWB' : 'Create Shiprocket shipment for this order'}
+              >
+                <RotateCcw size={12} />
+                {retryShipmentMutation.isPending ? 'Retrying…' : order.awb_code ? 'Reassign AWB' : 'Create shipment'}
+              </button>
+              {order.awb_code && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Cancel this shipment on Shiprocket? The order stays as-is.')) {
+                      cancelShipmentMutation.mutate();
+                    }
+                  }}
+                  disabled={cancelShipmentMutation.isPending}
+                  className="inline-flex items-center gap-1.5 text-xs font-satoshi font-medium text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <XCircle size={12} />
+                  {cancelShipmentMutation.isPending ? 'Cancelling…' : 'Cancel shipment'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {retryShipmentMutation.isError && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-satoshi text-red-700">
+              Retry failed. Check the API logs for the exact Shiprocket error.
+            </div>
+          )}
+          {retryShipmentMutation.data && !retryShipmentMutation.data.success && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-satoshi text-red-700">
+              Retry failed: {retryShipmentMutation.data.error ?? 'unknown error'}
+            </div>
+          )}
+
+          {!order.awb_code && !order.shiprocket_shipment_id ? (
+            <div className="flex items-start gap-2.5 text-sm font-satoshi text-gray-600">
+              <AlertCircle size={16} className="text-yellow-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="m-0">No Shiprocket shipment yet.</p>
+                {order.shipment_last_error && (
+                  <p className="mt-1 text-xs text-red-600 m-0">
+                    Last error: {order.shipment_last_error}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-400 m-0">
+                  Automation runs on payment confirmation. Use “Create shipment” above to trigger manually if it didn&apos;t fire.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm font-satoshi">
+              <div>
+                <p className="text-gray-400 text-xs mb-0.5">Courier</p>
+                <p className="text-gray-800 font-medium">{order.courier_name ?? 'Pending'}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs mb-0.5">AWB</p>
+                <p className="text-gray-800 font-medium font-mono text-[13px]">
+                  {order.awb_code ?? '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs mb-0.5">Status</p>
+                <p className="text-gray-800 font-medium">
+                  {order.shipment_status ?? '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs mb-0.5">Shiprocket ID</p>
+                <p className="text-gray-800 font-medium font-mono text-[13px]">
+                  {order.shiprocket_shipment_id ?? '—'}
+                </p>
+              </div>
+              {order.tracking_url && (
+                <div className="col-span-2 sm:col-span-4 pt-2 border-t border-gray-100">
+                  <a
+                    href={order.tracking_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-honey-600 hover:text-honey-700"
+                  >
+                    Open tracking page <ExternalLink size={11} />
+                  </a>
+                </div>
+              )}
+              {order.shipment_last_error && (
+                <div className="col-span-2 sm:col-span-4 pt-2 border-t border-gray-100">
+                  <p className="text-xs text-red-600 m-0">
+                    Last error: {order.shipment_last_error}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

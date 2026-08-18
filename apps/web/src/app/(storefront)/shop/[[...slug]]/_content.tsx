@@ -6,13 +6,18 @@ import { useParams } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Check, Package, ShoppingBag, X } from 'lucide-react';
 import { STATIC_PRODUCTS } from '@/lib/content';
+import { COMBOS, defaultComboPrice } from '@/lib/gifting-combos';
+import ComboCard from '@/components/product/ComboCard';
 import { useProductImages, resolveProductImage } from '@/hooks/useProductImages';
 import { useCartStore } from '@/stores/cart-store';
 import { formatPrice } from '@/lib/utils';
 import { HONEY_EASE_OUT } from '@/lib/animations';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 
-const ACTIVE_PRODUCTS = STATIC_PRODUCTS.filter((p) => p.isActive && !p.comingSoon);
+// The 5 Elements Collection is represented as a Combo — hide the standalone product card.
+const ACTIVE_PRODUCTS = STATIC_PRODUCTS.filter(
+  (p) => p.isActive && !p.comingSoon && p.slug !== '5-elements-collection',
+);
 
 // Categories aligned with CATEGORIES in lib/constants.ts (raw-honey, gift-boxes)
 // and with STATIC_PRODUCTS.categoryId (cat_raw_honey, cat_gift_boxes).
@@ -66,13 +71,27 @@ export default function ShopContent() {
     }, 180);
   }, []);
 
+  const showProducts = categoryId !== 'cat_gift_boxes';
+  const showCombos   = categoryId === null || categoryId === 'cat_gift_boxes';
+
   const filtered = (() => {
+    if (!showProducts) return [];
     let list = [...ACTIVE_PRODUCTS];
     if (categoryId) list = list.filter((p) => p.categoryId === categoryId);
     if (sort === 'price_asc') list.sort((a, b) => a.price - b.price);
     if (sort === 'price_desc') list.sort((a, b) => b.price - a.price);
     return list;
   })();
+
+  const visibleCombos = (() => {
+    if (!showCombos) return [];
+    const list = [...COMBOS];
+    if (sort === 'price_asc')  list.sort((a, b) => defaultComboPrice(a) - defaultComboPrice(b));
+    if (sort === 'price_desc') list.sort((a, b) => defaultComboPrice(b) - defaultComboPrice(a));
+    return list;
+  })();
+
+  const totalCount = filtered.length + visibleCombos.length;
 
   const activeCat = CATEGORIES.find((c) => c.categoryId === categoryId);
   const activeLabel = activeCat && activeCat.categoryId ? activeCat.label : '';
@@ -98,7 +117,7 @@ export default function ShopContent() {
   return (
     <div className="bg-cream text-charcoal min-h-screen">
       {/* Page header */}
-      <section className="max-w-content mx-auto px-6 md:px-8 pt-8 md:pt-12 pb-10">
+      <section className="max-w-content mx-auto px-5 md:px-8 pt-6 md:pt-12 pb-8 md:pb-10">
         <nav aria-label="Breadcrumb" className="mb-3">
           <ol className="flex items-center gap-1.5 font-satoshi text-xs text-earth-light">
             <li>
@@ -110,10 +129,10 @@ export default function ShopContent() {
         </nav>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-clash font-extrabold text-charcoal text-4xl md:text-5xl mb-2">The Collection</h1>
+            <h1 className="font-clash font-extrabold text-charcoal text-[1.75rem] md:text-5xl leading-tight mb-1.5">The Collection</h1>
             <div className="flex items-center gap-3 flex-wrap">
-              <p className="font-bespoke italic text-earth text-base md:text-lg m-0">
-                Showing {filtered.length} products{activeLabel ? ` in ${activeLabel}` : ''}
+              <p className="font-bespoke italic text-earth text-sm md:text-lg m-0">
+                Showing {totalCount} {totalCount === 1 ? 'item' : 'items'}{activeLabel ? ` in ${activeLabel}` : ''}
               </p>
               {activeLabel && (
                 <button
@@ -131,11 +150,11 @@ export default function ShopContent() {
 
       {/* Sticky filter bar */}
       <div
-        className={`sticky top-[var(--header-height)] z-40 bg-cream/95 backdrop-blur-md border-b border-sand transition-shadow duration-300 ${
+        className={`sticky top-[var(--header-height)] z-40 bg-cream border-b border-sand transition-shadow duration-300 ${
           filterStuck ? 'shadow-sm' : ''
         }`}
       >
-        <div className="max-w-content mx-auto px-6 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-content mx-auto px-5 md:px-8 py-2.5 md:py-3 flex flex-wrap items-center justify-between gap-2 md:gap-3">
           <div className="flex gap-2 overflow-x-auto scrollbar-none">
             {CATEGORIES.map((cat) => {
               const active = cat.categoryId === categoryId;
@@ -175,12 +194,12 @@ export default function ShopContent() {
       </div>
 
       {/* Product grid */}
-      <section className="max-w-content mx-auto px-6 md:px-8 pt-10 pb-24">
+      <section className="max-w-content mx-auto px-5 md:px-8 pt-6 md:pt-10 pb-16 md:pb-24">
         {loading ? (
           <div className="flex justify-center py-20">
             <HoneycombLoader size="lg" />
           </div>
-        ) : filtered.length > 0 ? (
+        ) : totalCount > 0 ? (
           <AnimatePresence mode="wait">
             <motion.div
               key={`${categoryId ?? 'all'}-${sort}`}
@@ -188,8 +207,10 @@ export default function ShopContent() {
               animate={{ opacity: transitioning ? 0 : 1 }}
               exit={reduce ? undefined : { opacity: 0 }}
               transition={{ duration: 0.25, ease: HONEY_EASE_OUT }}
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6"
+              className="flex flex-col gap-14"
             >
+              {filtered.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {filtered.map((p, idx) => {
                 const hovered = hoveredId === p.id;
                 const added = addedId === p.id;
@@ -286,6 +307,37 @@ export default function ShopContent() {
                   </motion.div>
                 );
               })}
+                </div>
+              )}
+
+              {visibleCombos.length > 0 && (
+                <div>
+                  {filtered.length > 0 && (
+                    <div className="mb-8">
+                      <h2 className="font-clash font-extrabold text-charcoal text-2xl md:text-3xl m-0 mb-1">Curated Bundles & Combos</h2>
+                      <p className="font-bespoke italic text-earth text-sm md:text-base m-0">
+                        Duo, Trio, Quartet & 5-Pack — save more when you bundle
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-6">
+                    {visibleCombos.map((combo, idx) => (
+                      <motion.div
+                        key={combo.id}
+                        initial={reduce ? false : { opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.5,
+                          delay: reduce ? 0 : Math.min(idx * 0.05, 0.3),
+                          ease: HONEY_EASE_OUT,
+                        }}
+                      >
+                        <ComboCard combo={combo} />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         ) : (

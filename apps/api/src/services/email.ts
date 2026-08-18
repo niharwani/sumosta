@@ -168,6 +168,7 @@ export async function sendOrderConfirmation(
   order: OrderEmailData,
   apiKey: string,
   fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+  replyTo?: string | null,
 ): Promise<boolean> {
   const toEmail = order.guestEmail ?? order.userEmail;
   if (!toEmail) {
@@ -176,18 +177,20 @@ export async function sendOrderConfirmation(
   }
 
   try {
+    const body: Record<string, unknown> = {
+      from:    fromAddress,
+      to:      [toEmail],
+      subject: `Order Confirmed — ${order.orderNumber} | SUMOSTA`,
+      html:    buildOrderConfirmationHtml(order),
+    };
+    if (replyTo) body.reply_to = replyTo;
     const response = await fetch(RESEND_API_URL, {
       method:  'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({
-        from:    fromAddress,
-        to:      [toEmail],
-        subject: `Order Confirmed — ${order.orderNumber} | SUMOSTA`,
-        html:    buildOrderConfirmationHtml(order),
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -309,12 +312,15 @@ function buildDeliveredHtml(order: ShippingUpdateData): string {
 
 async function sendResendEmail(
   to: string, subject: string, html: string, apiKey: string, fromAddress: string,
+  replyTo?: string | null,
 ): Promise<boolean> {
   try {
+    const body: Record<string, unknown> = { from: fromAddress, to: [to], subject, html };
+    if (replyTo) body.reply_to = replyTo;
     const response = await fetch(RESEND_API_URL, {
       method:  'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ from: fromAddress, to: [to], subject, html }),
+      body:    JSON.stringify(body),
     });
     if (!response.ok) {
       console.error('[Email] Resend API error:', response.status, await response.text());
@@ -331,6 +337,7 @@ export async function sendOrderShipped(
   order: ShippingUpdateData,
   apiKey: string,
   fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+  replyTo?: string | null,
 ): Promise<boolean> {
   return sendResendEmail(
     order.recipientEmail,
@@ -338,6 +345,7 @@ export async function sendOrderShipped(
     buildShippedHtml(order),
     apiKey,
     fromAddress,
+    replyTo,
   );
 }
 
@@ -345,6 +353,7 @@ export async function sendOrderDelivered(
   order: ShippingUpdateData,
   apiKey: string,
   fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+  replyTo?: string | null,
 ): Promise<boolean> {
   return sendResendEmail(
     order.recipientEmail,
@@ -352,6 +361,7 @@ export async function sendOrderDelivered(
     buildDeliveredHtml(order),
     apiKey,
     fromAddress,
+    replyTo,
   );
 }
 
@@ -375,7 +385,8 @@ export async function sendPasswordReset(
   email: string,
   resetUrl: string,
   apiKey: string,
-  fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+  fromAddress: string = 'SUMOSTA <no-reply@sumosta.com>',
+  replyTo?: string | null,
 ): Promise<boolean> {
   const text = buildPasswordResetText(resetUrl);
   const html = `
@@ -436,19 +447,21 @@ export async function sendPasswordReset(
 </html>`;
 
   try {
+    const body: Record<string, unknown> = {
+      from:    fromAddress,
+      to:      [email],
+      subject: 'Reset Your SUMOSTA Password',
+      html,
+      text,
+    };
+    if (replyTo) body.reply_to = replyTo;
     const response = await fetch(RESEND_API_URL, {
       method:  'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({
-        from:    fromAddress,
-        to:      [email],
-        subject: 'Reset Your SUMOSTA Password',
-        html,
-        text,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -470,6 +483,7 @@ export async function sendPasswordResetEmail(
   resetUrl: string,
   apiKey: string,
   fromAddress?: string,
+  replyTo?: string | null,
 ): Promise<boolean> {
-  return sendPasswordReset(email, resetUrl, apiKey, fromAddress);
+  return sendPasswordReset(email, resetUrl, apiKey, fromAddress, replyTo);
 }

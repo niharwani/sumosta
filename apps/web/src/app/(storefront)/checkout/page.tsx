@@ -3,17 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, Tag, LogIn, ShoppingBag, Info, Truck, Lock, CreditCard, Wallet, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Tag, LogIn, ShoppingBag, Info, Truck, Lock, CreditCard, Wallet, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice } from '@/lib/utils';
 import CouponInput from '@/components/cart/CouponInput';
-import { couponsApi } from '@/lib/api';
+import { couponsApi, type CheckoutAutofillAddress } from '@/lib/api';
 import { tracker } from '@/lib/tracker';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { INDIAN_STATES } from '@/lib/constants';
 import { MAX_COUPONS_DEFAULT, MAX_COUPONS_WITH_FIRST_ORDER, PREPAID_COUPON_CODE } from '@/stores/cart-store';
 import type { Coupon } from 'shared';
+import { CheckoutPhoneGate } from '@/components/checkout/CheckoutPhoneGate';
 
 // Razorpay Checkout is loaded via a <Script> tag; declare its global for TS.
 declare global {
@@ -75,6 +76,14 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
+  // Gate state — the checkout page starts with just a mobile input.
+  // 'gate'    → showing CheckoutPhoneGate (OTP)
+  // 'form'    → gate resolved (verified OR skipped OR user already signed in)
+  // Verified customers see their address auto-filled; skippers see empty
+  // fields; signed-in users skip the gate entirely.
+  const [gateStage, setGateStage] = useState<'gate' | 'form'>('gate');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+
   // Shiprocket serviceability for the entered pincode. `null` = not-yet-checked;
   // once populated we know whether COD is offered to this pincode and can
   // grey out the option (or force-switch to Prepaid).
@@ -97,16 +106,49 @@ export default function CheckoutPage() {
       // Google OAuth signups + guest auto-created accounts get a synthetic
       // "google:..." / "guest:..." placeholder in users.phone (the column is
       // NOT NULL + UNIQUE). Don't leak that placeholder into the checkout form.
+      // Same story for phone-only accounts which store a `phone-XXX@sumosta.local`
+      // placeholder email — hide it from the field.
       const rawPhone = (user as any).phone as string | undefined;
       const realPhone = rawPhone && !/^(google|guest):/i.test(rawPhone) ? rawPhone : '';
+      const rawEmail = user.email ?? '';
+      const realEmail = rawEmail.endsWith('@sumosta.local') ? '' : rawEmail;
+      const rawName = user.name ?? '';
+      const realName = /^User \d{4}$/.test(rawName) ? '' : rawName;
       setForm((f) => ({
         ...f,
-        name:  user.name  ?? '',
-        email: user.email ?? '',
+        name:  realName,
+        email: realEmail,
         phone: realPhone,
       }));
+      // Signed-in users skip the OTP gate entirely.
+      setGateStage('form');
     }
   }, [user]);
+
+  const handleGateVerified = (result: {
+    user: { id: string; name: string; email: string; phone: string; role: string };
+    defaultAddress?: CheckoutAutofillAddress | null;
+  }) => {
+    setPhoneVerified(true);
+    const emailFromUser = result.user.email.endsWith('@sumosta.local') ? '' : result.user.email;
+    const nameFromUser  = /^User \d{4}$/.test(result.user.name) ? '' : result.user.name;
+    const a = result.defaultAddress;
+    setForm({
+      name:     a?.name ?? nameFromUser,
+      email:    emailFromUser,
+      phone:    a?.phone ?? result.user.phone,
+      address1: a?.address_line1 ?? '',
+      address2: a?.address_line2 ?? '',
+      city:     a?.city ?? '',
+      state:    a?.state ?? '',
+      pincode:  a?.pincode ?? '',
+    });
+    setGateStage('form');
+  };
+
+  const handleGateSkip = () => {
+    setGateStage('form');
+  };
 
   // Pincode → city/state autofill (debounced 400ms) using postalpincode.in
   useEffect(() => {
@@ -311,8 +353,9 @@ export default function CheckoutPage() {
     }
   };
 
+  // Email is optional (skipped by phone-verified checkout). Everything else is required.
   const isFormValid =
-    form.name && form.email && form.phone.length >= 10 &&
+    form.name && form.phone.length >= 10 &&
     form.address1 && form.city && form.state && form.pincode.length === 6;
 
   // If Turnstile is configured, require a verified token before enabling pay
@@ -523,7 +566,9 @@ export default function CheckoutPage() {
     !serviceability.checked ||
     serviceability.pincode !== form.pincode ||
     serviceability.serviceable;
-  const canPay = isFormValid && turnstileOk && pincodeServiceable;
+  // The gate must be resolved before pay can be enabled — prevents someone
+  // from bypassing OTP by directly clicking pay via devtools.
+  const canPay = gateStage === 'form' && isFormValid && turnstileOk && pincodeServiceable;
 
   return (
     <div className="bg-cream min-h-screen">
@@ -545,12 +590,21 @@ export default function CheckoutPage() {
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-6">
-          {/* Left: Form */}
+          {/* Left: Gate OR Form */}
           <div className="flex flex-col gap-5">
+            {gateStage === 'gate' ? (
+              <CheckoutPhoneGate onVerified={handleGateVerified} onSkip={handleGateSkip} />
+            ) : (
+            <>
             {/* Contact */}
             <section className="bg-cream-warm rounded-2xl border border-sand p-6">
-              <h2 className="font-clash font-bold text-charcoal text-base mb-4 pb-3 border-b border-sand">
-                Contact Information
+              <h2 className="font-clash font-bold text-charcoal text-base mb-4 pb-3 border-b border-sand flex items-center justify-between gap-2">
+                <span>Contact Information</span>
+                {phoneVerified && (
+                  <span className="font-satoshi text-[11px] font-semibold text-sage bg-sage-light border border-sage/30 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
+                    <CheckCircle size={11} aria-hidden /> Phone verified
+                  </span>
+                )}
               </h2>
               <div className="grid gap-3.5">
                 <div>
@@ -559,8 +613,10 @@ export default function CheckoutPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="co-email" className={labelClass}>Email *</label>
-                    <input id="co-email" type="email" className={inputClass} placeholder="you@example.com" value={form.email} onChange={set('email')} />
+                    <label htmlFor="co-email" className={labelClass}>
+                      Email <span className="text-earth-light font-normal normal-case tracking-normal">(optional)</span>
+                    </label>
+                    <input id="co-email" type="email" className={inputClass} placeholder="you@example.com — for order confirmation" value={form.email} onChange={set('email')} />
                   </div>
                   <div>
                     <label htmlFor="co-phone" className={labelClass}>Phone *</label>
@@ -693,6 +749,8 @@ export default function CheckoutPage() {
 
               <CouponInput />
             </section>
+            </>
+            )}
           </div>
 
           {/* Right: Order summary + pay */}
@@ -769,7 +827,15 @@ export default function CheckoutPage() {
                 </p>
               </div>
 
-              {/* Payment method selector — using Radix-less radio group pattern */}
+              {/* Payment method selector — hidden until the gate is resolved */}
+              {gateStage === 'gate' ? (
+                <div className="mb-4 bg-honey-50 border border-honey-200 rounded-lg px-3.5 py-3">
+                  <p className="font-satoshi text-xs text-honey-700 m-0 inline-flex items-center gap-2">
+                    <Lock size={12} aria-hidden />
+                    Verify your mobile (left) to choose payment and place the order.
+                  </p>
+                </div>
+              ) : (
               <div className="flex flex-col gap-2 mb-4" role="radiogroup" aria-label="Payment method">
                 <p className="font-satoshi text-xs font-bold text-bark m-0 mb-1 uppercase tracking-[0.05em]">
                   Payment Method
@@ -885,6 +951,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Turnstile widget */}
               {turnstileSiteKey && (

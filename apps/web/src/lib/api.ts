@@ -335,10 +335,24 @@ export const categoriesApi = {
 // ============================================================
 import type { User } from 'shared';
 
+export interface CheckoutAutofillAddress {
+  id:             string;
+  name:           string;
+  phone:          string;
+  address_line1:  string;
+  address_line2:  string | null;
+  city:           string;
+  state:          string;
+  pincode:        string;
+  is_default:     number;
+}
+
 interface AuthSession {
-  user:         User;
-  accessToken:  string;
-  refreshToken: string;
+  user:           User;
+  accessToken:    string;
+  refreshToken:   string;
+  /** Populated only by /firebase-phone/verify — the user's default saved address. */
+  defaultAddress?: CheckoutAutofillAddress | null;
 }
 
 export const authApi = {

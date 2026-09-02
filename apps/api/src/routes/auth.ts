@@ -720,6 +720,17 @@ app.post(
     });
     setRefreshCookie(c, refreshToken);
 
+    // Return default address (if any) alongside the session — used by the
+    // slim checkout flow to auto-fill the address form after phone verify.
+    const defaultAddress = await c.env.DB.prepare(`
+      SELECT id, name, phone, address_line1, address_line2,
+             city, state, pincode, is_default
+      FROM addresses
+      WHERE user_id = ?
+      ORDER BY is_default DESC, created_at DESC
+      LIMIT 1
+    `).bind(user.id).first();
+
     return c.json({
       success: true,
       data: {
@@ -732,6 +743,7 @@ app.post(
         },
         accessToken,
         refreshToken,
+        defaultAddress: defaultAddress ?? null,
       },
     });
   },

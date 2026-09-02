@@ -12,10 +12,21 @@ import type { TrackingResponse } from '@/lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
-const schema = z.object({
-  orderNumber: z.string().min(3, 'Enter your order number'),
-  email: z.string().email('Enter your registered email'),
-});
+// Accept either an email OR a 10-digit Indian mobile number as the
+// second factor. Phone-only checkout users have no email on file.
+const schema = z
+  .object({
+    orderNumber: z.string().min(3, 'Enter your order number'),
+    identifier:  z.string().min(1, 'Enter your email or mobile number'),
+  })
+  .refine(
+    ({ identifier }) => {
+      const digits = identifier.replace(/\D/g, '');
+      if (/^[6-9]\d{9}$/.test(digits.slice(-10))) return true;
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    },
+    { message: 'Enter a valid email or 10-digit mobile number', path: ['identifier'] },
+  );
 type FormData = z.infer<typeof schema>;
 
 const STATUS_STEPS = ['confirmed', 'processing', 'shipped', 'delivered'] as const;
@@ -101,7 +112,7 @@ export default function TrackPage() {
   const [tracking, setTracking] = useState<TrackingResponse | null>(null);
   const [error, setError] = useState('');
   const orderNumberId = useId();
-  const emailId = useId();
+  const identifierId = useId();
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema as any),
@@ -113,9 +124,19 @@ export default function TrackPage() {
     setOrder(null);
     setTracking(null);
     try {
+      // Decide whether the identifier is a phone or an email and build the
+      // right query string. Backend accepts either.
+      const digits = data.identifier.replace(/\D/g, '');
+      const isPhone = /^[6-9]\d{9}$/.test(digits.slice(-10));
+      const queryParam = isPhone
+        ? `phone=${encodeURIComponent(digits.slice(-10))}`
+        : `email=${encodeURIComponent(data.identifier)}`;
+
+      const base = `orderNumber=${encodeURIComponent(data.orderNumber)}&${queryParam}`;
+
       const [orderRes, trackingRes] = await Promise.all([
-        fetch(`${API}/api/orders/track?orderNumber=${encodeURIComponent(data.orderNumber)}&email=${encodeURIComponent(data.email)}`),
-        fetch(`${API}/api/orders/track/live?orderNumber=${encodeURIComponent(data.orderNumber)}&email=${encodeURIComponent(data.email)}`),
+        fetch(`${API}/api/orders/track?${base}`),
+        fetch(`${API}/api/orders/track/live?${base}`),
       ]);
       const orderJson = await orderRes.json();
       if (!orderRes.ok || !orderJson.data) throw new Error(orderJson.error || 'Order not found');
@@ -173,21 +194,22 @@ export default function TrackPage() {
             )}
           </div>
           <div>
-            <label htmlFor={emailId} className="block font-satoshi text-charcoal text-sm font-medium mb-1.5">
-              Email Address
+            <label htmlFor={identifierId} className="block font-satoshi text-charcoal text-sm font-medium mb-1.5">
+              Email or Mobile Number
             </label>
             <input
-              id={emailId}
-              type="email"
-              {...register('email')}
-              className={inputClass(!!errors.email)}
-              placeholder="you@example.com"
-              aria-invalid={!!errors.email}
-              aria-describedby={errors.email ? `${emailId}-error` : undefined}
+              id={identifierId}
+              type="text"
+              autoComplete="email"
+              {...register('identifier')}
+              className={inputClass(!!errors.identifier)}
+              placeholder="you@example.com or 9876543210"
+              aria-invalid={!!errors.identifier}
+              aria-describedby={errors.identifier ? `${identifierId}-error` : undefined}
             />
-            {errors.email && (
-              <p id={`${emailId}-error`} className="font-satoshi text-terracotta text-xs mt-1">
-                {errors.email.message}
+            {errors.identifier && (
+              <p id={`${identifierId}-error`} className="font-satoshi text-terracotta text-xs mt-1">
+                {errors.identifier.message}
               </p>
             )}
           </div>

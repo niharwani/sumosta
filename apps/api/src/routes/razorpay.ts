@@ -75,7 +75,10 @@ const cartItemSchema = z.object({
 });
 
 const createOrderSchema = z.object({
-  email:           z.string().email(),
+  // Email is optional — phone-verified checkout skips it and the razorpay
+  // prefill just falls back to whatever email the account has on file
+  // (or a phone placeholder).
+  email:           z.string().email().optional().nullable(),
   shippingAddress: shippingSchema,
   couponCodes:     z.array(z.string()).optional().default([]),
   items:           z.array(cartItemSchema).min(1, 'Cart is empty'),
@@ -130,7 +133,8 @@ app.post(
   async (c) => {
     const rawUserId = await resolveOptionalUser(c.req.header('Authorization'), c.env.JWT_SECRET);
     const body      = c.req.valid('json');
-    const { email, shippingAddress, couponCodes, items } = body;
+    const { email: rawEmail, shippingAddress, couponCodes, items } = body;
+    const email = rawEmail?.trim() || null;
 
     try {
     // Verify the JWT-derived user actually exists in D1 (avoid FK failure on orders.user_id).
@@ -143,14 +147,19 @@ app.post(
     }
 
     // If anonymous but email/phone is already registered, force sign-in first.
+    // With email optional, we only match the fields the client actually sent.
     if (!userId) {
-      const conflict = await c.env.DB.prepare(
-        'SELECT email, phone FROM users WHERE (email = ? OR phone = ?) AND is_active = 1 LIMIT 1',
-      ).bind(email, shippingAddress.phone).first<{ email: string; phone: string }>();
+      const conflict = email
+        ? await c.env.DB.prepare(
+            'SELECT email, phone FROM users WHERE (email = ? OR phone = ?) AND is_active = 1 LIMIT 1',
+          ).bind(email, shippingAddress.phone).first<{ email: string; phone: string }>()
+        : await c.env.DB.prepare(
+            'SELECT email, phone FROM users WHERE phone = ? AND is_active = 1 LIMIT 1',
+          ).bind(shippingAddress.phone).first<{ email: string; phone: string }>();
 
       if (conflict) {
         const field: 'email' | 'phone' =
-          conflict.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone';
+          email && conflict.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone';
         return c.json(
           {
             success: false,
@@ -361,7 +370,7 @@ app.post(
         amount:   total,
         currency: 'INR',
         receipt:  orderNumber,
-        notes:    { orderId, userId: userId ?? 'guest', email },
+        notes:    { orderId, userId: userId ?? 'guest', email: email ?? '' },
       });
     } catch (err) {
       // Roll back the order so the user can retry cleanly
@@ -521,12 +530,20 @@ app.post(
       }
     }
 
-    // 6. Confirmation email (best-effort)
+    // 6. Confirmation email (best-effort). Skipped entirely when the only
+    // known email is a phone-placeholder (`phone-XXX@sumosta.local`) since
+    // that account has no real inbox — those users chose the phone-only flow.
     try {
-      const userEmail = order.user_id
+      const rawUserEmail = order.user_id
         ? await c.env.DB.prepare('SELECT email FROM users WHERE id = ?')
             .bind(order.user_id).first<{ email: string }>().then((r) => r?.email ?? null)
         : null;
+      const userEmail = rawUserEmail && !rawUserEmail.endsWith('@sumosta.local') ? rawUserEmail : null;
+      const guestEmail = order.guest_email && !order.guest_email.endsWith('@sumosta.local') ? order.guest_email : null;
+
+      if (!userEmail && !guestEmail) {
+        console.log('[Razorpay verify] no real email — skipping confirmation for order', order.id);
+      } else {
 
       const orderItems = await c.env.DB.prepare(
         'SELECT product_name, variant_name, quantity, unit_price, line_total FROM order_items WHERE order_id = ?',
@@ -539,7 +556,7 @@ app.post(
         {
           id:                    order.id,
           orderNumber:           order.order_number,
-          guestEmail:            order.guest_email,
+          guestEmail,
           userEmail,
           shippingName:          order.shipping_name,
           shippingAddressLine1:  order.shipping_address_line1,
@@ -566,6 +583,7 @@ app.post(
         c.env.RESEND_FROM_ORDERS || c.env.RESEND_FROM || undefined,
         c.env.SUPPORT_EMAIL || null,
       );
+      }
     } catch (emailErr) {
       console.error('[Razorpay verify] email send failed:', emailErr);
     }

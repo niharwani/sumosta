@@ -78,7 +78,10 @@ const cartItemSchema = z.object({
 });
 
 const codCheckoutSchema = z.object({
-  email:           z.string().email(),
+  // Email is optional now — the phone-verified checkout flow doesn't
+  // collect it. Legacy long-form checkout still sends it. When absent,
+  // we skip the confirmation email and use phone as the sole identifier.
+  email:           z.string().email().optional().nullable(),
   shippingAddress: shippingSchema,
   couponCodes:     z.array(z.string()).optional().default([]),
   paymentMethod:   z.literal('cod'),
@@ -113,7 +116,8 @@ app.post(
   '/',
   zValidator('json', codCheckoutSchema),
   async (c) => {
-    const { email, shippingAddress, couponCodes, items } = c.req.valid('json');
+    const { email: rawEmail, shippingAddress, couponCodes, items } = c.req.valid('json');
+    const email = rawEmail?.trim() || null;
 
     // 1. Optional user resolution — guest orders are welcome
     const rawUserId = await resolveOptionalUser(c.req.header('Authorization'), c.env.JWT_SECRET);
@@ -131,14 +135,20 @@ app.post(
     // belongs to a registered account, block the order and tell the client
     // to sign in first. This prevents someone from silently attaching a new
     // order (with their own shipping address) to another user's account.
+    // With email now optional we only match against whichever fields the
+    // client actually supplied.
     if (!camWithSession) {
-      const conflict = await c.env.DB.prepare(
-        'SELECT email, phone FROM users WHERE (email = ? OR phone = ?) AND is_active = 1 LIMIT 1',
-      ).bind(email, shippingAddress.phone).first<{ email: string; phone: string }>();
+      const conflict = email
+        ? await c.env.DB.prepare(
+            'SELECT email, phone FROM users WHERE (email = ? OR phone = ?) AND is_active = 1 LIMIT 1',
+          ).bind(email, shippingAddress.phone).first<{ email: string; phone: string }>()
+        : await c.env.DB.prepare(
+            'SELECT email, phone FROM users WHERE phone = ? AND is_active = 1 LIMIT 1',
+          ).bind(shippingAddress.phone).first<{ email: string; phone: string }>();
 
       if (conflict) {
         const field: 'email' | 'phone' =
-          conflict.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone';
+          email && conflict.email.toLowerCase() === email.toLowerCase() ? 'email' : 'phone';
         return c.json(
           {
             success: false,
@@ -337,8 +347,9 @@ app.post(
       ).bind(applied.id).run();
     }
 
-    // 9. Best-effort order-confirmation email — don't block the response on failure
-    if (c.env.RESEND_API_KEY) {
+    // 9. Best-effort order-confirmation email — don't block the response on failure.
+    // Skipped entirely when no email was supplied (phone-verified checkout flow).
+    if (email && c.env.RESEND_API_KEY) {
       try {
         await sendOrderConfirmation(
           {
@@ -388,7 +399,11 @@ app.post(
     //     ship that flow.
     let issuedSession: { user: { id: string; name: string; email: string; phone: string; role: string }; accessToken: string; refreshToken: string } | null = null;
 
-    if (!camWithSession) {
+    // Only auto-create/link accounts for guest orders that supplied an email.
+    // Phone-verified checkouts already have `camWithSession=true` so they
+    // never enter this block. Legacy-form guests without an email stay
+    // truly guest — the order tracking flow will find them by phone.
+    if (!camWithSession && email) {
       try {
         const existing = await c.env.DB.prepare(
           'SELECT id, name, email, phone, role FROM users WHERE email = ? AND is_active = 1',

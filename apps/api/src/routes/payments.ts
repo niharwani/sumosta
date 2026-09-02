@@ -140,12 +140,20 @@ app.post('/phonepe/callback', async (c) => {
       }),
     );
 
-    // Send confirmation email (best-effort)
+    // Send confirmation email (best-effort). Skipped when there's no real
+    // email (phone-only account = placeholder @sumosta.local).
     try {
-      const userEmail = order.user_id
+      const rawUserEmail = order.user_id
         ? await c.env.DB.prepare('SELECT email FROM users WHERE id = ?')
             .bind(order.user_id).first<{ email: string }>().then((r) => r?.email ?? null)
         : null;
+      const userEmail  = rawUserEmail && !rawUserEmail.endsWith('@sumosta.local') ? rawUserEmail : null;
+      const guestEmail = order.guest_email && !order.guest_email.endsWith('@sumosta.local') ? order.guest_email : null;
+
+      if (!userEmail && !guestEmail) {
+        console.log('[PhonePe callback] no real email — skipping confirmation for order', order.id);
+        return c.text('OK', 200);
+      }
 
       const orderItems = await c.env.DB.prepare(
         'SELECT product_name, variant_name, quantity, unit_price, line_total FROM order_items WHERE order_id = ?',
@@ -158,8 +166,8 @@ app.post('/phonepe/callback', async (c) => {
         {
           id:                   order.id,
           orderNumber:          order.order_number,
-          guestEmail:           order.guest_email,
-          userEmail:            userEmail,
+          guestEmail,
+          userEmail,
           shippingName:         order.shipping_name,
           shippingAddressLine1: order.shipping_address_line1,
           shippingAddressLine2: order.shipping_address_line2,

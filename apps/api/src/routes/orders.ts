@@ -66,27 +66,50 @@ app.get('/:id/receipt', async (c) => {
 });
 
 // ─── GET /api/orders/track — public order tracking ─────────────
+// Accepts either an email OR a 10-digit phone number as the second
+// factor. Phone-only accounts have no email on file so the phone lookup
+// path is required for them.
 app.get('/track', async (c) => {
   const orderNumber = c.req.query('orderNumber');
-  const email = c.req.query('email');
+  const email       = c.req.query('email')?.trim();
+  const phoneRaw    = c.req.query('phone')?.trim();
+  const phone       = phoneRaw ? phoneRaw.replace(/\D/g, '').slice(-10) : '';
 
-  if (!orderNumber || !email) {
-    return c.json({ success: false, error: 'Order number and email are required', code: 'VALIDATION_ERROR' }, 400);
+  if (!orderNumber || (!email && !/^[6-9]\d{9}$/.test(phone))) {
+    return c.json({
+      success: false,
+      error:   'Order number plus email or 10-digit mobile number is required',
+      code:    'VALIDATION_ERROR',
+    }, 400);
   }
 
-  const order = await c.env.DB.prepare(`
-    SELECT
-      o.id, o.order_number, o.status, o.payment_status, o.payment_method,
-      o.total, o.tracking_number, o.tracking_url,
-      o.estimated_delivery_date, o.created_at,
-      o.awb_code, o.courier_name, o.shipment_status,
-      o.shipping_name, o.shipping_city, o.shipping_state
-    FROM orders o
-    WHERE o.order_number = ?
-      AND (o.guest_email = ? OR EXISTS (
-        SELECT 1 FROM users u WHERE u.id = o.user_id AND u.email = ?
-      ))
-  `).bind(orderNumber, email, email).first();
+  const order = email
+    ? await c.env.DB.prepare(`
+        SELECT
+          o.id, o.order_number, o.status, o.payment_status, o.payment_method,
+          o.total, o.tracking_number, o.tracking_url,
+          o.estimated_delivery_date, o.created_at,
+          o.awb_code, o.courier_name, o.shipment_status,
+          o.shipping_name, o.shipping_city, o.shipping_state
+        FROM orders o
+        WHERE o.order_number = ?
+          AND (o.guest_email = ? OR EXISTS (
+            SELECT 1 FROM users u WHERE u.id = o.user_id AND u.email = ?
+          ))
+      `).bind(orderNumber, email, email).first()
+    : await c.env.DB.prepare(`
+        SELECT
+          o.id, o.order_number, o.status, o.payment_status, o.payment_method,
+          o.total, o.tracking_number, o.tracking_url,
+          o.estimated_delivery_date, o.created_at,
+          o.awb_code, o.courier_name, o.shipment_status,
+          o.shipping_name, o.shipping_city, o.shipping_state
+        FROM orders o
+        WHERE o.order_number = ?
+          AND (o.shipping_phone = ? OR EXISTS (
+            SELECT 1 FROM users u WHERE u.id = o.user_id AND u.phone = ?
+          ))
+      `).bind(orderNumber, phone, phone).first();
 
   if (!order) {
     return c.json({ success: false, error: 'Order not found. Please check your order number and email.', code: 'NOT_FOUND' }, 404);
@@ -100,26 +123,45 @@ app.get('/track', async (c) => {
   return c.json({ success: true, data: { ...order, items: items.results } });
 });
 
-// Public live tracking (order_number + email verified). Returns real-time
-// Shiprocket checkpoints for the /track page and post-purchase screens.
+// Public live tracking (order_number + email OR phone verified).
+// Returns real-time Shiprocket checkpoints for the /track page.
 app.get('/track/live', async (c) => {
   const orderNumber = c.req.query('orderNumber');
-  const email = c.req.query('email');
-  if (!orderNumber || !email) {
-    return c.json({ success: false, error: 'Order number and email are required', code: 'VALIDATION_ERROR' }, 400);
+  const email       = c.req.query('email')?.trim();
+  const phoneRaw    = c.req.query('phone')?.trim();
+  const phone       = phoneRaw ? phoneRaw.replace(/\D/g, '').slice(-10) : '';
+
+  if (!orderNumber || (!email && !/^[6-9]\d{9}$/.test(phone))) {
+    return c.json({
+      success: false,
+      error:   'Order number plus email or 10-digit mobile number is required',
+      code:    'VALIDATION_ERROR',
+    }, 400);
   }
 
-  const order = await c.env.DB.prepare(`
-    SELECT o.id, o.awb_code, o.tracking_url, o.courier_name, o.shipment_status
-    FROM orders o
-    WHERE o.order_number = ?
-      AND (o.guest_email = ? OR EXISTS (
-        SELECT 1 FROM users u WHERE u.id = o.user_id AND u.email = ?
-      ))
-  `).bind(orderNumber, email, email).first<{
-    id: string; awb_code: string | null; tracking_url: string | null;
-    courier_name: string | null; shipment_status: string | null;
-  }>();
+  const order = email
+    ? await c.env.DB.prepare(`
+        SELECT o.id, o.awb_code, o.tracking_url, o.courier_name, o.shipment_status
+        FROM orders o
+        WHERE o.order_number = ?
+          AND (o.guest_email = ? OR EXISTS (
+            SELECT 1 FROM users u WHERE u.id = o.user_id AND u.email = ?
+          ))
+      `).bind(orderNumber, email, email).first<{
+        id: string; awb_code: string | null; tracking_url: string | null;
+        courier_name: string | null; shipment_status: string | null;
+      }>()
+    : await c.env.DB.prepare(`
+        SELECT o.id, o.awb_code, o.tracking_url, o.courier_name, o.shipment_status
+        FROM orders o
+        WHERE o.order_number = ?
+          AND (o.shipping_phone = ? OR EXISTS (
+            SELECT 1 FROM users u WHERE u.id = o.user_id AND u.phone = ?
+          ))
+      `).bind(orderNumber, phone, phone).first<{
+        id: string; awb_code: string | null; tracking_url: string | null;
+        courier_name: string | null; shipment_status: string | null;
+      }>();
 
   if (!order) {
     return c.json({ success: false, error: 'Order not found', code: 'NOT_FOUND' }, 404);

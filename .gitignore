@@ -39,3 +39,6 @@ yarn-error.log*
 # OpenNext / Vercel build output
 .open-next/
 .vercel/
+
+# Claude Code
+.claude/scheduled_tasks.lock

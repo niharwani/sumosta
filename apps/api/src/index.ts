@@ -14,7 +14,6 @@ import checkoutRoute    from './routes/checkout';
 import ordersRoute      from './routes/orders';
 import reviewsRoute     from './routes/reviews';
 import couponsRoute     from './routes/coupons';
-import paymentsRoute    from './routes/payments';
 import razorpayRoute    from './routes/razorpay';
 import analyticsRoute   from './routes/analytics';
 import contactRoute     from './routes/contact';
@@ -35,6 +34,7 @@ import adminMediaRoute       from './routes/admin/media';
 import adminSettingsRoute    from './routes/admin/settings';
 import adminMarketingRoute   from './routes/admin/marketing';
 import adminAbandonmentRoute from './routes/admin/abandonment';
+import adminShippingRoute    from './routes/admin/shipping';
 
 export type Bindings = {
   DB:                   D1Database;
@@ -42,12 +42,9 @@ export type Bindings = {
   KV_SESSIONS:          KVNamespace;
   KV_CACHE:             KVNamespace;
   ANALYTICS:            AnalyticsEngineDataset | undefined;
-  PHONEPE_MERCHANT_ID:  string;
-  PHONEPE_SALT_KEY:     string;
-  PHONEPE_SALT_INDEX:   string;
-  PHONEPE_ENV:          string;
   RAZORPAY_KEY_ID:      string;
   RAZORPAY_KEY_SECRET:  string;
+  RAZORPAY_WEBHOOK_SECRET: string;
   JWT_SECRET:           string;
   REFRESH_TOKEN_SECRET: string;
   RESEND_API_KEY:       string;
@@ -64,6 +61,15 @@ export type Bindings = {
   SHIPROCKET_PASSWORD:       string;
   SHIPROCKET_PICKUP_LOCATION: string;
   SHIPROCKET_WEBHOOK_TOKEN:   string;
+
+  // GST / invoice-legal identity. Empty values → generator falls back to
+  // the historic hardcoded "raw honey · bengaluru, in" line and stamps the
+  // PDF with a "(Draft — GSTIN pending)" note next to TAX INVOICE. Populate
+  // before going live so every invoice is a compliant tax invoice.
+  SELLER_LEGAL_NAME:    string;
+  SELLER_GSTIN:         string;
+  SELLER_ADDRESS_BLOCK: string;  // multi-line, \n separated
+  SELLER_STATE:         string;  // matched against shipping state to choose CGST/SGST vs IGST
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -93,7 +99,6 @@ app.route('/api/checkout',   checkoutRoute);
 app.route('/api/orders',     ordersRoute);
 app.route('/api/reviews',    reviewsRoute);
 app.route('/api/coupons',    couponsRoute);
-app.route('/api/payments',   paymentsRoute);
 app.route('/api/razorpay',   razorpayRoute);
 app.route('/api/analytics',  analyticsRoute);
 app.route('/api/contact',    contactRoute);
@@ -129,6 +134,7 @@ app.route('/api/admin/media',              adminMediaRoute);
 app.route('/api/admin/settings',           adminSettingsRoute);
 app.route('/api/admin/marketing',          adminMarketingRoute);
 app.route('/api/admin/abandonment',        adminAbandonmentRoute);
+app.route('/api/admin/shipping',           adminShippingRoute);
 
 // ============================================================
 // GLOBAL ERROR HANDLER

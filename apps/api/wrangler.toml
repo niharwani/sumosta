@@ -3,10 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Embed .ttf files as ArrayBuffer imports so the PDF invoice generator
+# can register real fonts (Inter) with pdf-lib. Fonts live in assets/fonts/
+# and are checked into git.
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+fallthrough = true
+
 [vars]
 BASE_URL = "https://master.sumosta-web.pages.dev"
 WORKER_URL = "https://sumosta-api.sumosta-dev.workers.dev"
-PHONEPE_ENV = "sandbox"
 RESEND_FROM          = "SUMOSTA <orders@sumosta.com>"
 RESEND_FROM_ORDERS   = "SUMOSTA Orders <orders@sumosta.com>"
 RESEND_FROM_NOREPLY  = "SUMOSTA <no-reply@sumosta.com>"
@@ -15,6 +22,18 @@ SUPPORT_EMAIL        = "hello@sumosta.com"
 # Shiprocket — pickup nickname must exactly match the one saved in
 # Shiprocket panel → Settings → Pickup Addresses.
 SHIPROCKET_PICKUP_LOCATION = "Primary"
+
+# ─── GST invoice — seller identity ────────────────────────────
+# Populate all four to turn every invoice into a valid GST tax
+# invoice. While empty, invoice.ts falls back to the historic
+# "raw honey · bengaluru, in" line and stamps the PDF with
+# "(Draft — GSTIN pending)". Do NOT commit the real GSTIN if
+# this file is public; use `wrangler secret put SELLER_GSTIN`
+# instead and remove the line here.
+# SELLER_LEGAL_NAME    = "Sumosta Foods Pvt Ltd"
+# SELLER_GSTIN         = "29ABCDE1234F1Z5"
+# SELLER_ADDRESS_BLOCK = "12 First Cross, Indiranagar\nBengaluru 560038\nKarnataka, India"
+# SELLER_STATE         = "Karnataka"
 
 [[d1_databases]]
 binding = "DB"
@@ -42,11 +61,10 @@ id = "1419cfd9d0b248589435d8362ed11374"
 crons = ["0 18 * * *"]
 
 # Secrets (set via: wrangler secret put SECRET_NAME)
-# PHONEPE_MERCHANT_ID
-# PHONEPE_SALT_KEY
-# PHONEPE_SALT_INDEX
 # RAZORPAY_KEY_ID
 # RAZORPAY_KEY_SECRET
+# RAZORPAY_WEBHOOK_SECRET  — Set when you register the webhook in the Razorpay dashboard.
+#                            Until this is set, POST /api/razorpay/webhook safely no-ops.
 # JWT_SECRET
 # REFRESH_TOKEN_SECRET
 # RESEND_API_KEY

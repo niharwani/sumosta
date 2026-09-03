@@ -5,6 +5,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { Download } from 'lucide-react';
 import StatsCard from '@/components/admin/StatsCard';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice } from '@/lib/utils';
@@ -65,10 +66,36 @@ export default function AdminAnalyticsPage() {
 
   const maxFunnel = funnel?.funnel?.[0]?.count ?? 1;
 
+  // Detect "no data yet" state — all the primary metrics are zero AND there
+  // are no chart points AND no funnel entries. Show a friendly empty-state
+  // pane instead of a page of zero KPIs and blank charts.
+  const noData =
+    (stats?.revenue?.current ?? 0) === 0 &&
+    (stats?.orders?.current ?? 0) === 0 &&
+    (stats?.revenueChart?.length ?? 0) === 0 &&
+    (funnel?.funnel?.length ?? 0) === 0;
+
+  const exportCsv = () => {
+    const rows: (string | number)[][] = [['Date', 'Revenue']];
+    for (const row of (stats?.revenueChart ?? []) as { date: string; revenue: number }[]) {
+      rows.push([row.date, row.revenue]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `analytics-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Period selector */}
-      <div className="flex gap-2">
+      {/* Period selector + export */}
+      <div className="flex gap-2 items-center">
         {PERIODS.map(({ value, label }) => (
           <button
             key={value}
@@ -82,7 +109,23 @@ export default function AdminAnalyticsPage() {
             {label}
           </button>
         ))}
+        <button
+          onClick={exportCsv}
+          disabled={noData}
+          className="ml-auto inline-flex items-center gap-2 font-satoshi text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:border-honey-300 disabled:opacity-40 transition-colors"
+        >
+          <Download size={13} /> Export CSV
+        </button>
       </div>
+
+      {noData && (
+        <div className="bg-white rounded-xl border border-gray-100 py-16 text-center">
+          <p className="font-satoshi text-gray-500 font-semibold mb-1">No analytics yet</p>
+          <p className="font-satoshi text-gray-400 text-sm">
+            Traffic and revenue will appear here after your first orders come in.
+          </p>
+        </div>
+      )}
 
       {/* KPIs — API returns changePct */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

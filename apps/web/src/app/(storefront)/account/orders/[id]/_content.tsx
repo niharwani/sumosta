@@ -23,10 +23,7 @@ import {
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice, cn } from '@/lib/utils';
 import { ordersApi, reviewsApi, cartApi, ApiError, type TrackingResponse } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth-store';
 import { HONEY_EASE_OUT } from '@/lib/animations';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
 const STATUS_STEPS = [
   { key: 'confirmed', label: 'Confirmed', icon: CheckCircle },
@@ -113,7 +110,6 @@ export default function OrderDetailPage() {
   const [reviewedItems, setReviewedItems] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const user = useAuthStore((s) => s.user);
 
   const isShellRoute = !id;
 
@@ -219,20 +215,6 @@ export default function OrderDetailPage() {
   const handleReorder = () => {
     if (!order?.items?.length) return;
     reorderMutation.mutate(order.items);
-  };
-
-  const handleDownloadInvoice = () => {
-    if (!order) return;
-    // The receipt endpoint returns JSON, not a real PDF — building a PDF
-    // service is out of scope for launch. Open the printable order-confirmation
-    // page in a new tab instead; the customer can use the browser's built-in
-    // "Save as PDF" for a cleaner invoice than we could hand-render.
-    const email = order.guest_email ?? user?.email ?? '';
-    const url = `/order-confirmation/${order.id}/?orderId=${encodeURIComponent(order.id)}&email=${encodeURIComponent(email)}&print=1`;
-    const w = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!w) {
-      pushToast('Please allow pop-ups to view the invoice.', 'error');
-    }
   };
 
   const currentStepIndex = useMemo(
@@ -702,14 +684,13 @@ export default function OrderDetailPage() {
               {reorderMutation.isPending ? 'Adding…' : 'Reorder'}
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleDownloadInvoice}
+          <Link
+            href={`/account/orders/${order.id}/invoice`}
             className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 bg-[--cream] border border-[--sand] hover:border-[--honey-400] text-[--charcoal] font-satoshi font-semibold text-sm rounded-full px-6 py-3 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400]"
           >
             <Download size={15} aria-hidden />
-            View / print invoice
-          </button>
+            Download invoice
+          </Link>
           {canCancel && (
             <button
               type="button"

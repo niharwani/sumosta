@@ -102,6 +102,21 @@ export interface ShiprocketTrackActivity {
   location: string;
 }
 
+export interface ShiprocketPickupAddress {
+  id?:              number;
+  pickup_location:  string;   // nickname — matches SHIPROCKET_PICKUP_LOCATION
+  name?:            string;
+  email?:           string;
+  phone?:           string | number;
+  address?:         string;
+  address_2?:       string;
+  city?:            string;
+  state?:           string;
+  country?:         string;
+  pin_code:         string | number;
+  status?:          number;
+}
+
 export interface ShiprocketTrackData {
   track_status:      number;                    // 1 = success
   shipment_status:   number;
@@ -306,16 +321,8 @@ export class ShiprocketService {
     const cached = await this.env.KV_CACHE.get(cacheKey);
     if (cached) return cached;
 
-    const raw = await this.request<{
-      data?: {
-        shipping_address?: Array<{
-          pickup_location: string;
-          pin_code:        string | number;
-        }>;
-      };
-    }>('GET', '/settings/company/pickup');
-
-    const addr = (raw.data?.shipping_address ?? []).find(
+    const list = await this.listPickupLocations();
+    const addr = list.find(
       (a) => a.pickup_location?.trim().toLowerCase() === nickname.trim().toLowerCase(),
     );
     if (!addr) return null;
@@ -323,6 +330,28 @@ export class ShiprocketService {
     const pincode = String(addr.pin_code);
     await this.env.KV_CACHE.put(cacheKey, pincode, { expirationTtl: PICKUP_PINCODE_TTL });
     return pincode;
+  }
+
+  // Full list of saved pickup addresses. Not cached — admin refresh is
+  // an explicit action.
+  async listPickupLocations(): Promise<ShiprocketPickupAddress[]> {
+    const raw = await this.request<{
+      data?: {
+        shipping_address?: ShiprocketPickupAddress[];
+      };
+    }>('GET', '/settings/company/pickup');
+    return raw.data?.shipping_address ?? [];
+  }
+
+  // Verifies credentials by attempting a fresh login. Returns the token
+  // issued time on success so the admin can see when auth last worked.
+  async testConnection(): Promise<{ ok: true; authenticatedAt: string } | { ok: false; error: string }> {
+    try {
+      await this.login();
+      return { ok: true, authenticatedAt: new Date().toISOString() };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   // ── Cancel ─────────────────────────────────────────────

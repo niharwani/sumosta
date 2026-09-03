@@ -7,6 +7,8 @@ import { verifyJwt, signJwt, generateRefreshToken } from '../lib/jwt';
 import { generateId, generateOrderNumber, calcShipping, calcTax, hasQualifyingPriorOrder } from '../lib/utils';
 import { sendOrderConfirmation } from '../services/email';
 import { automateShipmentForOrder } from '../services/shipment-automation';
+import { generateInvoicePdf, toBase64 } from '../services/invoice';
+import { getOrCreateInvoiceNumber } from '../services/invoice-numbering';
 
 // Passwordless guest accounts get an "unusable" bcrypt-shaped hash so no
 // plaintext password can ever match. They set a real password via reset
@@ -53,8 +55,8 @@ type AppEnv = {
 
 const app = new Hono<AppEnv>();
 
-// ── Constants — must match the frontend UI copy ──────────────
-const COD_HANDLING_FEE     = 69;
+// ── Constants — import shared so client + server never drift ─
+import { COD_HANDLING_FEE } from 'shared';
 const PREPAID_COUPON_CODE  = 'PREPAID5';
 const FALLBACK_CATEGORY_ID = 'cat_raw_honey';
 
@@ -254,7 +256,14 @@ app.post(
     let userIsEligibleForFirstOrder = false;
     for (const rawCode of couponCodes) {
       const code = rawCode.toUpperCase();
-      if (code === PREPAID_COUPON_CODE) continue; // silently ignore — frontend also blocks this
+      // PREPAID5 is prepaid-only. On COD, tell the client to drop it so they
+      // see the honest total rather than the amount they thought they'd pay.
+      if (code === PREPAID_COUPON_CODE) {
+        return c.json({
+          success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+          error: `${code} only applies to prepaid orders. Remove it or choose Pay Online.`,
+        }, 409);
+      }
 
       const coupon = await c.env.DB.prepare(`
         SELECT id, code, type, value, min_order_amount, max_usage, usage_count,
@@ -267,21 +276,50 @@ app.post(
         max_usage: number | null; usage_count: number;
         is_first_order_only: number; expires_at: string | null;
       }>();
-      if (!coupon) continue;
 
-      const valid =
-        (!coupon.min_order_amount || subtotal >= coupon.min_order_amount) &&
-        (!coupon.max_usage        || coupon.usage_count < coupon.max_usage) &&
-        (!coupon.expires_at       || new Date(coupon.expires_at) > new Date());
-      if (!valid) continue;
+      if (!coupon) {
+        return c.json({
+          success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+          error: `Coupon ${code} is no longer valid. Remove it and try again.`,
+        }, 409);
+      }
+
+      if (coupon.min_order_amount && subtotal < coupon.min_order_amount) {
+        return c.json({
+          success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+          error: `${code} needs a minimum order of ₹${coupon.min_order_amount}.`,
+        }, 409);
+      }
+      if (coupon.max_usage && coupon.usage_count >= coupon.max_usage) {
+        return c.json({
+          success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+          error: `${code} has reached its usage limit.`,
+        }, 409);
+      }
+      if (coupon.expires_at && new Date(coupon.expires_at) <= new Date()) {
+        return c.json({
+          success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+          error: `${code} has expired.`,
+        }, 409);
+      }
 
       if (coupon.is_first_order_only) {
-        if (!userId) continue; // guests can't use first-order-only coupons
+        if (!userId) {
+          return c.json({
+            success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+            error: `${code} is for signed-in first-time customers. Please sign in or remove the coupon.`,
+          }, 409);
+        }
         if (!firstOrderChecked) {
           userIsEligibleForFirstOrder = !(await hasQualifyingPriorOrder(c.env.DB, userId));
           firstOrderChecked = true;
         }
-        if (!userIsEligibleForFirstOrder) continue;
+        if (!userIsEligibleForFirstOrder) {
+          return c.json({
+            success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+            error: `${code} is for first-time customers only.`,
+          }, 409);
+        }
       }
 
       const amount = coupon.type === 'percentage'
@@ -340,6 +378,24 @@ app.post(
     );
     await c.env.DB.batch(itemInserts);
 
+    // 7a. Deduct stock. COD orders commit as `confirmed` immediately (no
+    // gateway to wait on), so we reserve inventory now — otherwise two COD
+    // buyers can each grab the last unit and only ship one.
+    // Uses stock-guarded UPDATE so oversell fails cleanly (changes === 0).
+    for (const item of resolved) {
+      if (item.fromFallback) continue; // static-catalog stubs have no real stock
+      const res = item.variantId
+        ? await c.env.DB.prepare(
+            'UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?',
+          ).bind(item.quantity, item.variantId, item.quantity).run()
+        : await c.env.DB.prepare(
+            'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?',
+          ).bind(item.quantity, item.productId, item.quantity).run();
+      if (res.meta.changes === 0) {
+        console.error('[checkout/cod] oversold — no stock deducted for', item.productName, 'order', orderId);
+      }
+    }
+
     // 8. Bump coupon usage
     for (const applied of appliedCoupons) {
       await c.env.DB.prepare(
@@ -350,6 +406,53 @@ app.post(
     // 9. Best-effort order-confirmation email — don't block the response on failure.
     // Skipped entirely when no email was supplied (phone-verified checkout flow).
     if (email && c.env.RESEND_API_KEY) {
+      const emailItems = resolved.map((r) => ({
+        productName: r.productName,
+        variantName: null,
+        quantity:    r.quantity,
+        unitPrice:   r.unitPrice,
+        lineTotal:   Math.round(r.unitPrice * r.quantity * 100) / 100,
+      }));
+
+      // Generate PDF invoice for attachment. Failing to render must not block the email.
+      let invoiceAttachment: { filename: string; content: string }[] | undefined;
+      try {
+        const invoiceNumber = await getOrCreateInvoiceNumber(c.env, orderId);
+        const pdfBytes = await generateInvoicePdf({
+          invoiceNumber,
+          sellerLegalName:    c.env.SELLER_LEGAL_NAME    || null,
+          sellerGstin:        c.env.SELLER_GSTIN         || null,
+          sellerAddressBlock: c.env.SELLER_ADDRESS_BLOCK || null,
+          sellerState:        c.env.SELLER_STATE         || null,
+          placeOfSupply:      shippingAddress.state,
+          orderNumber,
+          createdAt:            new Date().toISOString(),
+          paymentStatus:        'pending',
+          paymentMethod:        'cod',
+          couponCode:           couponSummary,
+          trackingNumber:       null,
+          shippingName:         shippingAddress.name,
+          shippingPhone:        shippingAddress.phone,
+          shippingEmail:        email,
+          shippingAddressLine1: shippingAddress.line1,
+          shippingAddressLine2: shippingAddress.line2 ?? null,
+          shippingCity:         shippingAddress.city,
+          shippingState:        shippingAddress.state,
+          shippingPincode:      shippingAddress.pincode,
+          subtotal,
+          discount,
+          shippingAmount:       shipping + COD_HANDLING_FEE,
+          total,
+          items: emailItems.map((i) => ({ ...i, sku: null })),
+        });
+        invoiceAttachment = [{
+          filename: `Invoice-${orderNumber}.pdf`,
+          content:  toBase64(pdfBytes),
+        }];
+      } catch (err) {
+        console.warn('[checkout/cod] invoice PDF generation failed', err);
+      }
+
       try {
         await sendOrderConfirmation(
           {
@@ -370,17 +473,12 @@ app.post(
             total,
             couponCode:            couponSummary,
             estimatedDeliveryDate: estimatedDate,
-            items: resolved.map((r) => ({
-              productName: r.productName,
-              variantName: null,
-              quantity:    r.quantity,
-              unitPrice:   r.unitPrice,
-              lineTotal:   Math.round(r.unitPrice * r.quantity * 100) / 100,
-            })),
+            items:                 emailItems,
           },
           c.env.RESEND_API_KEY,
           c.env.RESEND_FROM_ORDERS || c.env.RESEND_FROM,
           c.env.SUPPORT_EMAIL || null,
+          invoiceAttachment,
         );
       } catch (err) {
         console.warn('[checkout/cod] confirmation email failed', err);

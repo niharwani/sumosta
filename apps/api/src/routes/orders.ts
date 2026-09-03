@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import type { Bindings } from '../index';
 import { authMiddleware } from '../middleware/auth';
 import { ShiprocketService, isShiprocketConfigured, type ShiprocketTrackData } from '../services/shiprocket';
+import { generateInvoicePdf } from '../services/invoice';
+import { getOrCreateInvoiceNumber } from '../services/invoice-numbering';
 
 type AppEnv = {
   Bindings: Bindings;
@@ -63,6 +65,109 @@ app.get('/:id/receipt', async (c) => {
   `).bind(orderId).all();
 
   return c.json({ success: true, data: { ...order, items: items.results } });
+});
+
+// ─── GET /api/orders/:id/invoice.pdf — public PDF invoice ───
+// Same email-verified guard as /receipt. Streams a generated PDF for
+// download. Used by the "Download Invoice" CTA on the account and
+// order-confirmation pages, and as the source of truth for the copy
+// attached to the order-confirmation email.
+app.get('/:id/invoice.pdf', async (c) => {
+  const orderId = c.req.param('id');
+  const email   = c.req.query('email')?.trim().toLowerCase();
+
+  if (!email) {
+    return c.json({ success: false, error: 'Email is required to download this invoice', code: 'VALIDATION_ERROR' }, 400);
+  }
+
+  const order = await c.env.DB.prepare(`
+    SELECT
+      o.id, o.order_number, o.user_id, o.guest_email,
+      o.payment_status, o.payment_method,
+      o.shipping_name, o.shipping_phone,
+      o.shipping_address_line1, o.shipping_address_line2,
+      o.shipping_city, o.shipping_state, o.shipping_pincode,
+      o.subtotal, o.discount, o.shipping_amount, o.total,
+      o.coupon_code, o.tracking_number, o.created_at
+    FROM orders o
+    WHERE o.id = ?
+  `).bind(orderId).first<{
+    id: string; order_number: string; user_id: string | null; guest_email: string | null;
+    payment_status: string; payment_method: string | null;
+    shipping_name: string; shipping_phone: string | null;
+    shipping_address_line1: string; shipping_address_line2: string | null;
+    shipping_city: string; shipping_state: string; shipping_pincode: string;
+    subtotal: number; discount: number; shipping_amount: number; total: number;
+    coupon_code: string | null; tracking_number: string | null; created_at: string | null;
+  }>();
+
+  if (!order) {
+    return c.json({ success: false, error: 'Order not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  // Email match — guest or authed
+  const guestMatch = order.guest_email && order.guest_email.toLowerCase() === email;
+  let userMatch = false;
+  if (order.user_id) {
+    const user = await c.env.DB.prepare('SELECT email FROM users WHERE id = ?')
+      .bind(order.user_id).first<{ email: string }>();
+    userMatch = !!user && user.email.toLowerCase() === email;
+  }
+  if (!guestMatch && !userMatch) {
+    return c.json({ success: false, error: 'Invoice not available for this email', code: 'FORBIDDEN' }, 403);
+  }
+
+  const items = await c.env.DB.prepare(`
+    SELECT product_name, variant_name, sku, quantity, unit_price, line_total
+    FROM order_items WHERE order_id = ?
+  `).bind(orderId).all<{
+    product_name: string; variant_name: string | null; sku: string | null;
+    quantity: number; unit_price: number; line_total: number;
+  }>();
+
+  const invoiceNumber = await getOrCreateInvoiceNumber(c.env, orderId);
+  const pdfBytes = await generateInvoicePdf({
+    invoiceNumber,
+    sellerLegalName:    c.env.SELLER_LEGAL_NAME    || null,
+    sellerGstin:        c.env.SELLER_GSTIN         || null,
+    sellerAddressBlock: c.env.SELLER_ADDRESS_BLOCK || null,
+    sellerState:        c.env.SELLER_STATE         || null,
+    placeOfSupply:      order.shipping_state,
+    orderNumber:          order.order_number,
+    createdAt:            order.created_at ?? new Date().toISOString(),
+    paymentStatus:        order.payment_status,
+    paymentMethod:        order.payment_method,
+    couponCode:           order.coupon_code,
+    trackingNumber:       order.tracking_number,
+    shippingName:         order.shipping_name,
+    shippingPhone:        order.shipping_phone,
+    shippingEmail:        email,
+    shippingAddressLine1: order.shipping_address_line1,
+    shippingAddressLine2: order.shipping_address_line2,
+    shippingCity:         order.shipping_city,
+    shippingState:        order.shipping_state,
+    shippingPincode:      order.shipping_pincode,
+    subtotal:             order.subtotal,
+    discount:             order.discount,
+    shippingAmount:       order.shipping_amount,
+    total:                order.total,
+    items: items.results.map((i) => ({
+      productName: i.product_name,
+      variantName: i.variant_name,
+      sku:         i.sku,
+      quantity:    i.quantity,
+      unitPrice:   i.unit_price,
+      lineTotal:   i.line_total,
+    })),
+  });
+
+  return new Response(pdfBytes as unknown as ArrayBuffer, {
+    headers: {
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `inline; filename="Invoice-${order.order_number}.pdf"`,
+      'Cache-Control':       'private, max-age=0, no-store',
+    },
+  });
 });
 
 // ─── GET /api/orders/track — public order tracking ─────────────

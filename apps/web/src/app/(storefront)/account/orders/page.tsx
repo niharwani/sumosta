@@ -54,10 +54,6 @@ export default function OrdersPage() {
   const [copiedTracking, setCopiedTracking] = useState<string | null>(null);
   const isAuthReady = useAuthStore((s) => s.isInitialized && !!s.user);
 
-  // Diagnostic — remove once orders-list loading is confirmed stable
-  // eslint-disable-next-line no-console
-  console.info('[orders] render', { isAuthReady });
-
   const {
     data,
     isLoading,
@@ -75,24 +71,12 @@ export default function OrdersPage() {
     // a race where useInfiniteQuery fires before initAuth has set the access
     // token, which would cause an unauthenticated request and a broken retry.
     enabled: isAuthReady,
-    queryFn: async ({ pageParam }) => {
-      // eslint-disable-next-line no-console
-      console.info('[orders] fetching', { page: pageParam, status });
-      try {
-        const res = (await ordersApi.list({
-          page: pageParam as number,
-          limit: LIMIT,
-          ...(status !== 'all' ? { status } : {}),
-        } as never)) as OrderListResponse;
-        // eslint-disable-next-line no-console
-        console.info('[orders] fetch ok', { count: res?.orders?.length, total: res?.total });
-        return res;
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[orders] fetch failed', err);
-        throw err;
-      }
-    },
+    queryFn: async ({ pageParam }) =>
+      (await ordersApi.list({
+        page: pageParam as number,
+        limit: LIMIT,
+        ...(status !== 'all' ? { status } : {}),
+      } as never)) as OrderListResponse,
     getNextPageParam: (last) =>
       last.page < last.totalPages ? last.page + 1 : undefined,
   });

@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS orders (
     tax                       REAL NOT NULL DEFAULT 0,
     total                     REAL NOT NULL,
     coupon_code               TEXT,
-    payment_method            TEXT,                       -- 'razorpay' | 'cod' | 'phonepe'
+    payment_method            TEXT,                       -- 'razorpay' | 'cod'
     tracking_number           TEXT,                       -- AWB (mirrors awb_code) — kept for backward compat
     tracking_url              TEXT,                       -- Shiprocket's public tracking URL
     estimated_delivery_date   TEXT,
@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS orders (
     paid_at                   TEXT,
     shipped_at                TEXT,
     delivered_at              TEXT,
+    stock_restored            INTEGER NOT NULL DEFAULT 0,   -- guards single-shot stock reversal on cancel/refund
     created_at                TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at                TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -237,14 +238,29 @@ CREATE INDEX IF NOT EXISTS idx_reviews_approved ON reviews(is_approved);
 
 -- ============================================================
 -- NEWSLETTER SUBSCRIBERS
+-- ------------------------------------------------------------
+-- Uses double-opt-in: new rows are inserted with is_active = 0 and
+-- a `confirm_token`; the API flips is_active = 1 and stamps
+-- `confirmed_at` once the customer clicks the confirmation link.
+-- Every row also carries a persistent `unsubscribe_token` used by
+-- the List-Unsubscribe header + marketing-footer opt-out link.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS subscribers (
-    id          TEXT PRIMARY KEY,
-    email       TEXT UNIQUE NOT NULL,
-    is_active   INTEGER NOT NULL DEFAULT 1,
-    source      TEXT NOT NULL DEFAULT 'website',
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    id                TEXT PRIMARY KEY,
+    email             TEXT UNIQUE NOT NULL,
+    is_active         INTEGER NOT NULL DEFAULT 0,
+    source            TEXT NOT NULL DEFAULT 'website',
+    confirm_token     TEXT,
+    unsubscribe_token TEXT,
+    confirmed_at      TEXT,
+    created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_subscribers_confirm_token
+    ON subscribers(confirm_token);
+
+CREATE INDEX IF NOT EXISTS idx_subscribers_unsub_token
+    ON subscribers(unsubscribe_token);
 
 -- ============================================================
 -- CONTACT MESSAGES
@@ -308,3 +324,21 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 
 CREATE INDEX IF NOT EXISTS idx_admin_logs_admin   ON admin_logs(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_logs_created ON admin_logs(created_at);
+
+-- ============================================================
+-- ORDER STATUS HISTORY
+-- Every transition (admin, Razorpay verify, Shiprocket webhook, etc.)
+-- lands here so the admin timeline can render who changed what.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS order_status_history (
+    id          TEXT PRIMARY KEY,
+    order_id    TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    from_status TEXT,
+    to_status   TEXT NOT NULL,
+    changed_by  TEXT,                                    -- users.id, NULL for system/webhook
+    note        TEXT,
+    changed_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_status_history_order
+    ON order_status_history(order_id);

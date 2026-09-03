@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, Lock, Package } from 'lucide-react';
@@ -11,6 +12,14 @@ import { HONEY_EASE_OUT } from '@/lib/animations';
 import CouponInput from '@/components/cart/CouponInput';
 
 export default function CartPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-cream" />}>
+      <CartPageInner />
+    </Suspense>
+  );
+}
+
+function CartPageInner() {
   const {
     items,
     subtotal,
@@ -33,6 +42,23 @@ export default function CartPage() {
   const reduce = useReducedMotion();
 
   useEffect(() => setMounted(true), []);
+
+  // ─── Cart-recovery resume link ───────────────────────────────────────────
+  // Admin recovery emails link to /cart?resume=<sessionId>. On the same
+  // device the zustand store already rehydrates from localStorage. For
+  // cross-device recovery we'd need to fetch the server-side KV cart tied
+  // to that sessionId and merge it into the store.
+  // TODO: implement cross-device resume — when items.length === 0 and
+  // ?resume=<sessionId> is present, hit a POST /api/cart/rehydrate that
+  // returns the KV cart for the session and hydrate the store from it.
+  const searchParams   = useSearchParams();
+  const resumeSession  = searchParams?.get('resume') ?? null;
+  useEffect(() => {
+    if (!resumeSession) return;
+    import('@/lib/tracker').then(({ tracker }) => {
+      tracker?.track('cart_recovery_resumed', { sessionId: resumeSession });
+    }).catch(() => { /* non-blocking */ });
+  }, [resumeSession]);
 
   if (!mounted) {
     return <div className="min-h-screen bg-cream" />;
@@ -265,7 +291,7 @@ export default function CartPage() {
 
               {/* Trust note */}
               <p className="font-satoshi text-[11px] text-earth-light text-center m-0 inline-flex items-center justify-center gap-1.5 w-full">
-                <Lock size={11} aria-hidden /> Secure checkout · Free returns within 7 days
+                <Lock size={11} aria-hidden /> Secure checkout · Replacements only for damaged items
               </p>
             </div>
           </div>

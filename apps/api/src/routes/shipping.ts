@@ -9,6 +9,8 @@
 import { Hono } from 'hono';
 import type { Bindings } from '../index';
 import { ShiprocketService, isShiprocketConfigured } from '../services/shiprocket';
+import { sendOrderShipped, sendOrderDelivered } from '../services/email';
+import { recordOrderStatusHistory } from '../lib/order-history';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -173,15 +175,30 @@ interface ShiprocketWebhookPayload {
 }
 
 // Maps Shiprocket status text → our internal order.status transition.
-// Only shipped/delivered flip our status; everything else just updates
-// `shipment_status` for display without changing the top-level order state.
-function mapToLocalStatus(status: string | undefined): 'shipped' | 'delivered' | null {
+// Only shipped/delivered/cancelled/refunded flip our status; everything else
+// just updates `shipment_status` for display without changing top-level state.
+function mapToLocalStatus(
+  status: string | undefined,
+): 'shipped' | 'delivered' | 'cancelled' | 'refunded' | null {
   if (!status) return null;
   const s = status.toUpperCase();
   if (s.includes('DELIVERED')) return 'delivered';
-  // "SHIPPED" covers the transit lifecycle. Note: "PICKUP GENERATED" /
-  // "PICKUP SCHEDULED" deliberately do NOT flip status yet — the parcel
-  // is still with us.
+  // Reverse-to-origin, lost, damaged, and cancelled shipments become
+  // top-level failures so the admin timeline + customer email reflect
+  // reality. "RTO" is the umbrella for return-to-origin flows.
+  if (
+    s.includes('LOST')     ||
+    s.includes('DAMAGED')  ||
+    s.includes('RTO')      ||    // "RTO INITIATED", "RTO DELIVERED", "RTO IN TRANSIT"
+    s.includes('REACHED WAREHOUSE') // some couriers use this for RTO landing
+  ) {
+    return 'refunded';
+  }
+  if (s.includes('CANCELLED') || s.includes('CANCELED')) {
+    return 'cancelled';
+  }
+  // "PICKUP GENERATED" / "PICKUP SCHEDULED" deliberately do NOT flip
+  // status yet — the parcel is still with us.
   if (
     s.includes('OUT FOR DELIVERY') ||
     s.includes('IN TRANSIT')       ||
@@ -224,24 +241,53 @@ app.post('/webhook', async (c) => {
     return c.json({ ok: true }, 200);
   }
 
-  // 3. Find the local order — prefer AWB (unique), fall back to order_number
+  // 3. Find the local order — prefer AWB (unique), fall back to order_number.
+  //    Pull recipient fields too so we can fire the shipped/delivered email
+  //    on a transition without a second query.
   const order = awb
-    ? await c.env.DB.prepare(
-        'SELECT id, awb_code, status FROM orders WHERE awb_code = ? LIMIT 1',
-      ).bind(awb).first<{ id: string; awb_code: string | null; status: string }>()
-    : await c.env.DB.prepare(
-        'SELECT id, awb_code, status FROM orders WHERE order_number = ? LIMIT 1',
-      ).bind(orderNumber!).first<{ id: string; awb_code: string | null; status: string }>();
+    ? await c.env.DB.prepare(`
+        SELECT o.id, o.awb_code, o.status, o.order_number,
+               o.shipping_name, o.guest_email, o.tracking_number, o.tracking_url,
+               o.estimated_delivery_date, o.courier_name,
+               u.email AS user_email
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        WHERE o.awb_code = ? LIMIT 1
+      `).bind(awb).first<{
+        id: string; awb_code: string | null; status: string; order_number: string;
+        shipping_name: string; guest_email: string | null;
+        tracking_number: string | null; tracking_url: string | null;
+        estimated_delivery_date: string | null; courier_name: string | null;
+        user_email: string | null;
+      }>()
+    : await c.env.DB.prepare(`
+        SELECT o.id, o.awb_code, o.status, o.order_number,
+               o.shipping_name, o.guest_email, o.tracking_number, o.tracking_url,
+               o.estimated_delivery_date, o.courier_name,
+               u.email AS user_email
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        WHERE o.order_number = ? LIMIT 1
+      `).bind(orderNumber!).first<{
+        id: string; awb_code: string | null; status: string; order_number: string;
+        shipping_name: string; guest_email: string | null;
+        tracking_number: string | null; tracking_url: string | null;
+        estimated_delivery_date: string | null; courier_name: string | null;
+        user_email: string | null;
+      }>();
 
   if (!order) {
     console.warn('[shipping/webhook] no local order found for', { awb, orderNumber });
     return c.json({ ok: true }, 200);
   }
 
-  // 4. Build the UPDATE dynamically — only touch fields the payload carries
+  // 4. Build the UPDATE dynamically — only touch fields the payload carries.
+  //    Track whether this webhook is causing a shipped/delivered transition;
+  //    those trigger a one-shot customer email below.
   const localStatus = mapToLocalStatus(currentText);
   const sets: string[] = ["updated_at = datetime('now')"];
   const binds: unknown[] = [];
+  let transitionedTo: 'shipped' | 'delivered' | 'cancelled' | 'refunded' | null = null;
 
   if (currentText) {
     sets.push('shipment_status = ?', "shipment_status_updated_at = datetime('now')");
@@ -254,9 +300,19 @@ app.post('/webhook', async (c) => {
   if (localStatus === 'delivered' && order.status !== 'delivered') {
     sets.push('status = ?', "delivered_at = COALESCE(delivered_at, datetime('now'))");
     binds.push('delivered');
+    transitionedTo = 'delivered';
   } else if (localStatus === 'shipped' && order.status !== 'shipped' && order.status !== 'delivered') {
     sets.push('status = ?', "shipped_at = COALESCE(shipped_at, datetime('now'))");
     binds.push('shipped');
+    transitionedTo = 'shipped';
+  } else if (
+    (localStatus === 'cancelled' || localStatus === 'refunded') &&
+    order.status !== localStatus &&
+    order.status !== 'delivered'   // do not downgrade delivered orders
+  ) {
+    sets.push('status = ?');
+    binds.push(localStatus);
+    transitionedTo = localStatus;
   }
 
   if (binds.length > 0) {
@@ -266,9 +322,52 @@ app.post('/webhook', async (c) => {
     ).bind(...binds).run();
   }
 
+  // 4a. Record the transition in order_status_history. Only fires when the
+  //     top-level order.status actually flipped (guarded by the check above),
+  //     so repeat IN TRANSIT pings don't spam the timeline.
+  if (transitionedTo) {
+    await recordOrderStatusHistory(
+      c.env,
+      order.id,
+      order.status,
+      transitionedTo,
+      null,
+      `Shiprocket: ${currentText ?? transitionedTo}`,
+    );
+  }
+
   // 5. Invalidate the tracking cache — next customer fetch pulls fresh data
   if (order.awb_code) {
     await c.env.KV_CACHE.delete(`track:awb:${order.awb_code}`);
+  }
+
+  // 6. Fire the customer email on a real transition. Guarded by the
+  //    order.status check above so repeat webhooks for the same phase
+  //    (Shiprocket sends many "IN TRANSIT" pings) don't spam the inbox.
+  //    Runs via waitUntil so the webhook always returns 200 quickly.
+  if (transitionedTo && c.env.RESEND_API_KEY) {
+    const recipient = order.guest_email ?? order.user_email;
+    if (recipient) {
+      const emailPayload = {
+        orderNumber:     order.order_number,
+        recipientEmail:  recipient,
+        shippingName:    order.shipping_name,
+        trackingNumber:  order.tracking_number ?? awb ?? null,
+        trackingUrl:     order.tracking_url,
+        courier:         payload.courier_name ?? order.courier_name,
+        estimatedDate:   payload.etd ?? order.estimated_delivery_date,
+      };
+      const fromAddr = c.env.RESEND_FROM_ORDERS || c.env.RESEND_FROM || undefined;
+      const replyTo  = c.env.SUPPORT_EMAIL || null;
+      const send = transitionedTo === 'delivered'
+        ? sendOrderDelivered(emailPayload, c.env.RESEND_API_KEY, fromAddr, replyTo)
+        : sendOrderShipped(emailPayload,   c.env.RESEND_API_KEY, fromAddr, replyTo);
+      c.executionCtx.waitUntil(
+        send.catch((err) => console.error('[shipping/webhook] status email failed', err)),
+      );
+    } else {
+      console.log('[shipping/webhook] no recipient email for order', order.order_number, '— skipping', transitionedTo, 'notification');
+    }
   }
 
   return c.json({ ok: true }, 200);

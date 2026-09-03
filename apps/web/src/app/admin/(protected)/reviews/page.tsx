@@ -128,9 +128,14 @@ export default function AdminReviewsPage() {
                     </button>
                   ) : null}
                   <button
-                    onClick={() => deleteMutation.mutate(r.id)}
+                    onClick={() => {
+                      if (window.confirm('Delete this review permanently? This cannot be undone.')) {
+                        deleteMutation.mutate(r.id);
+                      }
+                    }}
                     disabled={deleteMutation.isPending}
                     className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                    aria-label="Delete review"
                   >
                     <X size={14} />
                   </button>

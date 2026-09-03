@@ -19,6 +19,28 @@ const UNUSABLE_PASSWORD_HASH = '!' + Array.from({ length: 59 }, () =>
   ),
 ).join('');
 
+// Extra per-endpoint rate limit on top of the global limiter. Used for the
+// costliest / most abusable actions (account creation, OTP verify).
+// Returns true when the caller has exceeded `limit` requests in `windowSec`.
+async function isRateLimited(
+  kv: KVNamespace,
+  bucket: string,
+  ip: string,
+  limit: number,
+  windowSec: number,
+): Promise<boolean> {
+  const key = `rl:${bucket}:${ip}`;
+  try {
+    const raw = await kv.get(key);
+    const n   = raw ? parseInt(raw, 10) : 0;
+    if (n >= limit) return true;
+    await kv.put(key, String(n + 1), { expirationTtl: windowSec });
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Local Zod schemas (kept inside route to respect file scope) ──────
 const resetPasswordSchema = z.object({
   token:    z.string().min(10, 'Invalid reset token'),
@@ -142,6 +164,13 @@ function decodeJwtPayloadUnsafe(token: string): Record<string, unknown> | null {
 // POST /api/auth/register
 // ============================================================
 app.post('/register', zValidator('json', registerSchema), async (c) => {
+  const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
+  if (await isRateLimited(c.env.KV_CACHE, 'register', ip, 5, 60)) {
+    return c.json(
+      { success: false, error: 'Too many signup attempts. Please try again in a minute.', code: 'RATE_LIMITED' },
+      429,
+    );
+  }
   const { name, email, phone, password } = c.req.valid('json');
 
   const existing = await c.env.DB.prepare(
@@ -632,6 +661,13 @@ app.post(
   '/firebase-phone/verify',
   zValidator('json', firebasePhoneVerifySchema),
   async (c) => {
+    const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
+    if (await isRateLimited(c.env.KV_CACHE, 'phone-verify', ip, 5, 60)) {
+      return c.json(
+        { success: false, error: 'Too many attempts. Please wait a minute and try again.', code: 'RATE_LIMITED' },
+        429,
+      );
+    }
     const { idToken } = c.req.valid('json');
 
     if (!c.env.FIREBASE_PROJECT_ID) {

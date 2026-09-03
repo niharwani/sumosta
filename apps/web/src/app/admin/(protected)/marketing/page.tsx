@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Mail, Users, UserX, MessageSquare, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Mail, Users, UserX, MessageSquare, Search, Trash2, ToggleLeft, ToggleRight, Download } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { adminFetch } from '@/lib/admin-auth';
 
@@ -73,6 +73,33 @@ export default function AdminMarketingPage() {
   const subscribers = subData?.data?.subscribers ?? [];
   const subStats    = subData?.data?.stats ?? {};
   const messages    = msgData?.data?.messages ?? [];
+
+  const exportCsv = () => {
+    const header = ['Email', 'Source', 'Status', 'Subscribed'];
+    const rows = subscribers.map((s: { email: string; source: string | null; is_active: number; created_at: string }) => [
+      s.email,
+      s.source ?? 'website',
+      s.is_active ? 'active' : 'unsubscribed',
+      s.created_at,
+    ]);
+    const csv = [header as (string | number)[], ...rows]
+      .map((r) => r.map((v: string | number) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteSub = (id: string, email: string) => {
+    if (!window.confirm(`Delete ${email}? They can resubscribe later, but their history is lost.`)) return;
+    deleteMutation.mutate(id);
+  };
 
   return (
     <div>
@@ -155,6 +182,13 @@ export default function AdminMarketingPage() {
               <option value="active">Active</option>
               <option value="inactive">Unsubscribed</option>
             </select>
+            <button
+              onClick={exportCsv}
+              disabled={subscribers.length === 0}
+              className="ml-auto inline-flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm font-satoshi text-gray-700 hover:border-honey-400 disabled:opacity-40 transition-colors"
+            >
+              <Download size={13} /> Export CSV
+            </button>
           </div>
 
           {subLoading ? (
@@ -202,9 +236,10 @@ export default function AdminMarketingPage() {
                             }
                           </button>
                           <button
-                            onClick={() => deleteMutation.mutate(sub.id)}
+                            onClick={() => handleDeleteSub(sub.id, sub.email)}
                             disabled={deleteMutation.isPending}
                             className="text-gray-300 hover:text-red-500 transition-colors"
+                            aria-label={`Delete ${sub.email}`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -261,14 +296,22 @@ export default function AdminMarketingPage() {
                       )}
                       <p className="font-satoshi text-gray-600 text-sm leading-relaxed">{msg.message}</p>
                     </div>
-                    {!msg.is_read && (
-                      <button
-                        onClick={() => markReadMutation.mutate(msg.id)}
-                        className="shrink-0 font-satoshi text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
+                    <div className="flex flex-col shrink-0 gap-2">
+                      <a
+                        href={`mailto:${msg.email}?subject=${encodeURIComponent(`Re: ${msg.subject ?? 'your message'}`)}&body=${encodeURIComponent(`\n\n\n— \nSUMOSTA\n\n---\nOn ${new Date(msg.created_at).toLocaleString('en-IN')}, ${msg.name} wrote:\n${msg.message}`)}`}
+                        className="text-center font-satoshi text-xs text-white bg-honey-500 hover:bg-honey-600 rounded-lg px-3 py-1.5 transition-colors"
                       >
-                        Mark read
-                      </button>
-                    )}
+                        Reply
+                      </a>
+                      {!msg.is_read && (
+                        <button
+                          onClick={() => markReadMutation.mutate(msg.id)}
+                          className="font-satoshi text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
+                        >
+                          Mark read
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

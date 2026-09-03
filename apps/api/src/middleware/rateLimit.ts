@@ -5,6 +5,13 @@ export const rateLimitMiddleware: MiddlewareHandler<{ Bindings: Bindings }> = as
   const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
   const path = new URL(c.req.url).pathname;
 
+  // Webhooks (Razorpay, Shiprocket, etc.) come from a small set of provider IPs
+  // and are signature-verified — rate-limiting them just creates missed events.
+  if (path.includes('/webhook')) {
+    await next();
+    return;
+  }
+
   // Stricter limit on analytics and auth endpoints
   const limit = path.startsWith('/api/auth') ? 20
     : path.startsWith('/api/analytics') ? 60

@@ -122,4 +122,64 @@ export class RazorpayService {
     const expected = await hmacSha256Hex(webhookSecret, rawBody);
     return timingSafeEqual(expected, signature);
   }
+
+  // ── Refund a captured payment. Full refund if amount omitted, partial otherwise.
+  //    Docs: https://razorpay.com/docs/api/refunds/
+  //    `speed=normal` = standard 5-7 day refund via original method (no extra fee).
+  //    Idempotency: pass a unique key so retries don't create duplicate refunds.
+  async refundPayment(params: {
+    paymentId:      string;                        // razorpay_payment_id (pay_XXX)
+    amount?:        number;                        // INR rupees (converted to paise); omit for full refund
+    notes?:         Record<string, string>;
+    idempotencyKey?: string;                       // any unique string; retrying with same key returns the same refund
+  }): Promise<RazorpayRefund> {
+    const body: Record<string, unknown> = {
+      speed: 'normal',
+      notes: params.notes ?? {},
+    };
+    if (params.amount !== undefined) {
+      const paise = Math.round(params.amount * 100);
+      if (paise < 100) throw new Error('Refund amount must be at least ₹1');
+      body.amount = paise;
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type':  'application/json',
+      'Authorization': 'Basic ' + btoa(`${this.keyId}:${this.keySecret}`),
+    };
+    if (params.idempotencyKey) headers['X-Payment-Idempotency-Key'] = params.idempotencyKey;
+
+    const res = await fetch(`${RAZORPAY_API_BASE}/payments/${params.paymentId}/refund`, {
+      method:  'POST',
+      headers,
+      body:    JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const err = (await res.json()) as RazorpayErrorResponse;
+        msg = err.error?.description || err.error?.code || msg;
+      } catch { /* fallthrough */ }
+      throw new Error(`Razorpay refund failed: ${msg}`);
+    }
+
+    return (await res.json()) as RazorpayRefund;
+  }
+}
+
+export interface RazorpayRefund {
+  id:              string;                         // rfnd_XXX
+  entity:          'refund';
+  amount:          number;                         // paise
+  currency:        string;
+  payment_id:      string;
+  notes:           Record<string, string> | unknown[];
+  receipt:         string | null;
+  acquirer_data?:  Record<string, unknown>;
+  created_at:      number;
+  batch_id:        string | null;
+  status:          'pending' | 'processed' | 'failed';
+  speed_requested: string;
+  speed_processed: string;
 }

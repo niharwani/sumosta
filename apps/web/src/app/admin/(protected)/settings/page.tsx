@@ -3,17 +3,15 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Settings, Truck, CreditCard, Users } from 'lucide-react';
+import { Settings, Truck } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
 const TABS = [
-  { href: '/admin/settings', label: 'General', icon: Settings },
+  { href: '/admin/settings', label: 'General',  icon: Settings },
   { href: '/admin/shipping', label: 'Shipping', icon: Truck },
-  { href: '/admin/settings/payments', label: 'Payments', icon: CreditCard },
-  { href: '/admin/settings/team', label: 'Team', icon: Users },
 ];
 
 const inputClass = 'w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-satoshi text-gray-700 focus:outline-none focus:border-honey-400 transition-colors';
@@ -37,6 +35,7 @@ interface SettingsForm {
 
 export default function AdminSettingsPage() {
   const qc = useQueryClient();
+  const pathname = usePathname();
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [form, setForm] = useState<SettingsForm>({
@@ -86,7 +85,7 @@ export default function AdminSettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await adminFetch(`${API}/api/admin/settings`, {
+      const res = await adminFetch(`${API}/api/admin/settings/general`, {
         method: 'PUT',
         body: JSON.stringify({
           siteName:             form.siteName,
@@ -131,15 +130,22 @@ export default function AdminSettingsPage() {
     <div className="max-w-2xl">
       {/* Tabs */}
       <div className="flex gap-1 mb-8 bg-gray-50 rounded-xl p-1">
-        {TABS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-satoshi text-sm font-medium transition-colors bg-white text-gray-800 shadow-sm"
-          >
-            <Icon size={14} /> {label}
-          </Link>
-        ))}
+        {TABS.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-satoshi text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Icon size={14} /> {label}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="space-y-6">

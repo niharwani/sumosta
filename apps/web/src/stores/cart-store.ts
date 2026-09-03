@@ -97,8 +97,8 @@ type CartStore = CartState & CartDerived & CartActions;
 const DERIVED_ZERO: CartDerived = {
   subtotal: 0,
   discount: 0,
-  shipping: 69,
-  total: 69,
+  shipping: 0,
+  total: 0,
   itemCount: 0,
   couponDiscounts: [],
 };
@@ -119,10 +119,17 @@ export const useCartStore = create<CartStore>()(
       );
 
       const unitPrice = computeUnitPrice(product, variant);
+      // Server-side is still authoritative on stock, but reject client-side
+      // pushes past known stock so the shopper doesn't reach checkout only
+      // to get bounced. `undefined` stock (static catalog) falls through.
+      const maxStock = variant?.stock ?? product.stock;
+      if (typeof maxStock === 'number' && maxStock <= 0) return state;
       let newItems: CartItem[];
 
       if (existing) {
-        const newQty = existing.quantity + quantity;
+        const newQty = typeof maxStock === 'number'
+          ? Math.min(existing.quantity + quantity, maxStock)
+          : existing.quantity + quantity;
         newItems = state.items.map((i) =>
           i.productId === productId && i.variantId === (variantId ?? null)
             ? { ...i, quantity: newQty, lineTotal: unitPrice * newQty }
@@ -195,11 +202,12 @@ export const useCartStore = create<CartStore>()(
       return;
     }
     set((state) => {
-      const newItems = state.items.map((i) =>
-        i.productId === productId && i.variantId === (variantId ?? null)
-          ? { ...i, quantity, lineTotal: i.unitPrice * quantity }
-          : i,
-      );
+      const newItems = state.items.map((i) => {
+        if (i.productId !== productId || i.variantId !== (variantId ?? null)) return i;
+        const maxStock = i.variant?.stock ?? i.product.stock;
+        const clamped = typeof maxStock === 'number' ? Math.min(quantity, maxStock) : quantity;
+        return { ...i, quantity: clamped, lineTotal: i.unitPrice * clamped };
+      });
       return { items: newItems, ...computeDerived(newItems, state.coupons) };
     });
   },

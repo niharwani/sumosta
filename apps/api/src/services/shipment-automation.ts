@@ -2,7 +2,7 @@
 // Shipment automation
 // ------------------------------------------------------------
 // Single entry point used by every "order was successfully placed"
-// code path (Razorpay verify, PhonePe callback, COD checkout). It:
+// code path (Razorpay verify, COD checkout). It:
 //   1. Loads order + items + product dimensions from D1
 //   2. Creates the Shiprocket order
 //   3. Assigns an AWB (auto-picks recommended courier)
@@ -22,6 +22,42 @@ interface Env {
   SHIPROCKET_PASSWORD:       string;
   SHIPROCKET_PICKUP_LOCATION: string;
   SUPPORT_EMAIL?:            string;
+}
+
+// Mirror of DefaultPackage in admin/settings.ts. Kept local to avoid a
+// route-layer import from a service. Length/breadth/height in cm, weight
+// in grams (packaging overhead added on top of item weights).
+interface ShippingDefaults {
+  length:  number;
+  breadth: number;
+  height:  number;   // also serves as the max stack height per box (cm)
+  weight:  number;   // packaging overhead, grams
+}
+
+interface StoredSettings {
+  pickupLocation?: string;
+  defaultPackage?: Partial<ShippingDefaults>;
+}
+
+const FALLBACK_DEFAULT_PACKAGE: ShippingDefaults = {
+  length:  15,
+  breadth: 12,
+  height:  30,   // 30 cm — real courier boxes rarely exceed this
+  weight:  100,  // 100 g packaging + filler
+};
+
+async function loadShippingDefaults(env: Env): Promise<ShippingDefaults> {
+  try {
+    const raw = await env.KV_CACHE.get('site:settings');
+    if (!raw) return { ...FALLBACK_DEFAULT_PACKAGE };
+    const parsed = JSON.parse(raw) as StoredSettings;
+    return {
+      ...FALLBACK_DEFAULT_PACKAGE,
+      ...(parsed.defaultPackage ?? {}),
+    };
+  } catch {
+    return { ...FALLBACK_DEFAULT_PACKAGE };
+  }
 }
 
 interface OrderRow {
@@ -59,44 +95,81 @@ interface ItemRow {
   height_cm:   number | null;
 }
 
-// Default package dims / weight when a product's row is missing values.
-// Sized conservatively for a honey jar — client will override once real
-// per-SKU dimensions land in the DB.
-const DEFAULT_WEIGHT_KG  = 0.55;
-const DEFAULT_LENGTH_CM  = 15;
-const DEFAULT_WIDTH_CM   = 12;
-const DEFAULT_HEIGHT_CM  = 10;
+// Fallback per-unit dims when a product row is missing values. Sized
+// conservatively for a honey jar.
+const DEFAULT_UNIT_WEIGHT_KG = 0.55;
+const DEFAULT_UNIT_LENGTH_CM = 15;
+const DEFAULT_UNIT_WIDTH_CM  = 12;
+const DEFAULT_UNIT_HEIGHT_CM = 10;
 
-// Total volumetric contribution of a set of items. We approximate the
-// outer package as the bounding box of the largest item and extend the
-// longest dimension by the number of items (things are stacked). Not
-// perfect but good enough for Shiprocket's rate cap; overshooting cost
-// is preferable to undershooting weight and getting rejected at pickup.
-function computePackage(items: ItemRow[]): {
+// Packing heuristic:
+//   - Total item weight is summed (kg), plus a per-parcel packaging
+//     overhead from ShippingDefaults.weight (grams → kg).
+//   - The bounding box's breadth/height come from the largest single
+//     item, capped by the configured defaults.
+//   - Height stacks up to floor(defaultBoxHeight / unitHeight) units per
+//     box. Overflow triggers additional boxes, represented by extending
+//     the length axis (the parcel gets longer, height stays at cap).
+// This overshoots dimensional weight rather than undershoot, avoiding
+// pickup-time rejections while still being realistic for multi-unit
+// carts (a 10-jar order becomes a ~30cm x 12cm x 45cm parcel, not the
+// old 100cm x 12cm x 15cm monstrosity).
+function computePackage(items: ItemRow[], defaults: ShippingDefaults): {
   weight: number; length: number; breadth: number; height: number;
 } {
-  let totalWeight = 0;
-  let maxL = 0, maxW = 0, maxH = 0;
-  let stackedUnits = 0;
+  let totalWeightKg = 0;
+  let maxUnitL = 0, maxUnitW = 0, maxUnitH = 0;
+  let totalUnits = 0;
 
   for (const it of items) {
-    const w = (it.weight ?? DEFAULT_WEIGHT_KG) * it.quantity;
-    totalWeight += w;
-    maxL = Math.max(maxL, it.length_cm ?? DEFAULT_LENGTH_CM);
-    maxW = Math.max(maxW, it.width_cm  ?? DEFAULT_WIDTH_CM);
-    maxH = Math.max(maxH, it.height_cm ?? DEFAULT_HEIGHT_CM);
-    stackedUnits += it.quantity;
+    const unitL = it.length_cm ?? DEFAULT_UNIT_LENGTH_CM;
+    const unitW = it.width_cm  ?? DEFAULT_UNIT_WIDTH_CM;
+    const unitH = it.height_cm ?? DEFAULT_UNIT_HEIGHT_CM;
+    const unitWeightKg = it.weight ?? DEFAULT_UNIT_WEIGHT_KG;
+
+    totalWeightKg += unitWeightKg * it.quantity;
+    maxUnitL = Math.max(maxUnitL, unitL);
+    maxUnitW = Math.max(maxUnitW, unitW);
+    maxUnitH = Math.max(maxUnitH, unitH);
+    totalUnits += it.quantity;
   }
 
-  // Stack on the height axis for extra units. If there's only 1 unit total,
-  // the bounding box is just that item. Above 1, add height per extra unit.
-  const stackedHeight = maxH * Math.max(1, stackedUnits);
+  if (totalUnits === 0) {
+    // Shouldn't happen (caller checks items.length > 0) but keep a safe path.
+    return {
+      weight:  Math.max(0.1, Math.round((defaults.weight / 1000) * 100) / 100),
+      length:  defaults.length,
+      breadth: defaults.breadth,
+      height:  Math.min(defaults.height, DEFAULT_UNIT_HEIGHT_CM),
+    };
+  }
+
+  // Cap the per-box stack by whichever is smaller: the box's height
+  // capacity divided by the tallest unit, or the number of units.
+  // At least 1 per box.
+  const perBoxCapacity = Math.max(
+    1,
+    Math.floor(defaults.height / Math.max(1, maxUnitH)),
+  );
+  const boxesNeeded = Math.max(1, Math.ceil(totalUnits / perBoxCapacity));
+
+  // Height per single box = tallest unit × units in that box (capped by box height).
+  const unitsInFirstBox   = Math.min(perBoxCapacity, totalUnits);
+  const singleBoxHeight   = Math.min(defaults.height, maxUnitH * unitsInFirstBox);
+
+  // Overflow → we ship as an effectively longer parcel. Extra boxes
+  // extend the length axis by the box footprint length.
+  const extraBoxes = boxesNeeded - 1;
+  const lengthWithOverflow = maxUnitL + (extraBoxes * maxUnitL);
+
+  const packagingOverheadKg = (defaults.weight ?? 0) / 1000;
+  const finalWeightKg = totalWeightKg + packagingOverheadKg * boxesNeeded;
 
   return {
-    weight:  Math.max(0.1, Math.round(totalWeight * 100) / 100),
-    length:  Math.max(1, Math.round(maxL)),
-    breadth: Math.max(1, Math.round(maxW)),
-    height:  Math.max(1, Math.round(stackedHeight)),
+    weight:  Math.max(0.1, Math.round(finalWeightKg * 100) / 100),
+    length:  Math.max(1, Math.round(lengthWithOverflow)),
+    breadth: Math.max(1, Math.round(maxUnitW)),
+    height:  Math.max(1, Math.round(singleBoxHeight)),
   };
 }
 
@@ -192,8 +265,9 @@ export async function automateShipmentForOrder(
       return { ok: false, reason: msg };
     }
 
-    const pkg  = computePackage(items);
-    const name = splitName(order.shipping_name);
+    const defaults = await loadShippingDefaults(env);
+    const pkg      = computePackage(items, defaults);
+    const name     = splitName(order.shipping_name);
 
     // Recover buyer email. For guest orders it's on the order row; for
     // authed orders we need to look it up.

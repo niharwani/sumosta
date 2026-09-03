@@ -60,8 +60,10 @@ export default function AdminDashboard() {
 
   const { today = {}, yesterday = {}, recentOrders = [], lowStockProducts = [], revenueChart = [] } = data ?? {};
 
-  const change = (curr: number, prev: number) =>
-    prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+  const change = (curr: number | undefined, prev: number | undefined): number | undefined => {
+    if (typeof curr !== 'number' || typeof prev !== 'number' || prev <= 0) return undefined;
+    return ((curr - prev) / prev) * 100;
+  };
 
   return (
     <div className="flex flex-col gap-6">

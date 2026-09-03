@@ -9,7 +9,7 @@
 // Also exposes a "Skip and fill manually" escape hatch that shows the
 // legacy full form for users who don't want to do OTP.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ConfirmationResult } from 'firebase/auth';
 import { Lock, Phone } from 'lucide-react';
 import {
@@ -45,19 +45,33 @@ export function CheckoutPhoneGate({ onVerified, onSkip }: Props) {
   const [resendIn, setResendIn]   = useState(0);
 
   const confirmationRef = useRef<ConfirmationResult | null>(null);
-  const configured = isFirebaseConfigured();
+  const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const configured      = isFirebaseConfigured();
 
   const startResendTimer = () => {
+    // Cancel any prior interval so rapid re-sends don't stack ticks.
+    if (timerRef.current) clearInterval(timerRef.current);
     setResendIn(RESEND_SECONDS);
-    const tick = () => {
+    timerRef.current = setInterval(() => {
       setResendIn((s) => {
-        if (s <= 1) return 0;
-        setTimeout(tick, 1000);
+        if (s <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          return 0;
+        }
         return s - 1;
       });
-    };
-    setTimeout(tick, 1000);
+    }, 1000);
   };
+
+  useEffect(() => {
+    // Cleanup on unmount.
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   const handleSendOtp = async (e?: React.FormEvent) => {
     e?.preventDefault();

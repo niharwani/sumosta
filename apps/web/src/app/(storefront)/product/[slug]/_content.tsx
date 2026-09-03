@@ -32,6 +32,7 @@ import { useProductBySlug } from '@/hooks/useProductBySlug';
 import { tracker } from '@/lib/tracker';
 import { formatPrice } from '@/lib/utils';
 import { HONEY_EASE_OUT } from '@/lib/animations';
+import { priceForVariant, mrpForVariant } from '@/lib/gifting-combos';
 import ProductGallery from '@/components/product/ProductGallery';
 import ReviewSection from '@/components/product/ReviewSection';
 
@@ -109,6 +110,20 @@ export default function ProductContent({ slug }: { slug: string }) {
       ? Math.round(((compareAt - currentPrice) / compareAt) * 100)
       : null;
 
+  // Stock: prefer D1 authoritative value once loaded; fall back to static-catalog
+  // stock while D1 hydrates; treat only an *explicit zero* as out of stock so
+  // static-only products (not yet seeded in D1) don't get disabled.
+  const d1Stock       = (d1Product as { stock?: number } | null | undefined)?.stock;
+  const staticStock   = product?.stock;
+  const currentVariant = variants[activeVariant];
+  const variantStock  = currentVariant?.stock;
+  const resolvedStock: number | null =
+    typeof variantStock === 'number' ? variantStock
+    : typeof d1Stock     === 'number' ? d1Stock
+    : typeof staticStock === 'number' ? staticStock
+    : null;
+  const outOfStock = resolvedStock === 0;
+
   useEffect(() => {
     const onScroll = () => setStickyVisible(window.scrollY > 520);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -146,7 +161,7 @@ export default function ProductContent({ slug }: { slug: string }) {
   }, [slug, product, combo, basePrice]);
 
   const handleAddToCart = useCallback(() => {
-    if (added || (!product && !combo)) return;
+    if (added || outOfStock || (!product && !combo)) return;
     const itemId = product?.id ?? combo?.id ?? '';
     const itemSlug = slug;
     const itemName = product?.name ?? combo?.name ?? '';
@@ -161,14 +176,14 @@ export default function ProductContent({ slug }: { slug: string }) {
         slug: itemSlug,
         price: basePrice,
         images: product?.images ?? [],
-        stock: product?.stock ?? 99,
-      },
+        stock: resolvedStock ?? undefined,
+      } as Parameters<typeof addItem>[3],
       variant,
     );
     setAdded(true);
     clearTimeout(addTimeout.current);
     addTimeout.current = setTimeout(() => setAdded(false), 1800);
-  }, [added, activeVariant, qty, basePrice, addItem, product, combo, variants, slug]);
+  }, [added, outOfStock, resolvedStock, activeVariant, qty, basePrice, addItem, product, combo, variants, slug]);
 
   const toggleAccordion = (i: number) => setOpenAccordion((prev) => (prev === i ? null : i));
 
@@ -314,14 +329,18 @@ export default function ProductContent({ slug }: { slug: string }) {
           </div>
           <button
             onClick={handleAddToCart}
-            disabled={added}
+            disabled={added || outOfStock}
             className={`inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-sm px-6 py-3 rounded-full transition-colors min-h-[44px] ${
-              added
+              outOfStock
+                ? 'bg-sand text-earth-light cursor-not-allowed'
+                : added
                 ? 'bg-sage text-cream cursor-default'
                 : 'bg-honey-500 hover:bg-honey-600 text-cream'
             }`}
           >
-            {added ? (
+            {outOfStock ? (
+              'Out of stock'
+            ) : added ? (
               <>
                 <Check size={16} aria-hidden /> Added
               </>
@@ -450,7 +469,7 @@ export default function ProductContent({ slug }: { slug: string }) {
 
             {/* Trust badges */}
             <div className="flex flex-wrap gap-2 mb-6">
-              {(trustBadges ?? ['100% Raw & Unfiltered', 'NABL Lab Tested', 'NPOP APEDA Organic', 'No Additives']).map(
+              {(trustBadges ?? ['100% Raw & Unfiltered', 'NABL Lab Tested', 'No Additives']).map(
                 (badge) => (
                   <span
                     key={badge}
@@ -515,14 +534,18 @@ export default function ProductContent({ slug }: { slug: string }) {
               </div>
               <button
                 onClick={handleAddToCart}
-                disabled={added}
+                disabled={added || outOfStock}
                 className={`flex-1 inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-[15px] px-7 py-3.5 rounded-lg transition-all min-h-[44px] ${
-                  added
+                  outOfStock
+                    ? 'bg-sand text-earth-light cursor-not-allowed'
+                    : added
                     ? 'bg-sage text-cream cursor-default'
                     : 'bg-honey-500 hover:bg-honey-600 text-cream shadow-honey'
                 }`}
               >
-                {added ? (
+                {outOfStock ? (
+                  'Out of stock'
+                ) : added ? (
                   <>
                     <Check size={16} aria-hidden /> Added
                   </>
@@ -710,6 +733,12 @@ export default function ProductContent({ slug }: { slug: string }) {
           <div className="flex gap-5 overflow-x-auto scrollbar-none px-6 md:px-8 pb-3">
             {related.map((p, idx) => {
               const src = resolveProductImage(dbImages, p.id, p.images?.[0]?.url);
+              // Display 250g pricing where a 250g variant exists (variants[0]),
+              // matching the 250g product photography in this section. Falls
+              // back to the base price for products without variants.
+              const has250 = (p.variants?.length ?? 0) > 0;
+              const displayPrice = has250 ? priceForVariant(p as any, 0) : p.price;
+              const displayMrp   = has250 ? mrpForVariant(p as any, 0)   : (p.compareAtPrice ?? p.price);
               return (
                 <motion.div
                   key={p.id}
@@ -744,11 +773,11 @@ export default function ProductContent({ slug }: { slug: string }) {
                     </h3>
                     <div className="flex items-baseline gap-2">
                       <span className="font-clash text-honey-500 text-sm font-semibold">
-                        {formatPrice(p.price)}
+                        {formatPrice(displayPrice)}
                       </span>
-                      {p.compareAtPrice && p.compareAtPrice > p.price && (
+                      {displayMrp > displayPrice && (
                         <span className="font-satoshi text-earth-light text-xs line-through">
-                          {formatPrice(p.compareAtPrice)}
+                          {formatPrice(displayMrp)}
                         </span>
                       )}
                     </div>

@@ -59,6 +59,11 @@ export default function OrderConfirmationPage() {
   const id = queryOrderId
     || (paramId && paramId !== '_placeholder' ? paramId : '');
   const email = searchParams.get('email') ?? '';
+  // Set when checkout couldn't reach /verify but Razorpay charged the buyer.
+  // We poll until the webhook flips payment_status to 'captured'.
+  const pendingMode    = searchParams.get('pending') === '1';
+  const rzpPaymentId   = searchParams.get('rzpPaymentId') ?? '';
+  const [pendingElapsed, setPendingElapsed] = useState(0); // seconds
 
   const checkRef = useRef<SVGPathElement>(null);
   const clearCart = useCartStore((s) => s.clearCart);
@@ -88,41 +93,75 @@ export default function OrderConfirmationPage() {
     });
   }, [reduce]);
 
-  // Fetch receipt
+  // Fetch receipt (polls when in pending-payment recovery mode).
   useEffect(() => {
     if (!id) return;
 
     const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('sumosta_access_token');
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = Date.now();
+
+    const fetchOnce = async (): Promise<Receipt | null> => {
+      if (hasToken) {
+        try {
+          return await ordersApi.get(id) as Receipt;
+        } catch {
+          /* fall through */
+        }
+      }
+      if (!email) return null;
+      return await ordersApi.receipt(id, email) as Receipt;
+    };
 
     const load = async () => {
       try {
-        let data: Receipt | null = null;
-        if (hasToken) {
-          try {
-            data = await ordersApi.get(id) as Receipt;
-          } catch {
-            // fall through to receipt endpoint
-          }
-        }
+        const data = await fetchOnce();
+        if (cancelled) return;
         if (!data) {
-          if (!email) {
+          if (pendingMode) {
+            // In pending mode we may just be waiting for the row to appear.
+            // Fall through to polling below rather than erroring.
+          } else {
             setErrorMsg('We couldn’t load your order details here. Please check the confirmation email we’ve sent, or track your order using your email.');
             setLoading(false);
             return;
           }
-          data = await ordersApi.receipt(id, email) as Receipt;
         }
-        setReceipt(data);
+        if (data) setReceipt(data);
+        setLoading(false);
+
+        // If we're in pending mode and the payment still isn't captured,
+        // poll every 3s for up to 2 minutes. Webhook will finalize it.
+        if (pendingMode && (!data || data.payment_status !== 'captured')) {
+          const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+          setPendingElapsed(elapsed);
+          if (elapsed < 120) {
+            pollTimer = setTimeout(load, 3000);
+          }
+        }
       } catch (err) {
+        if (cancelled) return;
+        if (pendingMode) {
+          const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+          setPendingElapsed(elapsed);
+          if (elapsed < 120) {
+            pollTimer = setTimeout(load, 3000);
+            return;
+          }
+        }
         const msg = err instanceof Error ? err.message : 'Could not load order';
         setErrorMsg(msg);
-      } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [id, email]);
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [id, email, pendingMode]);
 
   // Fire purchase analytics event once when receipt loads
   useEffect(() => {
@@ -220,6 +259,24 @@ export default function OrderConfirmationPage() {
             </p>
           </motion.div>
         </div>
+
+        {pendingMode && receipt?.payment_status !== 'captured' && (
+          <div className="mb-5 bg-honey-50 border border-honey-200 rounded-2xl p-5 text-center">
+            <div className="flex justify-center mb-3"><HoneycombLoader size="md" /></div>
+            <p className="font-satoshi text-sm text-charcoal font-semibold mb-1">
+              We're confirming your payment
+            </p>
+            <p className="font-satoshi text-xs text-bark leading-relaxed">
+              Razorpay has your payment — we're just finishing the paperwork. This usually takes under a minute.
+              {pendingElapsed >= 60 && (
+                <>
+                  <br />
+                  Still waiting? Contact <a href={`mailto:support@sumosta.com?subject=Order%20${id}%20payment%20confirmation&body=Payment%20ID%3A%20${encodeURIComponent(rzpPaymentId)}%0AOrder%20ID%3A%20${encodeURIComponent(id)}`} className="text-honey-500 underline">support@sumosta.com</a> with payment ID <span className="font-mono">{rzpPaymentId}</span>.
+                </>
+              )}
+            </p>
+          </div>
+        )}
 
         {loading && (
           <div className="flex justify-center py-16"><HoneycombLoader size="lg" /></div>

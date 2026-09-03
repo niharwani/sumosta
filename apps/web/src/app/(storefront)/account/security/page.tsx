@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Check, ShieldCheck } from 'lucide-react';
+import { Check } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { authApi, ApiError } from '@/lib/api';
 import { HONEY_EASE_OUT } from '@/lib/animations';
@@ -229,7 +229,7 @@ export default function SecurityPage() {
                     Password updated
                   </p>
                   <p className="font-satoshi text-xs text-[--bark] mt-0.5">
-                    You&apos;ve been signed out of other sessions.
+                    Use your new password the next time you sign in.
                   </p>
                 </div>
               </motion.div>
@@ -247,20 +247,6 @@ export default function SecurityPage() {
         </form>
       </div>
 
-      <div className="bg-[--cream-warm] rounded-2xl border border-[--sand] p-6 md:p-8 mt-6">
-        <div className="flex items-center gap-2 mb-2">
-          <ShieldCheck size={18} className="text-[--honey-500]" aria-hidden />
-          <h2 className="font-clash text-lg text-[--charcoal] m-0">Account Activity</h2>
-        </div>
-        <p className="font-satoshi text-sm text-[--bark]">
-          Detailed sign-in history will appear here soon. If you notice suspicious activity,
-          update your password right away and{' '}
-          <a href="/contact" className="text-[--honey-600] hover:text-[--honey-500] underline">
-            contact support
-          </a>
-          .
-        </p>
-      </div>
     </div>
   );
 }

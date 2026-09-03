@@ -13,7 +13,7 @@ import { tracker } from '@/lib/tracker';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { INDIAN_STATES } from '@/lib/constants';
 import { MAX_COUPONS_DEFAULT, MAX_COUPONS_WITH_FIRST_ORDER, PREPAID_COUPON_CODE } from '@/stores/cart-store';
-import type { Coupon } from 'shared';
+import { COD_HANDLING_FEE, type Coupon } from 'shared';
 import { CheckoutPhoneGate } from '@/components/checkout/CheckoutPhoneGate';
 
 // Razorpay Checkout is loaded via a <Script> tag; declare its global for TS.
@@ -353,10 +353,16 @@ export default function CheckoutPage() {
     }
   };
 
-  // Email is optional (skipped by phone-verified checkout). Everything else is required.
+  // Email is required for guests so we can send the receipt + invoice PDF.
+  // Signed-in users with a real email on file are already covered by that
+  // email — the empty checkout field is fine for them.
+  const emailFromAccount =
+    user?.email && !user.email.endsWith('@sumosta.local') ? user.email : '';
+  const emailOk = !!(form.email.trim() || emailFromAccount);
   const isFormValid =
-    form.name && form.phone.length >= 10 &&
-    form.address1 && form.city && form.state && form.pincode.length === 6;
+    !!form.name && form.phone.length >= 10 &&
+    !!form.address1 && !!form.city && !!form.state && form.pincode.length === 6 &&
+    emailOk;
 
   // If Turnstile is configured, require a verified token before enabling pay
   const turnstileOk = !turnstileSiteKey || !!turnstileToken;
@@ -374,6 +380,7 @@ export default function CheckoutPage() {
   const handleCodPay = async () => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
     const token = typeof window !== 'undefined' ? useAuthStore.getState().accessToken : null;
+    const trimmedEmail = form.email.trim();
     const res = await fetch(`${API_URL}/api/checkout`, {
       method: 'POST',
       headers: {
@@ -383,7 +390,7 @@ export default function CheckoutPage() {
       body: JSON.stringify({
         shippingAddress: shippingPayload(),
         couponCodes:     coupons.map((c) => c.code),
-        email:           form.email,
+        ...(trimmedEmail ? { email: trimmedEmail } : {}),
         paymentMethod:   'cod',
         items: items.map((i) => ({
           productId:   i.productId,
@@ -407,9 +414,13 @@ export default function CheckoutPage() {
       }
       clearCart();
       const oid = data.data.orderId;
-      window.location.href = `/order-confirmation/${oid}/?orderId=${encodeURIComponent(oid)}&email=${encodeURIComponent(form.email)}`;
+      const emailQs = trimmedEmail ? `&email=${encodeURIComponent(trimmedEmail)}` : '';
+      window.location.href = `/order-confirmation/${oid}/?orderId=${encodeURIComponent(oid)}${emailQs}`;
     } else if (data?.code === 'ACCOUNT_EXISTS') {
       setAccountExists({ field: data.field, msg: errText(data.error, 'This account already exists. Please sign in.') });
+    } else if (data?.code === 'COUPON_INELIGIBLE' && typeof data.couponCode === 'string') {
+      removeCoupon(data.couponCode);
+      setPayError(errText(data.error, `${data.couponCode} could not be applied. Please review your total and try again.`));
     } else {
       setPayError(errText(data.error, 'Could not place COD order. Please try again.'));
     }
@@ -427,6 +438,7 @@ export default function CheckoutPage() {
       return;
     }
     const token = useAuthStore.getState().accessToken;
+    const trimmedEmail = form.email.trim();
 
     const createRes = await fetch(`${API_URL}/api/razorpay/create-order`, {
       method: 'POST',
@@ -437,7 +449,7 @@ export default function CheckoutPage() {
       body: JSON.stringify({
         shippingAddress: shippingPayload(),
         couponCodes:     coupons.map((c) => c.code),
-        email:           form.email,
+        ...(trimmedEmail ? { email: trimmedEmail } : {}),
         items: items.map((i) => ({
           productId:   i.productId,
           variantId:   i.variantId ?? null,
@@ -451,6 +463,9 @@ export default function CheckoutPage() {
     if (!createRes.ok || !created.success) {
       if (created?.code === 'ACCOUNT_EXISTS') {
         setAccountExists({ field: created.field, msg: errText(created.error, 'This account already exists. Please sign in.') });
+      } else if (created?.code === 'COUPON_INELIGIBLE' && typeof created.couponCode === 'string') {
+        removeCoupon(created.couponCode);
+        setPayError(errText(created.error, `${created.couponCode} could not be applied. Please review your total and try again.`));
       } else {
         setPayError(errText(created.error, 'Could not start payment. Please try again.'));
       }
@@ -470,7 +485,7 @@ export default function CheckoutPage() {
         order_id:  razorpayOrderId,
         prefill: {
           name:    form.name,
-          email:   form.email,
+          ...(trimmedEmail ? { email: trimmedEmail } : {}),
           contact: form.phone,
         },
         notes: { orderId },
@@ -502,6 +517,7 @@ export default function CheckoutPage() {
               }),
             });
             const verified = await verifyRes.json();
+            const emailQs = trimmedEmail ? `&email=${encodeURIComponent(trimmedEmail)}` : '';
             if (verifyRes.ok && verified.success) {
               if (verified.data.user && verified.data.accessToken && verified.data.refreshToken) {
                 useAuthStore.getState().login(
@@ -512,12 +528,31 @@ export default function CheckoutPage() {
               }
               clearCart();
               const finalOid = verified.data.orderId ?? orderId;
-              window.location.href = `/order-confirmation/${finalOid}/?orderId=${encodeURIComponent(finalOid)}&email=${encodeURIComponent(form.email)}`;
+              window.location.href = `/order-confirmation/${finalOid}/?orderId=${encodeURIComponent(finalOid)}${emailQs}`;
             } else {
-              setPayError(errText(verified.error, 'Payment verification failed. Please contact support.'));
+              // Money left the wallet but our /verify failed. The webhook will
+              // still finalize the order — send the buyer to the confirmation
+              // page in "pending" mode where it polls until webhook flips it.
+              clearCart();
+              const pendingParams = new URLSearchParams({
+                orderId,
+                pending: '1',
+                rzpPaymentId: response.razorpay_payment_id,
+              });
+              if (trimmedEmail) pendingParams.set('email', trimmedEmail);
+              window.location.href = `/order-confirmation/${orderId}/?${pendingParams.toString()}`;
             }
           } catch {
-            setPayError('Could not verify payment. Please contact support.');
+            // Same recovery as above — verify never returned but the payment id
+            // is real, webhook will do the rest.
+            clearCart();
+            const pendingParams = new URLSearchParams({
+              orderId,
+              pending: '1',
+              rzpPaymentId: response.razorpay_payment_id,
+            });
+            if (trimmedEmail) pendingParams.set('email', trimmedEmail);
+            window.location.href = `/order-confirmation/${orderId}/?${pendingParams.toString()}`;
           } finally {
             resolve();
           }
@@ -553,7 +588,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const COD_FEE = 69;
+  const COD_FEE = COD_HANDLING_FEE;
   const afterDiscount = Math.max(0, subtotal - discount);
   const toFreeShipping = Math.max(0, 499 - afterDiscount);
   const codHandlingFee = paymentMethod === 'cod' ? COD_FEE : 0;
@@ -614,9 +649,25 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="co-email" className={labelClass}>
-                      Email <span className="text-earth-light font-normal normal-case tracking-normal">(optional)</span>
+                      Email *
+                      {emailFromAccount && (
+                        <span className="text-earth-light font-normal normal-case tracking-normal ml-1">
+                          (using {emailFromAccount})
+                        </span>
+                      )}
                     </label>
-                    <input id="co-email" type="email" className={inputClass} placeholder="you@example.com — for order confirmation" value={form.email} onChange={set('email')} />
+                    <input
+                      id="co-email"
+                      type="email"
+                      required
+                      className={inputClass}
+                      placeholder={emailFromAccount || 'you@example.com — for your receipt and invoice'}
+                      value={form.email}
+                      onChange={set('email')}
+                    />
+                    {!emailOk && (
+                      <p className="mt-1 font-satoshi text-xs text-terracotta">Required — this is where we send your receipt and invoice.</p>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="co-phone" className={labelClass}>Phone *</label>

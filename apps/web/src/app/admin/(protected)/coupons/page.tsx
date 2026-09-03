@@ -8,11 +8,15 @@ import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
-const EMPTY_FORM = { code: '', type: 'percentage', value: '', minOrderAmount: '', maxUsage: '', expiresAt: '' };
+const EMPTY_FORM = {
+  code: '', type: 'percentage', value: '', minOrderAmount: '', maxUsage: '',
+  expiresAt: '', isFirstOrderOnly: false,
+};
 
 export default function AdminCouponsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);   // null = creating new
   const [deleting, setDeleting] = useState<string | null>(null);
   const qc = useQueryClient();
 
@@ -27,17 +31,19 @@ export default function AdminCouponsPage() {
   // API returns { success, data: { coupons: [...], total, page, ... } }
   const coupons = data?.data?.coupons ?? [];
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await adminFetch(`${API}/api/admin/coupons`, {
-        method: 'POST',
+      const url    = editingId ? `${API}/api/admin/coupons/${editingId}` : `${API}/api/admin/coupons`;
+      const method = editingId ? 'PATCH' : 'POST';
+      const res = await adminFetch(url, {
+        method,
         body: JSON.stringify({
           code:           form.code.toUpperCase(),
           type:           form.type,
           value:          Number(form.value),
           minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : null,
           maxUsage:       form.maxUsage ? Number(form.maxUsage) : null,
-          isFirstOrderOnly: false,
+          isFirstOrderOnly: form.isFirstOrderOnly,
           isActive:       true,
           expiresAt:      form.expiresAt ? `${form.expiresAt}T23:59:59.000Z` : null,
         }),
@@ -48,10 +54,35 @@ export default function AdminCouponsPage() {
       if (data.success) {
         qc.invalidateQueries({ queryKey: ['admin-coupons'] });
         setShowForm(false);
+        setEditingId(null);
         setForm(EMPTY_FORM);
       }
     },
   });
+
+  const startEdit = (c: {
+    id: string; code: string; type: string; value: number;
+    min_order_amount: number | null; max_usage: number | null;
+    is_first_order_only: number | boolean | null; expires_at: string | null;
+  }) => {
+    setEditingId(c.id);
+    setForm({
+      code:             c.code,
+      type:             c.type,
+      value:            String(c.value),
+      minOrderAmount:   c.min_order_amount != null ? String(c.min_order_amount) : '',
+      maxUsage:         c.max_usage != null ? String(c.max_usage) : '',
+      expiresAt:        c.expires_at ? c.expires_at.slice(0, 10) : '',
+      isFirstOrderOnly: !!c.is_first_order_only,
+    });
+    setShowForm(true);
+  };
+
+  const cancelForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -147,21 +178,33 @@ export default function AdminCouponsPage() {
             </div>
           </div>
 
-          {createMutation.data && !createMutation.data.success && (
+          {saveMutation.data && !saveMutation.data.success && (
             <p className="font-satoshi text-red-500 text-xs mt-3">
-              {createMutation.data.error ?? 'Failed to create coupon'}
+              {saveMutation.data.error ?? (editingId ? 'Failed to update coupon' : 'Failed to create coupon')}
             </p>
           )}
 
+          <label className="flex items-center gap-2 mt-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.isFirstOrderOnly}
+              onChange={(e) => setForm({ ...form, isFirstOrderOnly: e.target.checked })}
+              className="accent-honey-400 w-4 h-4"
+            />
+            <span className="font-satoshi text-gray-700 text-sm">First-order only (WELCOME10-style)</span>
+          </label>
+
           <div className="flex gap-3 mt-4">
             <button
-              onClick={() => createMutation.mutate()}
-              disabled={!form.code || !form.value || createMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+              disabled={!form.code || !form.value || saveMutation.isPending}
               className="bg-honey-400 hover:bg-honey-500 disabled:opacity-50 text-midnight font-satoshi font-semibold text-sm px-5 py-2 rounded-lg transition-colors"
             >
-              {createMutation.isPending ? 'Creating...' : 'Create'}
+              {saveMutation.isPending
+                ? (editingId ? 'Saving…' : 'Creating…')
+                : (editingId ? 'Save changes' : 'Create')}
             </button>
-            <button onClick={() => setShowForm(false)} className="font-satoshi text-gray-500 text-sm px-4 py-2">
+            <button onClick={cancelForm} className="font-satoshi text-gray-500 text-sm px-4 py-2">
               Cancel
             </button>
           </div>
@@ -231,12 +274,20 @@ export default function AdminCouponsPage() {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setDeleting(c.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => startEdit(c)}
+                            className="text-xs text-honey-600 hover:text-honey-700 font-satoshi font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleting(c.id)}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

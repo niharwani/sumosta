@@ -26,8 +26,6 @@ interface SettingsForm {
   announcementBar: string;
   announcementBarActive: boolean;
   instagram: string;
-  facebook: string;
-  twitter: string;
   youtube: string;
   metaTitle: string;
   metaDescription: string;
@@ -47,8 +45,6 @@ export default function AdminSettingsPage() {
     announcementBar:      '',
     announcementBarActive: true,
     instagram:            '',
-    facebook:             '',
-    twitter:              '',
     youtube:              '',
     metaTitle:            '',
     metaDescription:      '',
@@ -74,8 +70,6 @@ export default function AdminSettingsPage() {
         announcementBar:      s.announcementBar       ?? '',
         announcementBarActive: s.announcementBarActive ?? true,
         instagram:            s.socialLinks?.instagram ?? '',
-        facebook:             s.socialLinks?.facebook  ?? '',
-        twitter:              s.socialLinks?.twitter   ?? '',
         youtube:              s.socialLinks?.youtube   ?? '',
         metaTitle:            s.seo?.metaTitle         ?? '',
         metaDescription:      s.seo?.metaDescription   ?? '',
@@ -97,8 +91,6 @@ export default function AdminSettingsPage() {
           announcementBarActive: form.announcementBarActive,
           socialLinks: {
             instagram: form.instagram,
-            facebook:  form.facebook,
-            twitter:   form.twitter,
             youtube:   form.youtube,
           },
           seo: {
@@ -233,8 +225,6 @@ export default function AdminSettingsPage() {
           <div className="grid grid-cols-2 gap-4">
             {[
               { key: 'instagram', label: 'Instagram URL' },
-              { key: 'facebook',  label: 'Facebook URL'  },
-              { key: 'twitter',   label: 'Twitter URL'   },
               { key: 'youtube',   label: 'YouTube URL'   },
             ].map(({ key, label }) => (
               <div key={key}>

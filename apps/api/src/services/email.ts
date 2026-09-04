@@ -784,22 +784,26 @@ export async function sendNewsletterConfirmation(
   }
 }
 
+// `apiBaseUrl` must be the Workers API host (WORKER_URL). The unsubscribe
+// link resolves to /api/newsletter/unsubscribe/... which is served by the
+// API worker, not the Pages frontend. Passing the frontend origin here
+// produces a 404 when subscribers click Unsubscribe.
 export async function sendNewsletterWelcome(
   email: string,
   unsubToken: string,
   apiKey: string,
-  baseUrl: string,
+  apiBaseUrl: string,
   fromAddress: string = 'SUMOSTA <no-reply@sumosta.com>',
   discountCode: string = 'WELCOME10',
 ): Promise<boolean> {
-  const unsubUrl = `${baseUrl.replace(/\/$/, '')}/api/newsletter/unsubscribe/${unsubToken}`;
+  const unsubUrl = `${apiBaseUrl.replace(/\/$/, '')}/api/newsletter/unsubscribe/${unsubToken}`;
   return sendMarketingEmail({
     to:          email,
     unsubToken,
     subject:     'Welcome to SUMOSTA — here is your 10% off',
     html:        buildNewsletterWelcomeHtml(discountCode, unsubUrl),
     apiKey,
-    baseUrl,
+    apiBaseUrl,
     fromAddress,
   });
 }
@@ -807,19 +811,21 @@ export async function sendNewsletterWelcome(
 // Generic marketing send helper — automatically adds the RFC-8058
 // List-Unsubscribe headers and the visible footer link. Call this for every
 // marketing/newsletter/broadcast email; never for transactional messages.
+// `apiBaseUrl` must be the Workers API host (WORKER_URL) — the unsubscribe
+// path is served by the API, not the Pages frontend.
 export async function sendMarketingEmail(opts: {
   to:          string;
   unsubToken:  string;
   subject:     string;
   html:        string;                    // pass HTML that already contains the footer link (or omit and let the helper append one)
   apiKey:      string;
-  baseUrl:     string;
+  apiBaseUrl:  string;
   fromAddress?: string;
   replyTo?:    string | null;
   appendFooter?: boolean;                 // default false — assumes template already includes footer
 }): Promise<boolean> {
   const from = opts.fromAddress ?? 'SUMOSTA <no-reply@sumosta.com>';
-  const unsubUrl = `${opts.baseUrl.replace(/\/$/, '')}/api/newsletter/unsubscribe/${opts.unsubToken}`;
+  const unsubUrl = `${opts.apiBaseUrl.replace(/\/$/, '')}/api/newsletter/unsubscribe/${opts.unsubToken}`;
 
   let html = opts.html;
   if (opts.appendFooter) {

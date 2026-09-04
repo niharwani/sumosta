@@ -23,7 +23,6 @@ function CartPageInner() {
   const {
     items,
     subtotal,
-    discount,
     shipping,
     total,
     itemCount,
@@ -88,8 +87,9 @@ function CartPageInner() {
   }
 
   // ─── Amount needed for free shipping ────────────────────────────────────────
-  const afterDiscount = Math.max(0, subtotal - discount);
-  const toFreeShipping = Math.max(0, 499 - afterDiscount);
+  // Threshold applies to the pre-coupon subtotal (order value), matching
+  // backend calcShipping. Coupons don't push customers out of the free tier.
+  const toFreeShipping = Math.max(0, 499 - subtotal);
 
   return (
     <div className="bg-cream min-h-screen">

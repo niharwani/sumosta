@@ -575,6 +575,11 @@ export const couponsApi = {
       return { valid: false as const, error: err?.message ?? 'Failed to validate coupon' };
     }
   },
+
+  firstOrderEligible: () =>
+    request<{ eligible: boolean; reason: 'guest' | 'new_customer' | 'returning_customer' }>(
+      '/api/coupons/first-order-eligible',
+    ),
 };
 
 // ============================================================

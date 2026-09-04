@@ -81,8 +81,10 @@ function computeDerived(items: CartItem[], coupons: Coupon[]): CartDerived {
 
   const discount = round2(totalDiscount);
   const afterDiscount = Math.max(0, round2(subtotal - discount));
-  // Matches backend calcShipping — customer-facing threshold ₹499, fee ₹69
-  const shipping = afterDiscount >= 499 ? 0 : 69;
+  // Matches backend calcShipping — free above ₹499 order value (pre-coupon),
+  // else flat ₹69. Qualifying on subtotal (not afterDiscount) means coupons
+  // never bump a customer out of the free-shipping tier.
+  const shipping = subtotal >= 499 ? 0 : 69;
   const total = round2(afterDiscount + shipping);
 
   return { subtotal, discount, shipping, total, itemCount, couponDiscounts };

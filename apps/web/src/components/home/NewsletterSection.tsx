@@ -3,10 +3,17 @@ import { useState } from 'react';
 import { newsletterApi } from '@/lib/api';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { Sparkles, ArrowRight, Check } from 'lucide-react';
+import { useFirstOrderEligibility } from '@/hooks/useFirstOrderEligibility';
 
 export default function NewsletterSection() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const { eligible } = useFirstOrderEligibility();
+
+  // The homepage newsletter's entire value prop is the first-order discount.
+  // Suppress it for returning customers who can't redeem WELCOME10 anyway —
+  // they can still subscribe via the footer form.
+  if (!eligible) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

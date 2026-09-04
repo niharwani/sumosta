@@ -2,14 +2,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Instagram, Facebook, Twitter, Check, Loader2 } from 'lucide-react';
+import { Instagram, Check, Loader2 } from 'lucide-react';
 import { newsletterApi } from '@/lib/api';
 import { FOOTER_LINKS, SOCIAL_LINKS } from '@/lib/constants';
+import { useFirstOrderEligibility } from '@/hooks/useFirstOrderEligibility';
 
 const SOCIAL_ICONS: Record<string, typeof Instagram> = {
   instagram: Instagram,
-  facebook:  Facebook,
-  twitter:   Twitter,
 };
 
 function FooterNewsletter() {
@@ -92,6 +91,8 @@ function FooterNewsletter() {
 const PAYMENT_METHODS = ['UPI', 'Visa', 'Mastercard', 'RuPay', 'COD'];
 
 export default function Footer() {
+  const { eligible } = useFirstOrderEligibility();
+
   return (
     <footer
       className="relative overflow-hidden bg-midnight text-cream font-satoshi"
@@ -114,10 +115,12 @@ export default function Footer() {
               Join the Colony
             </p>
             <h2 className="font-clash font-extrabold text-cream text-2xl md:text-3xl leading-tight mb-1">
-              First harvest. First offer.
+              {eligible ? 'First harvest. First offer.' : 'Straight from the hive.'}
             </h2>
             <p className="font-satoshi text-earth-light text-sm max-w-md">
-              Subscribe for new-batch alerts, honey rituals, and 10% off your first order.
+              {eligible
+                ? 'Subscribe for new-batch alerts, honey rituals, and 10% off your first order.'
+                : 'Subscribe for new-batch alerts, seasonal recipes, and quiet news from the hive.'}
             </p>
           </div>
           <FooterNewsletter />

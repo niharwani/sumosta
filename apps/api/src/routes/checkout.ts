@@ -77,6 +77,11 @@ const cartItemSchema = z.object({
   quantity:    z.number().int().min(1).max(50),
   unitPrice:   z.number().positive().optional(),
   productName: z.string().min(1).optional(),
+  // Client-supplied image URL — used only if the DB lookup returns no
+  // primary image (e.g. static-catalog products defined in content.ts
+  // and never synced to D1). Accept relative paths ("/images/...") or
+  // HTTPS URLs; anything else is dropped rather than trusted.
+  productImage: z.string().max(500).optional().nullable(),
 });
 
 const codCheckoutSchema = z.object({
@@ -102,6 +107,19 @@ async function resolveOptionalUser(
   } catch {
     return null;
   }
+}
+
+// Accept a client-supplied product image URL only if it looks like an
+// in-app static path ("/...") or an HTTPS URL. Anything else is dropped
+// — we shouldn't be storing untrusted schemes (data:, javascript:) in
+// order records that get rendered in emails and account pages.
+function sanitiseClientImageUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || trimmed.length > 500) return null;
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return trimmed;
+  if (trimmed.startsWith('https://')) return trimmed;
+  return null;
 }
 
 interface ResolvedItem {
@@ -195,7 +213,7 @@ app.post(
             quantity:    it.quantity,
             unitPrice:   it.unitPrice,
             productName: it.productName,
-            imageUrl:    null,
+            imageUrl:    sanitiseClientImageUrl(it.productImage),
             fromFallback: true,
           });
           continue;
@@ -221,7 +239,9 @@ app.post(
         quantity:    it.quantity,
         unitPrice:   row.price,
         productName: row.name,
-        imageUrl:    row.image_url,
+        // DB is authoritative; fall back to client image only if no
+        // primary image is set on the product (JOIN returned null).
+        imageUrl:    row.image_url ?? sanitiseClientImageUrl(it.productImage),
         fromFallback: false,
       });
     }
@@ -331,7 +351,9 @@ app.post(
     discount = Math.min(discount, subtotal);
 
     // 5. Compute totals (server is source of truth). COD fee is added on top.
-    const shipping = calcShipping(subtotal - discount);
+    // Shipping qualifies on the pre-coupon subtotal (order value) so coupons
+    // never push a customer out of the free-shipping tier.
+    const shipping = calcShipping(subtotal);
     const tax      = calcTax(subtotal - discount);
     const total    = Math.round((subtotal - discount + shipping + tax + COD_HANDLING_FEE) * 100) / 100;
 

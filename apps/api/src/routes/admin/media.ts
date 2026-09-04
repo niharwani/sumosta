@@ -75,8 +75,8 @@ app.post('/upload-url', zValidator('json', uploadUrlSchema), async (c) => {
     if (signed) {
       uploadUrl = signed;
     } else {
-      // Fallback: return the internal upload endpoint
-      uploadUrl = `${c.env.BASE_URL}/api/admin/media/upload-direct?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;
+      // Fallback: return the internal upload endpoint (API worker path)
+      uploadUrl = `${c.env.WORKER_URL ?? c.env.BASE_URL}/api/admin/media/upload-direct?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;
     }
   } catch {
     uploadUrl = `${c.env.WORKER_URL ?? c.env.BASE_URL}/api/admin/media/upload-direct?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;

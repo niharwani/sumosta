@@ -69,9 +69,7 @@ export const TRUST_BADGES = [
 ] as const;
 
 export const SOCIAL_LINKS = [
-  { platform: 'instagram', href: 'https://instagram.com/sumosta',        label: 'Follow on Instagram' },
-  { platform: 'facebook',  href: 'https://facebook.com/sumosta',         label: 'Follow on Facebook'  },
-  { platform: 'twitter',   href: 'https://twitter.com/sumosta',          label: 'Follow on Twitter'   },
+  { platform: 'instagram', href: 'https://www.instagram.com/sumosta.in?igsi=cm43bjlodW1keGR1', label: 'Follow on Instagram' },
 ] as const;
 
 export const INDIAN_STATES = [

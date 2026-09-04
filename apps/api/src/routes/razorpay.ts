@@ -88,7 +88,23 @@ const cartItemSchema = z.object({
   // without seeding first — a tampered client could send a lower unitPrice.
   unitPrice:   z.number().positive().optional(),
   productName: z.string().min(1).optional(),
+  // Same story as unitPrice/productName: used only when D1 has no primary
+  // image (or the product isn't in D1 at all) so the order confirmation +
+  // account order-history + invoice email have something to render.
+  productImage: z.string().max(500).optional().nullable(),
 });
+
+// Accept only in-app static paths ("/...") or HTTPS URLs. Rejects data:,
+// javascript:, protocol-relative "//host" URLs, etc. Kept as a plain
+// function to match the checkout.ts helper of the same name.
+function sanitiseClientImageUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || trimmed.length > 500) return null;
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return trimmed;
+  if (trimmed.startsWith('https://')) return trimmed;
+  return null;
+}
 
 const createOrderSchema = z.object({
   // Email is optional — phone-verified checkout skips it and the razorpay
@@ -224,7 +240,7 @@ app.post(
             quantity:    it.quantity,
             unitPrice:   it.unitPrice,
             productName: it.productName,
-            imageUrl:    null,
+            imageUrl:    sanitiseClientImageUrl(it.productImage),
             fromFallback: true,
           });
           continue;
@@ -250,7 +266,9 @@ app.post(
         quantity:    it.quantity,
         unitPrice:   row.price,
         productName: row.name,
-        imageUrl:    row.image_url,
+        // DB is authoritative; fall back to the client image only when
+        // the product has no primary image set (JOIN yielded null).
+        imageUrl:    row.image_url ?? sanitiseClientImageUrl(it.productImage),
         fromFallback: false,
       });
     }
@@ -364,7 +382,9 @@ app.post(
     discount = Math.min(discount, subtotal);
 
     // 4. Compute totals (server is source of truth)
-    const shipping = calcShipping(subtotal - discount);
+    // Shipping qualifies on the pre-coupon subtotal (order value) so coupons
+    // never push a customer out of the free-shipping tier.
+    const shipping = calcShipping(subtotal);
     const tax      = calcTax(subtotal - discount);
     const total    = Math.round((subtotal - discount + shipping + tax) * 100) / 100;
 

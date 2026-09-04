@@ -1,15 +1,11 @@
+'use client';
+import { Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
-export const metadata = {
-  title: 'Subscription Confirmed — SUMOSTA',
-};
-
-export default function NewsletterConfirmedPage({
-  searchParams,
-}: {
-  searchParams?: { status?: string };
-}) {
-  const invalid = searchParams?.status === 'invalid';
+function ConfirmedContent() {
+  const searchParams = useSearchParams();
+  const invalid = searchParams?.get('status') === 'invalid';
 
   if (invalid) {
     return (
@@ -36,7 +32,7 @@ export default function NewsletterConfirmedPage({
     <div className="min-h-[calc(100vh-var(--header-height))] bg-cream flex flex-col items-center justify-center gap-6 text-center px-6 py-20">
       <div>
         <h1 className="font-clash font-bold text-charcoal text-3xl md:text-4xl mb-2">
-          You're in
+          You&apos;re in
         </h1>
         <p className="font-satoshi text-earth text-sm md:text-base max-w-md">
           Your subscription is confirmed. Check your inbox for a 10% off welcome code.
@@ -49,5 +45,13 @@ export default function NewsletterConfirmedPage({
         Browse products
       </Link>
     </div>
+  );
+}
+
+export default function NewsletterConfirmedPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-cream" />}>
+      <ConfirmedContent />
+    </Suspense>
   );
 }

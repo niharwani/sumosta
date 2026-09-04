@@ -131,4 +131,29 @@ app.post('/validate', zValidator('json', validateSchema), async (c) => {
   });
 });
 
+// ─── GET /api/coupons/first-order-eligible ───────────────────
+// Cheap probe so the storefront can decide whether to advertise the
+// first-order discount (WELCOME10) to a signed-in user. Guests get
+// `eligible: true` since we don't know their order history.
+app.get('/first-order-eligible', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: true, data: { eligible: true, reason: 'guest' } });
+  }
+
+  let userId: string;
+  try {
+    const payload = await verifyJwt(authHeader.slice(7), c.env.JWT_SECRET);
+    userId = payload.sub as string;
+  } catch {
+    return c.json({ success: true, data: { eligible: true, reason: 'guest' } });
+  }
+
+  const eligible = !(await hasQualifyingPriorOrder(c.env.DB, userId));
+  return c.json({
+    success: true,
+    data: { eligible, reason: eligible ? 'new_customer' : 'returning_customer' },
+  });
+});
+
 export default app;

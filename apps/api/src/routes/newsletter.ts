@@ -17,6 +17,7 @@ app.post('/', zValidator('json', newsletterSchema), async (c) => {
 
   const apiKey     = c.env.RESEND_API_KEY;
   const baseUrl    = (c.env.BASE_URL ?? '').replace(/\/$/, '');
+  const workerUrl  = (c.env.WORKER_URL ?? c.env.BASE_URL ?? '').replace(/\/$/, '');
   const fromNoReply = c.env.RESEND_FROM_NOREPLY || c.env.RESEND_FROM || 'SUMOSTA <no-reply@sumosta.com>';
 
   const existing = await c.env.DB
@@ -46,8 +47,8 @@ app.post('/', zValidator('json', newsletterSchema), async (c) => {
       .bind(confirmToken, unsubscribeToken, source ?? null, existing.id)
       .run();
 
-    if (apiKey && baseUrl) {
-      const confirmUrl = `${baseUrl}/api/newsletter/confirm/${confirmToken}`;
+    if (apiKey && workerUrl) {
+      const confirmUrl = `${workerUrl}/api/newsletter/confirm/${confirmToken}`;
       c.executionCtx.waitUntil(
         sendNewsletterConfirmation(email, confirmUrl, apiKey, fromNoReply)
           .catch((err) => console.error('[Newsletter] confirmation resend failed:', err)),
@@ -70,14 +71,14 @@ app.post('/', zValidator('json', newsletterSchema), async (c) => {
     VALUES (?, ?, 0, ?, ?, ?, ?)
   `).bind(id, email, source ?? 'website', confirmToken, unsubscribeToken, now).run();
 
-  if (apiKey && baseUrl) {
-    const confirmUrl = `${baseUrl}/api/newsletter/confirm/${confirmToken}`;
+  if (apiKey && workerUrl) {
+    const confirmUrl = `${workerUrl}/api/newsletter/confirm/${confirmToken}`;
     c.executionCtx.waitUntil(
       sendNewsletterConfirmation(email, confirmUrl, apiKey, fromNoReply)
         .catch((err) => console.error('[Newsletter] confirmation send failed:', err)),
     );
   } else {
-    console.warn('[Newsletter] RESEND_API_KEY or BASE_URL missing — confirmation email skipped');
+    console.warn('[Newsletter] RESEND_API_KEY or WORKER_URL missing — confirmation email skipped');
   }
 
   return c.json(
@@ -93,8 +94,9 @@ app.post('/', zValidator('json', newsletterSchema), async (c) => {
 // Idempotent: repeated clicks after activation just redirect to
 // the thank-you page without re-sending the welcome email.
 app.get('/confirm/:token', async (c) => {
-  const token   = c.req.param('token');
-  const baseUrl = (c.env.BASE_URL ?? '').replace(/\/$/, '');
+  const token     = c.req.param('token');
+  const baseUrl   = (c.env.BASE_URL ?? '').replace(/\/$/, '');
+  const workerUrl = (c.env.WORKER_URL ?? c.env.BASE_URL ?? '').replace(/\/$/, '');
 
   const row = await c.env.DB
     .prepare(
@@ -120,9 +122,9 @@ app.get('/confirm/:token', async (c) => {
     const apiKey      = c.env.RESEND_API_KEY;
     const fromNoReply = c.env.RESEND_FROM_NOREPLY || c.env.RESEND_FROM || 'SUMOSTA <no-reply@sumosta.com>';
 
-    if (apiKey && baseUrl) {
+    if (apiKey && workerUrl) {
       c.executionCtx.waitUntil(
-        sendNewsletterWelcome(row.email, unsubToken, apiKey, baseUrl, fromNoReply)
+        sendNewsletterWelcome(row.email, unsubToken, apiKey, workerUrl, fromNoReply)
           .catch((err) => console.error('[Newsletter] welcome email failed:', err)),
       );
     }

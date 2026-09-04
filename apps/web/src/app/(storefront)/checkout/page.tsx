@@ -60,7 +60,7 @@ const labelClass =
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, discount, shipping, total, couponDiscounts, coupons, addCoupon, removeCoupon, clearCart } = useCartStore();
+  const { items, subtotal, shipping, total, couponDiscounts, coupons, addCoupon, removeCoupon, clearCart } = useCartStore();
   const { user, isInitialized } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
@@ -99,6 +99,14 @@ export default function CheckoutPage() {
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstileMounted = useRef(false);
+
+  // Chip-tap coupon prefetch cache. On mount / when the cart changes we
+  // silently validate the three offer chips in the background, so the tap
+  // itself is instant instead of eating a Worker cold-start + round-trip.
+  // Keyed on `code + subtotal + item signature` so a cart edit invalidates.
+  const couponCacheRef = useRef<
+    Map<string, { valid: true; coupon: Coupon } | { valid: false; error: string }>
+  >(new Map());
 
   useEffect(() => {
     setMounted(true);
@@ -244,6 +252,43 @@ export default function CheckoutPage() {
     }
   }, [serviceability.checked, serviceability.cod, paymentMethod]);
 
+  // Prefetch validation for the three visible coupon chips whenever the
+  // cart signature changes. Fires in the background and populates
+  // `couponCacheRef` — a tap on any chip then reads from cache and
+  // applies instantly (see `applyCode` below).
+  useEffect(() => {
+    if (items.length === 0) return;
+    const cartItems = items.map((i) => ({ name: i.product.name, quantity: i.quantity }));
+    const sig = `${subtotal}:${items
+      .map((i) => `${i.productId}x${i.quantity}`)
+      .sort()
+      .join(',')}`;
+    let cancelled = false;
+    AVAILABLE_COUPONS.forEach(({ code }) => {
+      const key = `${code}:${sig}`;
+      if (couponCacheRef.current.has(key)) return;
+      couponsApi
+        .validate(code, subtotal, cartItems)
+        .then((res) => {
+          if (cancelled) return;
+          if (res.valid && res.coupon) {
+            couponCacheRef.current.set(key, { valid: true, coupon: res.coupon as Coupon });
+          } else {
+            couponCacheRef.current.set(key, {
+              valid: false,
+              error: res.error ?? 'Cannot apply this coupon.',
+            });
+          }
+        })
+        .catch(() => {
+          // silent — user tap will re-validate via the normal path
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [subtotal, items]);
+
   // Fire begin_checkout once when the page mounts with items
   const beginCheckoutFired = useRef(false);
   useEffect(() => {
@@ -323,14 +368,46 @@ export default function CheckoutPage() {
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
 
+  // Shared post-validation step: enforce stacking rules and add. Split out
+  // so both the instant-cache path and the network-fallback path use the
+  // exact same downstream logic.
+  const applyValidatedCoupon = (coupon: Coupon): { ok: true } | { ok: false; msg: string } => {
+    const hasFirstOrder = coupons.some((c) => c.isFirstOrderOnly) || coupon.isFirstOrderOnly;
+    const max = hasFirstOrder ? MAX_COUPONS_WITH_FIRST_ORDER : MAX_COUPONS_DEFAULT;
+    if (coupon.code !== PREPAID_COUPON_CODE && coupons.length >= max) {
+      return { ok: false, msg: `Max ${max} coupons allowed.` };
+    }
+    addCoupon(coupon);
+    return { ok: true };
+  };
+
   const applyCode = async (code: string) => {
     if (coupons.some((c) => c.code === code)) return;
     if (code === PREPAID_COUPON_CODE && paymentMethod === 'cod') {
       setChipError({ code, msg: 'PREPAID5 is only valid for prepaid orders. Switch to Pay Online to use it.' });
       return;
     }
-    setChipLoading(code);
     setChipError(null);
+
+    // Fast path — the prefetch effect above has almost certainly warmed the
+    // cache for this cart signature. If so, apply instantly with no spinner.
+    const sig = `${subtotal}:${items
+      .map((i) => `${i.productId}x${i.quantity}`)
+      .sort()
+      .join(',')}`;
+    const cached = couponCacheRef.current.get(`${code}:${sig}`);
+    if (cached) {
+      if (!cached.valid) {
+        setChipError({ code, msg: cached.error });
+        return;
+      }
+      const result = applyValidatedCoupon(cached.coupon);
+      if (!result.ok) setChipError({ code, msg: result.msg });
+      return;
+    }
+
+    // Cache miss — network validate (spinner shown).
+    setChipLoading(code);
     try {
       const cartItems = items.map((i) => ({ name: i.product.name, quantity: i.quantity }));
       const res = await couponsApi.validate(code, subtotal, cartItems);
@@ -339,13 +416,10 @@ export default function CheckoutPage() {
         return;
       }
       const coupon = res.coupon as Coupon;
-      const hasFirstOrder = coupons.some((c) => c.isFirstOrderOnly) || coupon.isFirstOrderOnly;
-      const max = hasFirstOrder ? MAX_COUPONS_WITH_FIRST_ORDER : MAX_COUPONS_DEFAULT;
-      if (coupon.code !== PREPAID_COUPON_CODE && coupons.length >= max) {
-        setChipError({ code, msg: `Max ${max} coupons allowed.` });
-        return;
-      }
-      addCoupon(coupon);
+      // Warm the cache for any subsequent taps on the same cart.
+      couponCacheRef.current.set(`${code}:${sig}`, { valid: true, coupon });
+      const result = applyValidatedCoupon(coupon);
+      if (!result.ok) setChipError({ code, msg: result.msg });
     } catch {
       setChipError({ code, msg: 'Failed to apply. Try manually.' });
     } finally {
@@ -353,12 +427,19 @@ export default function CheckoutPage() {
     }
   };
 
-  // Email is required for guests so we can send the receipt + invoice PDF.
-  // Signed-in users with a real email on file are already covered by that
-  // email — the empty checkout field is fine for them.
+  // Email delivers the receipt + invoice PDF. It's OPTIONAL when we can
+  // reach the buyer by phone — either they just OTP-verified through the
+  // gate, or they're signed in with a real phone on their account. Those
+  // buyers can pull invoices from /track (phone + order number) or from
+  // /account/orders. Everyone else must give us an email or the invoice
+  // has nowhere to go.
   const emailFromAccount =
     user?.email && !user.email.endsWith('@sumosta.local') ? user.email : '';
-  const emailOk = !!(form.email.trim() || emailFromAccount);
+  const rawUserPhone = (user as any)?.phone as string | undefined;
+  const userHasRealPhone = !!rawUserPhone && !/^(google|guest):/i.test(rawUserPhone);
+  const canBeReachedByPhone = phoneVerified || userHasRealPhone;
+  const emailRequired = !canBeReachedByPhone && !emailFromAccount;
+  const emailOk = !emailRequired || !!(form.email.trim() || emailFromAccount);
   const isFormValid =
     !!form.name && form.phone.length >= 10 &&
     !!form.address1 && !!form.city && !!form.state && form.pincode.length === 6 &&
@@ -398,6 +479,12 @@ export default function CheckoutPage() {
           quantity:    i.quantity,
           unitPrice:   i.unitPrice,
           productName: i.product.name,
+          // Client-side image URL — server uses only when D1 has no
+          // primary image for the product (e.g. static-catalog items).
+          productImage:
+            i.product.images?.find((img) => img.isPrimary)?.url
+            ?? i.product.images?.[0]?.url
+            ?? null,
         })),
       }),
     });
@@ -456,6 +543,10 @@ export default function CheckoutPage() {
           quantity:    i.quantity,
           unitPrice:   i.unitPrice,
           productName: i.product.name,
+          productImage:
+            i.product.images?.find((img) => img.isPrimary)?.url
+            ?? i.product.images?.[0]?.url
+            ?? null,
         })),
       }),
     });
@@ -589,8 +680,9 @@ export default function CheckoutPage() {
   };
 
   const COD_FEE = COD_HANDLING_FEE;
-  const afterDiscount = Math.max(0, subtotal - discount);
-  const toFreeShipping = Math.max(0, 499 - afterDiscount);
+  // Threshold applies to the pre-coupon subtotal (order value), matching
+  // backend calcShipping. Coupons don't push customers out of the free tier.
+  const toFreeShipping = Math.max(0, 499 - subtotal);
   const codHandlingFee = paymentMethod === 'cod' ? COD_FEE : 0;
   const grandTotal = total + codHandlingFee;
 
@@ -649,7 +741,7 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="co-email" className={labelClass}>
-                      Email *
+                      Email {emailRequired ? '*' : <span className="text-earth-light font-normal normal-case tracking-normal">(optional)</span>}
                       {emailFromAccount && (
                         <span className="text-earth-light font-normal normal-case tracking-normal ml-1">
                           (using {emailFromAccount})
@@ -659,14 +751,25 @@ export default function CheckoutPage() {
                     <input
                       id="co-email"
                       type="email"
-                      required
+                      required={emailRequired}
                       className={inputClass}
-                      placeholder={emailFromAccount || 'you@example.com — for your receipt and invoice'}
+                      placeholder={
+                        emailFromAccount
+                          ? emailFromAccount
+                          : emailRequired
+                            ? 'you@example.com — for your receipt and invoice'
+                            : 'you@example.com — optional, for a copy of your invoice'
+                      }
                       value={form.email}
                       onChange={set('email')}
                     />
-                    {!emailOk && (
+                    {emailRequired && !emailOk && (
                       <p className="mt-1 font-satoshi text-xs text-terracotta">Required — this is where we send your receipt and invoice.</p>
+                    )}
+                    {!emailRequired && !form.email.trim() && !emailFromAccount && (
+                      <p className="mt-1 font-satoshi text-[11px] text-earth-light">
+                        We&apos;ll text tracking updates to your phone. Add an email if you&apos;d like a copy of the invoice too.
+                      </p>
                     )}
                   </div>
                   <div>

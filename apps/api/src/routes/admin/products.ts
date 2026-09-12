@@ -49,13 +49,20 @@ app.get('/', async (c) => {
 
   const [rows, countRow] = await Promise.all([
     c.env.DB.prepare(`
-      SELECT p.id, p.name, p.slug, p.sku, p.price, p.compare_at_price, p.stock,
+      SELECT p.id, p.name, p.slug, p.sku, p.price, p.compare_at_price,
+             COALESCE(v.total_stock, p.stock) AS stock,
+             COALESCE(v.variant_count, 0) AS variant_count,
+             p.stock AS product_only_stock,
              p.low_stock_threshold, p.is_active, p.is_featured, p.created_at,
              c.name as category_name,
              pi.url as primary_image
       FROM products p
       LEFT JOIN categories c ON c.id = p.category_id
       LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
+      LEFT JOIN (
+        SELECT product_id, SUM(stock) AS total_stock, COUNT(*) AS variant_count
+        FROM product_variants GROUP BY product_id
+      ) v ON v.product_id = p.id
       ${where}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?

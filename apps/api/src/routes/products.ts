@@ -41,7 +41,8 @@ app.get('/', zValidator('query', productQuerySchema), async (c) => {
 
   const query = `
     SELECT
-      p.id, p.name, p.slug, p.sku, p.price, p.compare_at_price, p.stock,
+      p.id, p.name, p.slug, p.sku, p.price, p.compare_at_price,
+      COALESCE(v.total_stock, p.stock) AS stock,
       p.short_description, p.is_featured, p.tags, p.created_at,
       c.id as category_id, c.name as category_name, c.slug as category_slug,
       pi.url as primary_image, pi.alt_text as primary_image_alt,
@@ -51,6 +52,10 @@ app.get('/', zValidator('query', productQuerySchema), async (c) => {
     LEFT JOIN categories c ON p.category_id = c.id
     LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
     LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
+    LEFT JOIN (
+      SELECT product_id, SUM(stock) AS total_stock
+      FROM product_variants GROUP BY product_id
+    ) v ON v.product_id = p.id
     ${whereClause}
     GROUP BY p.id
     ORDER BY ${orderClause}
@@ -81,7 +86,13 @@ app.get('/', zValidator('query', productQuerySchema), async (c) => {
     },
   };
 
-  await c.env.KV_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
+  // KV write is best-effort — the response is already computed. Failing here
+  // (quota exceeded, transient error) must not 500 the caller.
+  try {
+    await c.env.KV_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
+  } catch (err) {
+    console.warn('[products] cache write failed', err);
+  }
   return c.json(data);
 });
 
@@ -139,7 +150,11 @@ app.get('/:slug', async (c) => {
   };
 
   const data = { success: true, data: fullProduct };
-  await c.env.KV_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
+  try {
+    await c.env.KV_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: CACHE_TTL });
+  } catch (err) {
+    console.warn('[products/:slug] cache write failed', err);
+  }
   return c.json(data);
 });
 

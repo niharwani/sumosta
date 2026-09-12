@@ -57,10 +57,22 @@ app.get('/', async (c) => {
       FROM orders o ORDER BY o.created_at DESC LIMIT 10
     `).all(),
 
-    // Low stock products
+    // Low stock products — effective stock = SUM(variants.stock) when the
+    // product has any variants, otherwise products.stock. Matches what the
+    // admin list card shows so the two views agree.
     c.env.DB.prepare(`
-      SELECT id, name, slug, stock, low_stock_threshold
-      FROM products WHERE stock <= low_stock_threshold AND is_active=1 ORDER BY stock ASC LIMIT 10
+      SELECT p.id, p.name, p.slug,
+             COALESCE(v.total_stock, p.stock) AS stock,
+             p.low_stock_threshold
+      FROM products p
+      LEFT JOIN (
+        SELECT product_id, SUM(stock) AS total_stock
+        FROM product_variants GROUP BY product_id
+      ) v ON v.product_id = p.id
+      WHERE COALESCE(v.total_stock, p.stock) <= p.low_stock_threshold
+        AND p.is_active = 1
+      ORDER BY COALESCE(v.total_stock, p.stock) ASC
+      LIMIT 10
     `).all(),
 
     // Top 5 products by revenue this month

@@ -134,9 +134,19 @@ export default function AdminProductsPage() {
                   <td className="px-5 py-3.5 font-satoshi text-gray-600 text-sm">{product.category_name}</td>
                   <td className="px-5 py-3.5 font-satoshi text-gray-800 text-sm font-medium">{formatPrice(product.price)}</td>
                   <td className="px-5 py-3.5">
-                    <span className={`font-satoshi text-sm ${(product.stock ?? 0) < 10 ? 'text-red-500 font-semibold' : 'text-gray-700'}`}>
-                      {product.stock ?? 0}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-satoshi text-sm ${(product.stock ?? 0) < 10 ? 'text-red-500 font-semibold' : 'text-gray-700'}`}>
+                        {product.stock ?? 0}
+                      </span>
+                      {(product.variant_count ?? 0) > 0 && (
+                        <span
+                          className="font-satoshi text-[10px] font-medium text-honey-700 bg-honey-50 border border-honey-100 px-1.5 py-0.5 rounded-full"
+                          title={`Summed across ${product.variant_count} variant${product.variant_count === 1 ? '' : 's'}`}
+                        >
+                          Σ {product.variant_count}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3.5">
                     <button

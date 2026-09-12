@@ -4,7 +4,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../../index';
 import { adminMiddleware } from '../../middleware/admin';
 import { generateId } from '../../lib/utils';
-import { sendOrderShipped, sendOrderDelivered } from '../../services/email';
+import { sendOrderShipped, sendOrderDelivered, sendRefundConfirmation } from '../../services/email';
 import { automateShipmentForOrder } from '../../services/shipment-automation';
 import { ShiprocketService, isShiprocketConfigured } from '../../services/shiprocket';
 import { RazorpayService } from '../../services/razorpay';
@@ -140,8 +140,16 @@ async function restoreOrderStock(
 }
 
 // Given the transition we're about to apply, decide whether stock needs to
-// be restored on this order right now. Considers COD orders paid enough to
-// have been deducted at checkout time.
+// be restored on this order right now.
+//
+// When is stock actually on the products table for a given order?
+//   Razorpay: only after payment was captured (finalizePaidOrder deducts).
+//   COD:      unconditionally at checkout (checkout.ts deducts before
+//             returning the response).
+// So cancel/refund should restore whenever the payment made it far enough
+// to have caused a deduction — which is either (a) razorpay captured, or
+// (b) it's a COD order at all (COD orders come in with status='confirmed'
+// and stock already removed). Idempotency comes from stock_restored.
 function shouldRestoreStock(params: {
   currentStatus: string;
   nextStatus: string;
@@ -152,18 +160,14 @@ function shouldRestoreStock(params: {
   if (params.stockAlreadyRestored) return false;
   if (params.nextStatus !== 'cancelled' && params.nextStatus !== 'refunded') return false;
 
-  // Razorpay/prepaid: stock was deducted when payment was captured.
+  // Prepaid / gateway: stock was deducted when payment captured.
+  if (params.paymentStatus === 'captured') return true;
   if (STOCK_DEDUCTED_STATUSES.includes(params.currentStatus)) return true;
 
-  // COD: stock is deducted at checkout even while payment_status is 'pending'.
-  if (
-    params.paymentMethod === 'cod' &&
-    params.currentStatus !== 'pending' &&
-    params.currentStatus !== 'cancelled' &&
-    params.currentStatus !== 'refunded'
-  ) {
-    return true;
-  }
+  // Any COD order — stock is deducted at checkout time. This catches the
+  // "cancel a COD order that never got picked up" case that the pre-Sept
+  // logic missed when currentStatus had drifted to 'pending'.
+  if (params.paymentMethod === 'cod') return true;
 
   return false;
 }
@@ -446,7 +450,7 @@ app.get('/:id/invoice.pdf', async (c) => {
 
   const order = await c.env.DB.prepare(`
     SELECT o.id, o.order_number, o.guest_email,
-           o.payment_status, o.payment_method,
+           o.payment_status, o.payment_method, o.razorpay_payment_id,
            o.shipping_name, o.shipping_phone,
            o.shipping_address_line1, o.shipping_address_line2,
            o.shipping_city, o.shipping_state, o.shipping_pincode,
@@ -459,6 +463,7 @@ app.get('/:id/invoice.pdf', async (c) => {
   `).bind(orderId).first<{
     id: string; order_number: string; guest_email: string | null;
     payment_status: string; payment_method: string | null;
+    razorpay_payment_id: string | null;
     shipping_name: string; shipping_phone: string | null;
     shipping_address_line1: string; shipping_address_line2: string | null;
     shipping_city: string; shipping_state: string; shipping_pincode: string;
@@ -486,11 +491,13 @@ app.get('/:id/invoice.pdf', async (c) => {
     sellerGstin:        c.env.SELLER_GSTIN         || null,
     sellerAddressBlock: c.env.SELLER_ADDRESS_BLOCK || null,
     sellerState:        c.env.SELLER_STATE         || null,
+    sellerEmail:        c.env.SELLER_EMAIL         || null,
     placeOfSupply:      order.shipping_state,
     orderNumber:          order.order_number,
     createdAt:            order.created_at ?? new Date().toISOString(),
     paymentStatus:        order.payment_status,
     paymentMethod:        order.payment_method,
+    razorpayPaymentId:    order.razorpay_payment_id,
     couponCode:           order.coupon_code,
     trackingNumber:       order.tracking_number,
     shippingName:         order.shipping_name,
@@ -571,7 +578,7 @@ app.post('/:id/refund', zValidator('json', refundSchema), async (c) => {
   const refundAmount = amount ?? order.total;
 
   const svc = new RazorpayService(c.env.RAZORPAY_KEY_ID, c.env.RAZORPAY_KEY_SECRET);
-  let refundResult: unknown;
+  let refundResult: Awaited<ReturnType<typeof svc.refundPayment>>;
   try {
     refundResult = await svc.refundPayment({
       paymentId:      order.razorpay_payment_id,
@@ -592,8 +599,18 @@ app.post('/:id/refund', zValidator('json', refundSchema), async (c) => {
   const newPaymentStatus = isFullRefund ? 'refunded' : 'partially_refunded';
   const newOrderStatus: OrderStatus | undefined = isFullRefund ? 'refunded' : undefined;
 
-  const setClauses = ["payment_status = ?", "updated_at = datetime('now')"];
-  const binds: unknown[] = [newPaymentStatus];
+  // Store Razorpay refund reference on the order so the admin panel + the
+  // customer email can surface it without dashboarding into Razorpay.
+  // refunded_amount accumulates across partial refunds; refunded_at stamps
+  // the latest one.
+  const setClauses = [
+    'payment_status = ?',
+    'razorpay_refund_id = ?',
+    'refunded_amount = COALESCE(refunded_amount, 0) + ?',
+    "refunded_at = datetime('now')",
+    "updated_at = datetime('now')",
+  ];
+  const binds: unknown[] = [newPaymentStatus, refundResult.id, refundAmount];
   if (newOrderStatus) {
     setClauses.push('status = ?');
     binds.push(newOrderStatus);
@@ -633,7 +650,54 @@ app.post('/:id/refund', zValidator('json', refundSchema), async (c) => {
     );
   }
 
-  return c.json({ success: true, data: { orderId, refundAmount, refundResult, stockRestored } });
+  // Notify the customer that the refund is in flight. Best-effort — a Resend
+  // hiccup should never make the admin think the refund itself failed.
+  if (c.env.RESEND_API_KEY) {
+    try {
+      const recipient = await c.env.DB.prepare(`
+        SELECT o.order_number, o.shipping_name, o.guest_email, u.email AS user_email
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        WHERE o.id = ?
+      `).bind(orderId).first<{
+        order_number: string; shipping_name: string;
+        guest_email: string | null; user_email: string | null;
+      }>();
+      const rawEmail = recipient?.guest_email ?? recipient?.user_email ?? null;
+      const recipientEmail = rawEmail && !rawEmail.endsWith('@sumosta.local') ? rawEmail : null;
+      if (recipient && recipientEmail) {
+        await sendRefundConfirmation(
+          {
+            orderNumber:    recipient.order_number,
+            recipientEmail,
+            recipientName:  recipient.shipping_name,
+            amount:         refundAmount,
+            isFullRefund,
+            refundId:       refundResult.id,
+            reason,
+          },
+          c.env.RESEND_API_KEY,
+          c.env.RESEND_FROM_ORDERS || undefined,
+          c.env.SUPPORT_EMAIL || null,
+        );
+      }
+    } catch (err) {
+      console.warn('[Admin/Orders] refund email failed', err);
+    }
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      orderId,
+      refundAmount,
+      refundId:      refundResult.id,
+      refundStatus:  refundResult.status,
+      newPaymentStatus,
+      newOrderStatus: newOrderStatus ?? order.status,
+      stockRestored,
+    },
+  });
 });
 
 // ─── POST /api/admin/orders/:id/shipment/retry ──────────────────

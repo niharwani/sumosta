@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { formatPrice } from '@/lib/utils';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
@@ -18,6 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
 export default function AdminOrdersPage() {
+  const router = useRouter();
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
 
@@ -71,8 +74,28 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {orders.map((order: any) => (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3.5 font-satoshi text-gray-800 text-sm font-medium">{order.order_number}</td>
+                <tr
+                  key={order.id}
+                  onClick={() => router.push(`/admin/orders/${order.id}/`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      router.push(`/admin/orders/${order.id}/`);
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer focus:outline-none focus:bg-honey-50"
+                >
+                  <td className="px-5 py-3.5 font-satoshi text-sm font-medium">
+                    <Link
+                      href={`/admin/orders/${order.id}/`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-honey-600 hover:text-honey-700 hover:underline"
+                    >
+                      {order.order_number}
+                    </Link>
+                  </td>
                   <td className="px-5 py-3.5 font-satoshi text-gray-400 text-xs">{new Date(order.created_at).toLocaleDateString('en-IN')}</td>
                   <td className="px-5 py-3.5 font-satoshi text-gray-600 text-sm">{order.shipping_name}</td>
                   <td className="px-5 py-3.5 font-satoshi text-gray-800 text-sm font-medium">{formatPrice(order.total)}</td>

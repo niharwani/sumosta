@@ -40,9 +40,9 @@ interface StoredSettings {
 }
 
 const FALLBACK_DEFAULT_PACKAGE: ShippingDefaults = {
-  length:  15,
-  breadth: 12,
-  height:  30,   // 30 cm — real courier boxes rarely exceed this
+  length:  15,   // outer box L — fits a 9.5cm-wide jar with padding
+  breadth: 12,   // outer box B
+  height:  22,   // 22 cm — one 500g jar (21.5 cm) + lid clearance; stacks overflow into a new box
   weight:  100,  // 100 g packaging + filler
 };
 
@@ -208,11 +208,19 @@ async function loadOrder(db: D1Database, orderId: string): Promise<OrderRow | nu
 }
 
 async function loadItems(db: D1Database, orderId: string): Promise<ItemRow[]> {
+  // Prefer variant-level weight/dimensions when present (migration 008 added
+  // them so a 250g jar isn't declared with the 500g jar's parcel size).
+  // Falls back to product-level values when the variant hasn't been set,
+  // and to the shipping-defaults fallback further down when both are null.
   const res = await db.prepare(`
     SELECT oi.product_id, oi.product_name, oi.sku, oi.quantity, oi.unit_price,
-           p.weight, p.length_cm, p.width_cm, p.height_cm
+           COALESCE(pv.weight,    p.weight)    AS weight,
+           COALESCE(pv.length_cm, p.length_cm) AS length_cm,
+           COALESCE(pv.width_cm,  p.width_cm)  AS width_cm,
+           COALESCE(pv.height_cm, p.height_cm) AS height_cm
     FROM order_items oi
-    LEFT JOIN products p ON p.id = oi.product_id
+    LEFT JOIN products p          ON p.id  = oi.product_id
+    LEFT JOIN product_variants pv ON pv.id = oi.variant_id
     WHERE oi.order_id = ?
   `).bind(orderId).all<ItemRow>();
   return res.results ?? [];

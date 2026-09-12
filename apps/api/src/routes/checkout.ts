@@ -4,7 +4,8 @@ import { zValidator } from '@hono/zod-validator';
 import { setCookie } from 'hono/cookie';
 import type { Bindings } from '../index';
 import { verifyJwt, signJwt, generateRefreshToken } from '../lib/jwt';
-import { generateId, generateOrderNumber, calcShipping, calcTax, hasQualifyingPriorOrder } from '../lib/utils';
+import { generateId, generateOrderNumber, calcShipping, calcTax, hasQualifyingPriorOrder, isCombo10Eligible, isKnownNonServiceablePincode } from '../lib/utils';
+import { verifyTurnstileToken } from '../lib/turnstile';
 import { sendOrderConfirmation } from '../services/email';
 import { automateShipmentForOrder } from '../services/shipment-automation';
 import { generateInvoicePdf, toBase64 } from '../services/invoice';
@@ -68,7 +69,8 @@ const shippingSchema = z.object({
   line2:   z.string().optional().nullable(),
   city:    z.string().min(2),
   state:   z.string().min(2),
-  pincode: z.string().regex(/^\d{6}$/),
+  // Indian PIN codes start with 1–8; reject 000000 / 999999 and similar.
+  pincode: z.string().regex(/^[1-8]\d{5}$/),
 });
 
 const cartItemSchema = z.object({
@@ -93,6 +95,9 @@ const codCheckoutSchema = z.object({
   couponCodes:     z.array(z.string()).optional().default([]),
   paymentMethod:   z.literal('cod'),
   items:           z.array(cartItemSchema).min(1, 'Cart is empty'),
+  // Cloudflare Turnstile widget token. Enforced only when
+  // TURNSTILE_SECRET_KEY is configured; verified below.
+  turnstileToken:  z.string().optional().nullable(),
 });
 
 // Best-effort user extraction. Never rejects.
@@ -128,6 +133,8 @@ interface ResolvedItem {
   quantity:    number;
   unitPrice:   number;
   productName: string;
+  variantName: string | null;
+  sku:         string;
   imageUrl:    string | null;
   fromFallback: boolean;
 }
@@ -136,8 +143,32 @@ app.post(
   '/',
   zValidator('json', codCheckoutSchema),
   async (c) => {
-    const { email: rawEmail, shippingAddress, couponCodes, items } = c.req.valid('json');
+    const { email: rawEmail, shippingAddress, couponCodes, items, turnstileToken } = c.req.valid('json');
     const email = rawEmail?.trim() || null;
+
+    // Bot protection — verify the Turnstile token when the secret is set.
+    // When the secret is empty (widget not yet configured) verification is
+    // skipped so checkout stays usable.
+    const ipHeader = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? null;
+    const turnstile = await verifyTurnstileToken(c.env.TURNSTILE_SECRET_KEY, turnstileToken, ipHeader);
+    if (!turnstile.ok) {
+      return c.json({
+        success: false,
+        error:   turnstile.error ?? 'Bot-protection check failed.',
+        code:    turnstile.code ?? 'TURNSTILE_FAILED',
+      }, 400);
+    }
+
+    // Hard block for pincodes we can't fulfill (Andaman & Nicobar, Lakshadweep).
+    // Matches the guard in /api/shipping/serviceability so a buyer can't slip
+    // past the frontend gate by hitting the endpoint directly.
+    if (isKnownNonServiceablePincode(shippingAddress.pincode)) {
+      return c.json({
+        success: false,
+        error:   'We\'re unable to ship to this pincode yet. Please try a different delivery address.',
+        code:    'SHIPPING_NON_SERVICEABLE',
+      }, 400);
+    }
 
     // 1. Optional user resolution — guest orders are welcome
     const rawUserId = await resolveOptionalUser(c.req.header('Authorization'), c.env.JWT_SECRET);
@@ -186,45 +217,88 @@ app.post(
     // 2. Resolve items against D1 (server is source of truth for prices)
     const resolved: ResolvedItem[] = [];
     for (const it of items) {
-      const variantId = it.variantId ?? null;
-      const row = variantId
+      let variantId = it.variantId ?? null;
+      let row = variantId
         ? await c.env.DB.prepare(`
-            SELECT pv.stock, pv.price, p.name, pi.url AS image_url
+            SELECT pv.id AS variant_id, pv.stock, p.stock AS product_stock,
+                   (p.price + pv.price_adjust) AS price,
+                   pv.sku AS variant_sku, pv.name AS variant_name,
+                   p.name, p.sku AS product_sku, pi.url AS image_url
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
             LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
             WHERE pv.id = ? AND p.id = ? AND p.is_active = 1
           `).bind(variantId, it.productId)
-            .first<{ stock: number; price: number; name: string; image_url: string | null }>()
+            .first<{
+              variant_id: string;
+              stock: number; product_stock: number;
+              price: number; variant_sku: string | null; variant_name: string | null;
+              name: string; product_sku: string | null; image_url: string | null;
+            }>()
         : await c.env.DB.prepare(`
-            SELECT p.stock, p.price, p.name, pi.url AS image_url
+            SELECT p.stock, p.price, p.name, p.sku AS product_sku, pi.url AS image_url
             FROM products p
             LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
             WHERE p.id = ? AND p.is_active = 1
           `).bind(it.productId)
-            .first<{ stock: number; price: number; name: string; image_url: string | null }>();
+            .first<{
+              stock: number; price: number; name: string;
+              product_sku: string | null; image_url: string | null;
+            }>();
+
+      // Static-catalog fallback: static frontend variant IDs like
+      // `var_wf_250g` don't match D1's real ids. If the exact variant
+      // match failed but productId is a real D1 product, look up by size
+      // token. D1's price still wins — TC-041 protection intact.
+      if (!row && variantId) {
+        const sizeMatch = variantId.match(/(\d+(?:\.\d+)?)\s*(g|kg|ml|l|x\d+g)$/i)
+          ?? (it.productName ?? '').match(/(\d+(?:\.\d+)?)\s*(g|kg|ml|l)/i);
+        if (sizeMatch) {
+          const token = `${sizeMatch[1]}${sizeMatch[2]}`.toLowerCase();
+          const remapped = await c.env.DB.prepare(`
+            SELECT pv.id AS variant_id, pv.stock, p.stock AS product_stock,
+                   (p.price + pv.price_adjust) AS price,
+                   pv.sku AS variant_sku, pv.name AS variant_name,
+                   p.name, p.sku AS product_sku, pi.url AS image_url
+            FROM product_variants pv
+            JOIN products p ON p.id = pv.product_id
+            LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
+            WHERE p.id = ? AND p.is_active = 1
+              AND LOWER(REPLACE(pv.name, ' ', '')) LIKE ?
+          `).bind(it.productId, `%${token}%`)
+            .first<{
+              variant_id: string; stock: number; product_stock: number;
+              price: number; variant_sku: string | null; variant_name: string | null;
+              name: string; product_sku: string | null; image_url: string | null;
+            }>();
+          if (remapped) {
+            console.warn(`[checkout/cod] remapped stale variant ${variantId} → ${remapped.variant_id} via size token "${token}"`);
+            row = remapped;
+            variantId = remapped.variant_id;
+          }
+        }
+      }
 
       if (!row) {
-        // Fallback: accept client-supplied price/name for static-catalog products
-        if (typeof it.unitPrice === 'number' && it.productName) {
-          resolved.push({
-            productId:   it.productId,
-            variantId:   null,
-            quantity:    it.quantity,
-            unitPrice:   it.unitPrice,
-            productName: it.productName,
-            imageUrl:    sanitiseClientImageUrl(it.productImage),
-            fromFallback: true,
-          });
-          continue;
-        }
+        console.warn(`[checkout/cod] rejecting unknown product/variant ${it.productId}/${it.variantId ?? 'none'}`);
         return c.json({
           success: false,
-          error:   `Product ${it.productId} not found or inactive`,
+          error:   'One or more items in your cart are no longer available. Please refresh your cart and try again.',
           code:    'PRODUCT_NOT_FOUND',
         }, 404);
       }
 
+      // Product-level stock acts as a kill-switch for the whole SKU family
+      // — if the admin zeroes it out, no variant order should go through
+      // even when the variant still has stock. Matches TC-040 expectation.
+      const parentStock = (row as { product_stock?: number }).product_stock;
+      if (variantId && typeof parentStock === 'number' && parentStock <= 0) {
+        return c.json({
+          success: false,
+          error:   `Insufficient stock for "${row.name}" (0 available)`,
+          code:    'INSUFFICIENT_STOCK',
+        }, 409);
+      }
       if (row.stock < it.quantity) {
         return c.json({
           success: false,
@@ -233,12 +307,18 @@ app.post(
         }, 409);
       }
 
+      const variantRow = row as { variant_sku?: string | null; variant_name?: string | null };
       resolved.push({
         productId:   it.productId,
         variantId,
         quantity:    it.quantity,
         unitPrice:   row.price,
         productName: row.name,
+        variantName: variantRow.variant_name ?? null,
+        // Prefer variant SKU when present (variant-level fulfillment), then
+        // product SKU, then productId as a last resort. This is what the
+        // invoice PDF's "SKU" column ends up showing.
+        sku:         variantRow.variant_sku ?? row.product_sku ?? it.productId,
         // DB is authoritative; fall back to client image only if no
         // primary image is set on the product (JOIN returned null).
         imageUrl:    row.image_url ?? sanitiseClientImageUrl(it.productImage),
@@ -342,6 +422,16 @@ app.post(
         }
       }
 
+      // COMBO10 must not stack on the 5 Elements Collection (client rule).
+      if (code === 'COMBO10' && !isCombo10Eligible(
+        resolved.map((r) => ({ productId: r.productId, name: r.productName, quantity: r.quantity })),
+      )) {
+        return c.json({
+          success: false, code: 'COUPON_INELIGIBLE', couponCode: code,
+          error: 'COMBO10 applies to combo/gift products (Duo, Trio, Pack) or 2+ eligible items.',
+        }, 409);
+      }
+
       const amount = coupon.type === 'percentage'
         ? Math.round(subtotal * (coupon.value / 100) * 100) / 100
         : Math.min(coupon.value, subtotal);
@@ -386,14 +476,17 @@ app.post(
       couponSummary, estimatedDate,
     ).run();
 
-    // 7. Insert order items
+    // 7. Insert order items — real sku + variant_name so the invoice PDF
+    // renders the same identifiers the admin panel shows (previously the
+    // productId was written into the sku column, garbling every invoice).
     const itemInserts = resolved.map((item) =>
       c.env.DB.prepare(`
-        INSERT INTO order_items (id, order_id, product_id, variant_id, product_name, sku, quantity, unit_price, line_total, image_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO order_items (id, order_id, product_id, variant_id, product_name, variant_name, sku, quantity, unit_price, line_total, image_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         generateId('oi'), orderId, item.productId, item.variantId ?? null,
-        item.productName, item.productId, item.quantity, item.unitPrice,
+        item.productName, item.variantName ?? null, item.sku,
+        item.quantity, item.unitPrice,
         Math.round(item.unitPrice * item.quantity * 100) / 100,
         item.imageUrl ?? null,
       ),
@@ -430,7 +523,8 @@ app.post(
     if (email && c.env.RESEND_API_KEY) {
       const emailItems = resolved.map((r) => ({
         productName: r.productName,
-        variantName: null,
+        variantName: r.variantName,
+        sku:         r.sku,
         quantity:    r.quantity,
         unitPrice:   r.unitPrice,
         lineTotal:   Math.round(r.unitPrice * r.quantity * 100) / 100,
@@ -446,6 +540,7 @@ app.post(
           sellerGstin:        c.env.SELLER_GSTIN         || null,
           sellerAddressBlock: c.env.SELLER_ADDRESS_BLOCK || null,
           sellerState:        c.env.SELLER_STATE         || null,
+          sellerEmail:        c.env.SELLER_EMAIL         || null,
           placeOfSupply:      shippingAddress.state,
           orderNumber,
           createdAt:            new Date().toISOString(),
@@ -465,7 +560,7 @@ app.post(
           discount,
           shippingAmount:       shipping + COD_HANDLING_FEE,
           total,
-          items: emailItems.map((i) => ({ ...i, sku: null })),
+          items: emailItems,
         });
         invoiceAttachment = [{
           filename: `Invoice-${orderNumber}.pdf`,

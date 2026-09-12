@@ -227,7 +227,7 @@ export const STATIC_CATEGORIES: Record<string, Category> = {
   },
   'gift-boxes': {
     id: 'cat_gift_boxes',
-    name: 'Gift Boxes & Combos',
+    name: 'Combos',
     slug: 'gift-boxes',
     description: 'Curated collections and premium gift boxes of our finest wild forest honeys.',
     imageUrl: null,

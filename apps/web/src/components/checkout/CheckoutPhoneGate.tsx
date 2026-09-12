@@ -73,6 +73,32 @@ export function CheckoutPhoneGate({ onVerified, onSkip }: Props) {
     };
   }, []);
 
+  // WebOTP: on Android Chrome, once we're on the OTP stage, ask the browser
+  // to listen for an incoming SMS and auto-fill the code. iOS Safari already
+  // handles this via the `autocomplete="one-time-code"` attribute on the
+  // input; WebOTP fills the Android gap. Firebase's SMS body must end with
+  // "@<host> #<otp>" for Chrome to route it here. If Firebase's template
+  // doesn't include that suffix, this is a no-op — the input still accepts
+  // manual entry and iOS keyboard suggestions.
+  useEffect(() => {
+    if (stage !== 'otp') return;
+    if (typeof window === 'undefined') return;
+    if (!('OTPCredential' in window)) return;
+    const ac = new AbortController();
+    (navigator.credentials as unknown as {
+      get: (opts: {
+        otp: { transport: string[] };
+        signal: AbortSignal;
+      }) => Promise<{ code?: string } | null>;
+    })
+      .get({ otp: { transport: ['sms'] }, signal: ac.signal })
+      .then((otp) => {
+        if (otp?.code) setCode(otp.code);
+      })
+      .catch(() => { /* user dismissed / timeout / not supported — silent */ });
+    return () => ac.abort();
+  }, [stage]);
+
   const handleSendOtp = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError('');

@@ -50,7 +50,7 @@ export default function CouponInput() {
     let resolved: Coupon | null = null;
 
     try {
-      const cartItems = items.map((i) => ({ name: i.product.name, quantity: i.quantity }));
+      const cartItems = items.map((i) => ({ productId: i.productId, name: i.product.name, quantity: i.quantity }));
       const res = await couponsApi.validate(trimmed, subtotal, cartItems);
       if (res.valid && res.coupon) {
         resolved = res.coupon as Coupon;

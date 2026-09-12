@@ -23,6 +23,7 @@ import {
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { formatPrice, cn } from '@/lib/utils';
 import { ordersApi, reviewsApi, cartApi, ApiError, type TrackingResponse } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth-store';
 import { HONEY_EASE_OUT } from '@/lib/animations';
 
 const STATUS_STEPS = [
@@ -119,6 +120,14 @@ export default function OrderDetailPage() {
     enabled:  !!id && !isShellRoute,
     retry:    false,
   });
+
+  // Email used to authorize the customer PDF endpoint. Prefer the guest
+  // email attached to the order (covers both real customers and guest
+  // checkouts), then fall back to the signed-in user's email.
+  const authEmail = useAuthStore((s) => s.user?.email ?? null);
+  const invoiceEmail = (order?.guest_email
+    || (authEmail && !authEmail.endsWith('@sumosta.local') ? authEmail : ''))
+    ?? '';
 
   // Live tracking — fetches Shiprocket checkpoints once we have an order.
   // Refetched every 5 minutes while the tab is open so customers who leave
@@ -684,13 +693,25 @@ export default function OrderDetailPage() {
               {reorderMutation.isPending ? 'Adding…' : 'Reorder'}
             </button>
           )}
-          <Link
-            href={`/account/orders/${order.id}/invoice`}
-            className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 bg-[--cream] border border-[--sand] hover:border-[--honey-400] text-[--charcoal] font-satoshi font-semibold text-sm rounded-full px-6 py-3 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400]"
-          >
-            <Download size={15} aria-hidden />
-            Download invoice
-          </Link>
+          {invoiceEmail ? (
+            <a
+              href={ordersApi.invoiceUrl(order.id, invoiceEmail)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 bg-[--cream] border border-[--sand] hover:border-[--honey-400] text-[--charcoal] font-satoshi font-semibold text-sm rounded-full px-6 py-3 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400]"
+            >
+              <Download size={15} aria-hidden />
+              Download invoice
+            </a>
+          ) : (
+            <Link
+              href={`/account/orders/${order.id}/invoice`}
+              className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 bg-[--cream] border border-[--sand] hover:border-[--honey-400] text-[--charcoal] font-satoshi font-semibold text-sm rounded-full px-6 py-3 min-h-[44px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[--honey-400]"
+            >
+              <Download size={15} aria-hidden />
+              View invoice
+            </Link>
+          )}
           {canCancel && (
             <button
               type="button"

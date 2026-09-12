@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { Package, ShoppingBag, Check } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { useCartStore } from '@/stores/cart-store';
+import { useProductImages, resolveProductStock } from '@/hooks/useProductImages';
 import type { Product } from 'shared';
 
 interface ProductCardProps {
@@ -16,10 +17,14 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, index = 0, className, featured = false }: ProductCardProps) {
-  const isOutOfStock  = product.stock === 0;
+  const dbImages      = useProductImages();
+  // Prefer live D1 stock over static so admin OOS changes reflect immediately.
+  const effectiveStock = resolveProductStock(dbImages, product.id, product.stock);
+  const isOutOfStock  = effectiveStock === 0;
   const primaryImage  = product.images?.find((img) => img.isPrimary)?.url ?? product.images?.[0]?.url;
   const addItem       = useCartStore((s) => s.addItem);
   const [added, setAdded] = useState(false);
+  const [limitMsg, setLimitMsg] = useState<string | null>(null);
 
   const lowestVariant   = product.variants?.length ? product.variants[0] : null;
   const displayPrice    = lowestVariant ? product.price + lowestVariant.priceAdjust : product.price;
@@ -37,7 +42,7 @@ export default function ProductCard({ product, index = 0, className, featured = 
       e.preventDefault();
       e.stopPropagation();
       if (isOutOfStock || added) return;
-      addItem(
+      const result = addItem(
         product.id,
         lowestVariant?.id ?? null,
         1,
@@ -47,14 +52,24 @@ export default function ProductCard({ product, index = 0, className, featured = 
           slug: product.slug,
           price: product.price,
           images: product.images ?? [],
-          stock: product.stock,
+          stock: effectiveStock ?? product.stock,
         },
         lowestVariant,
       );
+      // Show the ceiling reason if the store refused or clamped the add.
+      if (result.blocked || result.clamped) {
+        setLimitMsg(
+          result.stock === 0
+            ? 'Out of stock'
+            : `Only ${result.stock ?? '0'} available`,
+        );
+        setTimeout(() => setLimitMsg(null), 2200);
+        return;
+      }
       setAdded(true);
       setTimeout(() => setAdded(false), 1600);
     },
-    [addItem, added, isOutOfStock, lowestVariant, product],
+    [addItem, added, isOutOfStock, lowestVariant, product, effectiveStock],
   );
 
   return (
@@ -77,7 +92,7 @@ export default function ProductCard({ product, index = 0, className, featured = 
                   ? '(max-width: 768px) 100vw, 50vw'
                   : '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'
               }
-              className="object-contain p-6 transition-transform duration-[600ms] ease-out group-hover:scale-[1.05]"
+              className="object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.05]"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-earth-light select-none">
@@ -103,14 +118,35 @@ export default function ProductCard({ product, index = 0, className, featured = 
 
           {/* Hover: Quick Add slide-up */}
           {!isOutOfStock && (
-            <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+            <div
+              className={`absolute inset-x-0 bottom-0 transition-transform duration-300 ease-out ${
+                limitMsg
+                  ? 'translate-y-0'
+                  : 'translate-y-full group-hover:translate-y-0'
+              }`}
+            >
               <button
                 type="button"
                 onClick={handleQuickAdd}
-                aria-label={added ? `${product.name} added` : `Quick add ${product.name} to cart`}
-                className="w-full bg-honey-500 hover:bg-honey-600 text-cream py-3 px-4 flex items-center justify-center gap-2 min-h-[44px] transition-colors"
+                aria-label={
+                  limitMsg
+                    ? `${product.name}: ${limitMsg}`
+                    : added
+                      ? `${product.name} added`
+                      : `Quick add ${product.name} to cart`
+                }
+                aria-live={limitMsg ? 'polite' : undefined}
+                className={`w-full py-3 px-4 flex items-center justify-center gap-2 min-h-[44px] transition-colors ${
+                  limitMsg
+                    ? 'bg-terracotta text-cream cursor-not-allowed'
+                    : 'bg-honey-500 hover:bg-honey-600 text-cream'
+                }`}
               >
-                {added ? (
+                {limitMsg ? (
+                  <span className="font-satoshi text-[12px] font-semibold tracking-[0.06em]">
+                    {limitMsg}
+                  </span>
+                ) : added ? (
                   <>
                     <Check size={14} aria-hidden />
                     <span className="font-satoshi text-[12px] font-semibold tracking-[0.06em]">

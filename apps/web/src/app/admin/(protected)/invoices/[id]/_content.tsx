@@ -1,181 +1,86 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
-import { formatPrice } from '@/lib/utils';
 import { adminFetch } from '@/lib/admin-auth';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
 
-function InvoicePrintArea({ order }: { order: any }) {
-  const issueDate   = new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-  const invoiceNo   = `INV-${order.order_number}`;
-  const subtotal    = order.subtotal ?? 0;
-  const discount    = order.discount ?? 0;
-  const shipping    = order.shipping_amount ?? 0;
-  const total       = order.total ?? 0;
-  const taxIncl     = Math.round((total / 1.05) * 0.05 * 100) / 100;
-
-  return (
-    <div id="invoice-print" className="bg-white p-10 max-w-3xl mx-auto font-satoshi text-gray-800 print:p-8 print:shadow-none">
-      <div className="flex justify-between items-start pb-8 border-b border-gray-200">
-        <div>
-          <p className="text-2xl font-bold tracking-widest text-midnight">SUMOSTA</p>
-          <p className="text-xs text-gray-400 mt-0.5">Nature&apos;s Golden Promise</p>
-          <p className="text-xs text-gray-500 mt-4 leading-relaxed">
-            support@sumosta.com<br />
-            sumosta.com
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Invoice</p>
-          <p className="text-xl font-bold text-gray-800">{invoiceNo}</p>
-          <p className="text-xs text-gray-400 mt-2">Date: {issueDate}</p>
-          <p className="text-xs text-gray-400">
-            Payment:{' '}
-            <span className={order.payment_status === 'captured' ? 'text-green-600 font-medium' : 'text-red-500'}>
-              {order.payment_status === 'captured' ? 'Paid' : order.payment_status}
-            </span>
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-8 grid grid-cols-2 gap-8">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Bill To</p>
-          <p className="font-semibold text-gray-800">{order.shipping_name}</p>
-          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-            {order.shipping_address_line1}
-            {order.shipping_address_line2 && <><br />{order.shipping_address_line2}</>}
-            <br />
-            {order.shipping_city}, {order.shipping_state} {order.shipping_pincode}
-          </p>
-          {order.shipping_phone && (
-            <p className="text-sm text-gray-400 mt-1">{order.shipping_phone}</p>
-          )}
-          {(order.user_email || order.guest_email) && (
-            <p className="text-sm text-gray-400">{order.user_email ?? order.guest_email}</p>
-          )}
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Order Details</p>
-          <div className="space-y-1 text-sm">
-            <div className="flex gap-2">
-              <span className="text-gray-400 w-28">Order #</span>
-              <span className="text-gray-700 font-medium">{order.order_number}</span>
-            </div>
-            {order.tracking_number && (
-              <div className="flex gap-2">
-                <span className="text-gray-400 w-28">Tracking</span>
-                <span className="text-gray-700">{order.tracking_number}</span>
-              </div>
-            )}
-            {order.coupon_code && (
-              <div className="flex gap-2">
-                <span className="text-gray-400 w-28">Coupon</span>
-                <span className="text-gray-700">{order.coupon_code}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <table className="w-full mt-8 text-sm">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-2 text-gray-400 text-xs uppercase tracking-wider font-medium">Item</th>
-            <th className="text-right py-2 text-gray-400 text-xs uppercase tracking-wider font-medium">Qty</th>
-            <th className="text-right py-2 text-gray-400 text-xs uppercase tracking-wider font-medium">Unit Price</th>
-            <th className="text-right py-2 text-gray-400 text-xs uppercase tracking-wider font-medium">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(order.items ?? []).map((item: any) => (
-            <tr key={item.id} className="border-b border-gray-100">
-              <td className="py-3 pr-4">
-                <p className="font-medium text-gray-800">{item.product_name}</p>
-                {item.variant_name && (
-                  <p className="text-xs text-gray-400">{item.variant_name}</p>
-                )}
-                <p className="text-xs text-gray-400">SKU: {item.sku}</p>
-              </td>
-              <td className="py-3 text-right text-gray-700">{item.quantity}</td>
-              <td className="py-3 text-right text-gray-700">{formatPrice(item.unit_price)}</td>
-              <td className="py-3 text-right font-medium text-gray-800">{formatPrice(item.line_total)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="mt-4 flex justify-end">
-        <div className="w-64 space-y-2 text-sm">
-          <div className="flex justify-between text-gray-500">
-            <span>Subtotal</span>
-            <span>{formatPrice(subtotal)}</span>
-          </div>
-          {discount > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>Discount {order.coupon_code ? `(${order.coupon_code})` : ''}</span>
-              <span>−{formatPrice(discount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-gray-500">
-            <span>Shipping</span>
-            <span>{shipping === 0 ? 'FREE' : formatPrice(shipping)}</span>
-          </div>
-          <div className="flex justify-between text-gray-400 text-xs">
-            <span>GST incl. (5%)</span>
-            <span>{formatPrice(taxIncl)}</span>
-          </div>
-          <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-base">
-            <span>Total</span>
-            <span>{formatPrice(total)}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-12 pt-6 border-t border-gray-200 text-center">
-        <p className="text-xs text-gray-400">
-          Thank you for your order! For queries: support@sumosta.com · sumosta.com
-        </p>
-        <p className="text-xs text-gray-300 mt-1">
-          SUMOSTA — This is a computer-generated invoice and does not require a signature.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default function InvoiceContent() {
   const [id, setId] = useState('_placeholder');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [error, setError]   = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const match = window.location.pathname.match(/\/admin\/invoices\/([^/]+)/);
     if (match?.[1]) setId(match[1]);
   }, []);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin-order', id],
-    queryFn: async () => {
-      const res = await adminFetch(`${API}/api/admin/orders/${id}`);
-      return res.json();
-    },
-    enabled: !!id && id !== '_placeholder',
-  });
+  // Fetch the same GST-compliant PDF the customer download + email
+  // attachment use — rendered inline via a blob URL so this View tab
+  // never drifts from the canonical `apps/api/src/services/invoice.ts`
+  // layout. Uses `adminFetch` so the JWT is attached (the PDF endpoint
+  // is behind admin auth).
+  useEffect(() => {
+    if (!id || id === '_placeholder') return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
 
-  const order = data?.data;
+    (async () => {
+      setError(null);
+      try {
+        const res = await adminFetch(`${API}/api/admin/orders/${id}/invoice.pdf`);
+        if (!res.ok) throw new Error(`Failed to load invoice (${res.status})`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Failed to load invoice');
+      }
+    })();
 
-  if (isLoading) {
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [id]);
+
+  const handleDownload = async () => {
+    if (!id || id === '_placeholder' || downloading) return;
+    setDownloading(true);
+    try {
+      const res = await adminFetch(`${API}/api/admin/orders/${id}/invoice.pdf`);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `Invoice-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (id === '_placeholder' || (!pdfUrl && !error)) {
     return <div className="flex justify-center py-20"><HoneycombLoader size="lg" /></div>;
   }
 
-  if (!order) {
+  if (error) {
     return (
       <div className="text-center py-20">
-        <p className="font-satoshi text-gray-400">Order not found</p>
-        <Link href="/admin/invoices" className="font-satoshi text-honey-500 hover:underline mt-2 inline-block">
+        <p className="font-satoshi text-red-500 mb-2">Could not load invoice</p>
+        <p className="font-satoshi text-gray-400 text-sm">{error}</p>
+        <Link href="/admin/invoices" className="font-satoshi text-honey-500 hover:underline mt-4 inline-block">
           ← Back to Invoices
         </Link>
       </div>
@@ -184,30 +89,32 @@ export default function InvoiceContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 print:hidden">
+      <div className="flex items-center justify-between mb-6">
         <Link href="/admin/invoices" className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft size={16} />
           <span className="font-satoshi text-sm">Back to Invoices</span>
         </Link>
         <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 bg-honey-400 hover:bg-honey-500 text-midnight font-satoshi font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors"
+          type="button"
+          onClick={handleDownload}
+          disabled={downloading || !pdfUrl}
+          className="inline-flex items-center gap-2 bg-honey-400 hover:bg-honey-500 text-midnight font-satoshi font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors disabled:opacity-60"
         >
-          <Printer size={15} /> Print / Save PDF
+          {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+          {downloading ? 'Preparing…' : 'Download PDF'}
         </button>
       </div>
 
-      <div className="border border-gray-200 rounded-xl overflow-hidden print:border-0 print:rounded-none">
-        <InvoicePrintArea order={order} />
+      <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+        {pdfUrl && (
+          <iframe
+            src={pdfUrl}
+            title="Invoice PDF"
+            className="w-full"
+            style={{ height: 'calc(100vh - 180px)', minHeight: '600px' }}
+          />
+        )}
       </div>
-
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #invoice-print, #invoice-print * { visibility: visible; }
-          #invoice-print { position: absolute; left: 0; top: 0; width: 100%; }
-        }
-      `}</style>
     </div>
   );
 }

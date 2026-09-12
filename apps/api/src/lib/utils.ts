@@ -1,5 +1,25 @@
 import { nanoid } from 'nanoid';
 
+// Best-effort KV put that logs and swallows quota-exceeded / transient errors
+// instead of 500-ing the whole request. Use for cache writes AND for session
+// writes where the caller already has the auth data in memory — degrading
+// gracefully is better than blocking login when KV writes are throttled.
+export async function safeKvPut(
+  kv: KVNamespace,
+  key: string,
+  value: string,
+  options: KVNamespacePutOptions,
+  label: string,
+): Promise<boolean> {
+  try {
+    await kv.put(key, value, options);
+    return true;
+  } catch (err) {
+    console.warn(`[${label}] KV put failed for key=${key}`, err);
+    return false;
+  }
+}
+
 export function generateId(prefix: string = ''): string {
   const id = nanoid(12);
   return prefix ? `${prefix}_${id}` : id;
@@ -32,6 +52,18 @@ export function hashString(str: string): string {
   return Math.abs(hash).toString(36);
 }
 
+// Indian PIN codes we know we can't fulfill from our current pickup network.
+// Runs as a floor of correctness before Shiprocket serviceability so the
+// buyer can't slip past even when the API fail-opens (missing pickup config,
+// Shiprocket outage). Extend cautiously — false positives block real orders.
+//   744xxx — Andaman & Nicobar Islands (all)
+//   682551–682559 — Lakshadweep atolls (Kavaratti, Agatti, Minicoy, etc.)
+export function isKnownNonServiceablePincode(pincode: string): boolean {
+  if (/^744\d{3}$/.test(pincode)) return true;
+  if (/^68255[1-9]$/.test(pincode)) return true;
+  return false;
+}
+
 export function calcShipping(subtotal: number): number {
   // Customer-facing rule: free delivery above ₹499, else flat ₹69.
   // Keep this in sync with apps/web/src/stores/cart-store.ts::computeDerived
@@ -45,6 +77,36 @@ export function calcTax(_subtotal: number): number {
   // orders.tax column don't need to be reworked; tax lines in the UI are
   // conditionally hidden when the value is 0.
   return 0;
+}
+
+// COMBO10 combo-eligibility.
+// The 5 Elements Collection (`prod_trial_box_60g`, "The 5 Elements Collection")
+// is a single low-priced SKU containing 5×70g tasting jars — client explicitly
+// excluded it from COMBO10 stacking. Match by product id AND by name so cart
+// items sent from the storefront (which only carry `name`+`quantity`) are
+// caught too.
+const COMBO10_EXCLUDED_PRODUCT_IDS = new Set<string>(['prod_trial_box_60g']);
+const COMBO10_EXCLUDED_NAME_RX = /5\s*elements\s*collection/i;
+const COMBO10_KEYWORDS = ['duo', 'trio', 'pack', 'combo', 'gift', 'bundle', 'set', 'quartet'];
+
+export interface Combo10EligibilityItem {
+  productId?: string;
+  name: string;
+  quantity: number;
+}
+
+export function isCombo10Eligible(items: Combo10EligibilityItem[]): boolean {
+  const eligible = items.filter((i) => {
+    if (i.productId && COMBO10_EXCLUDED_PRODUCT_IDS.has(i.productId)) return false;
+    if (COMBO10_EXCLUDED_NAME_RX.test(i.name)) return false;
+    return true;
+  });
+  if (eligible.length === 0) return false;
+  const totalQty = eligible.reduce((s, i) => s + i.quantity, 0);
+  if (totalQty >= 2) return true;
+  return eligible.some((i) =>
+    COMBO10_KEYWORDS.some((kw) => i.name.toLowerCase().includes(kw)),
+  );
 }
 
 // Whether a user has any previously placed order that "counts" as their first

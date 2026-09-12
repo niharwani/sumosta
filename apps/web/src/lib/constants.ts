@@ -27,14 +27,14 @@ export const NAV_LINKS = [
  */
 export const NAV_CATEGORIES = [
   { slug: 'raw-honey',  label: 'Raw Honey',            href: '/shop/raw-honey' },
-  { slug: 'gift-boxes', label: 'Gift Boxes & Combos',  href: '/shop/gift-boxes' },
+  { slug: 'gift-boxes', label: 'Combos',                href: '/shop/gift-boxes' },
 ] as const;
 
 export const FOOTER_LINKS = {
   shop: [
     { href: '/shop',              label: 'All Products' },
     { href: '/shop/raw-honey',    label: 'Raw Honey' },
-    { href: '/shop/gift-boxes',   label: 'Gift Boxes & Combos' },
+    { href: '/shop/gift-boxes',   label: 'Combos' },
   ],
   company: [
     { href: '/about',             label: 'Our Story' },

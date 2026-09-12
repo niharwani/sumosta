@@ -27,7 +27,7 @@ import {
 import { useCartStore } from '@/stores/cart-store';
 import { useAuth } from '@/hooks/useAuth';
 import { STATIC_PRODUCTS, STATIC_COMBOS } from '@/lib/content';
-import { useProductImages, resolveProductImage } from '@/hooks/useProductImages';
+import { useProductImages, resolveProductImage, resolveProductStock } from '@/hooks/useProductImages';
 import { useProductBySlug } from '@/hooks/useProductBySlug';
 import { tracker } from '@/lib/tracker';
 import { formatPrice } from '@/lib/utils';
@@ -82,6 +82,7 @@ export default function ProductContent({ slug }: { slug: string }) {
   const [activeVariant, setActiveVariant] = useState(0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [limitMsg, setLimitMsg] = useState<string | null>(null);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<number | null>(0);
   const reduce = useReducedMotion();
@@ -110,18 +111,37 @@ export default function ProductContent({ slug }: { slug: string }) {
       ? Math.round(((compareAt - currentPrice) / compareAt) * 100)
       : null;
 
-  // Stock: prefer D1 authoritative value once loaded; fall back to static-catalog
-  // stock while D1 hydrates; treat only an *explicit zero* as out of stock so
-  // static-only products (not yet seeded in D1) don't get disabled.
-  const d1Stock       = (d1Product as { stock?: number } | null | undefined)?.stock;
-  const staticStock   = product?.stock;
+  // Stock resolution — TC-040 + TC-035 rules combined:
+  //   1. Product-level D1 stock (from useProductImages, keyed by id so slug
+  //      drift between static + D1 doesn't hide the real value) is the
+  //      kill switch — if admin zeroes it, no variant sells.
+  //   2. Otherwise take the tighter of variant-stock and product-stock so
+  //      the qty picker never lets the shopper past what the admin panel
+  //      shows.
+  //   3. Static catalog stock is the last-resort fallback for products
+  //      that aren't in D1 yet.
   const currentVariant = variants[activeVariant];
-  const variantStock  = currentVariant?.stock;
-  const resolvedStock: number | null =
-    typeof variantStock === 'number' ? variantStock
-    : typeof d1Stock     === 'number' ? d1Stock
-    : typeof staticStock === 'number' ? staticStock
+  const variantStock   = currentVariant?.stock;
+  const staticStock    = product?.stock;
+  // ID-keyed live product stock — bypasses `useProductBySlug` slug matching
+  // which fails when D1's slug differs from the static one (e.g. the-5-
+  // elements-collection vs 5-elements-collection).
+  const liveProductStock = product
+    ? resolveProductStock(dbImages, product.id, typeof staticStock === 'number' ? staticStock : null)
     : null;
+  const productKillSwitch = liveProductStock === 0;
+
+  const stockCandidates: number[] = [];
+  if (typeof liveProductStock === 'number' && liveProductStock >= 0) stockCandidates.push(liveProductStock);
+  if (typeof variantStock === 'number') stockCandidates.push(variantStock);
+  if (stockCandidates.length === 0 && typeof staticStock === 'number') {
+    stockCandidates.push(staticStock);
+  }
+  const resolvedStock: number | null = productKillSwitch
+    ? 0
+    : stockCandidates.length > 0
+      ? Math.min(...stockCandidates)
+      : null;
   const outOfStock = resolvedStock === 0;
 
   useEffect(() => {
@@ -166,7 +186,7 @@ export default function ProductContent({ slug }: { slug: string }) {
     const itemSlug = slug;
     const itemName = product?.name ?? combo?.name ?? '';
     const variant = variants[activeVariant] ?? null;
-    addItem(
+    const result = addItem(
       itemId,
       variant?.id ?? null,
       qty,
@@ -180,6 +200,16 @@ export default function ProductContent({ slug }: { slug: string }) {
       } as Parameters<typeof addItem>[3],
       variant,
     );
+    if (result.blocked || result.clamped) {
+      setLimitMsg(
+        result.stock === 0
+          ? 'Out of stock'
+          : `Only ${result.stock ?? '0'} available`,
+      );
+      clearTimeout(addTimeout.current);
+      addTimeout.current = setTimeout(() => setLimitMsg(null), 2500);
+      return;
+    }
     setAdded(true);
     clearTimeout(addTimeout.current);
     addTimeout.current = setTimeout(() => setAdded(false), 1800);
@@ -509,7 +539,7 @@ export default function ProductContent({ slug }: { slug: string }) {
             )}
 
             {/* Qty + Add to Cart */}
-            <div className="flex items-center gap-3.5 mb-7">
+            <div className="flex items-center gap-3.5 mb-2">
               <div className="flex items-center border border-sand rounded-lg">
                 <button
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -525,19 +555,27 @@ export default function ProductContent({ slug }: { slug: string }) {
                   {qty}
                 </span>
                 <button
-                  onClick={() => setQty((q) => q + 1)}
+                  onClick={() =>
+                    setQty((q) =>
+                      typeof resolvedStock === 'number' ? Math.min(q + 1, resolvedStock) : q + 1,
+                    )
+                  }
+                  disabled={typeof resolvedStock === 'number' && qty >= resolvedStock}
                   aria-label="Increase quantity"
-                  className="w-11 h-11 flex items-center justify-center text-bark hover:text-charcoal transition-colors"
+                  className="w-11 h-11 flex items-center justify-center text-bark hover:text-charcoal transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus size={16} aria-hidden />
                 </button>
               </div>
               <button
                 onClick={handleAddToCart}
-                disabled={added || outOfStock}
+                disabled={added || outOfStock || !!limitMsg}
+                aria-live={limitMsg ? 'polite' : undefined}
                 className={`flex-1 inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-[15px] px-7 py-3.5 rounded-lg transition-all min-h-[44px] ${
                   outOfStock
                     ? 'bg-sand text-earth-light cursor-not-allowed'
+                    : limitMsg
+                    ? 'bg-terracotta text-cream cursor-not-allowed'
                     : added
                     ? 'bg-sage text-cream cursor-default'
                     : 'bg-honey-500 hover:bg-honey-600 text-cream shadow-honey'
@@ -545,6 +583,8 @@ export default function ProductContent({ slug }: { slug: string }) {
               >
                 {outOfStock ? (
                   'Out of stock'
+                ) : limitMsg ? (
+                  limitMsg
                 ) : added ? (
                   <>
                     <Check size={16} aria-hidden /> Added
@@ -556,6 +596,27 @@ export default function ProductContent({ slug }: { slug: string }) {
                 )}
               </button>
             </div>
+            {/* Stock hint — surfaces "Only N available" the moment the shopper
+                bumps into the ceiling, matching the checkout gate on the
+                same product. */}
+            {!outOfStock &&
+              typeof resolvedStock === 'number' &&
+              resolvedStock > 0 &&
+              resolvedStock <= 5 && (
+                <p
+                  aria-live="polite"
+                  className={`font-satoshi text-xs mb-7 ${
+                    qty >= resolvedStock ? 'text-terracotta' : 'text-earth'
+                  }`}
+                >
+                  {qty >= resolvedStock
+                    ? `Only ${resolvedStock} available`
+                    : `${resolvedStock} in stock`}
+                </p>
+              )}
+            {(outOfStock || typeof resolvedStock !== 'number' || resolvedStock > 5) && (
+              <div className="mb-7" />
+            )}
 
             {/* Accordion */}
             <div className="border-t border-sand">

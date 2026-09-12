@@ -6,7 +6,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../index';
 import { hashPassword, verifyPassword } from '../lib/hash';
 import { signJwt, generateRefreshToken } from '../lib/jwt';
-import { generateId } from '../lib/utils';
+import { generateId, safeKvPut } from '../lib/utils';
 import { registerSchema, loginSchema, forgotPasswordSchema } from '../lib/validators';
 import { authMiddleware } from '../middleware/auth';
 import { sendPasswordReset } from '../services/email';
@@ -124,9 +124,15 @@ async function checkLoginRateLimit(
 
 async function recordFailedLogin(kv: KVNamespace, email: string): Promise<void> {
   const key = `login_attempts:${email.toLowerCase()}`;
-  const raw = await kv.get(key);
-  const count = raw ? parseInt(raw, 10) : 0;
-  await kv.put(key, String(count + 1), { expirationTtl: 15 * 60 });
+  try {
+    const raw = await kv.get(key);
+    const count = raw ? parseInt(raw, 10) : 0;
+    await kv.put(key, String(count + 1), { expirationTtl: 15 * 60 });
+  } catch (err) {
+    // Login should still respond with a 401 even if we can't record the miss —
+    // otherwise a KV outage stops us from returning INVALID_CREDENTIALS.
+    console.warn('[auth/recordFailedLogin] KV write failed', err);
+  }
 }
 
 async function clearFailedLogins(kv: KVNamespace, email: string): Promise<void> {
@@ -198,9 +204,13 @@ app.post('/register', zValidator('json', registerSchema), async (c) => {
   );
   const refreshToken = generateRefreshToken();
 
-  await c.env.KV_SESSIONS.put(`refresh:${id}:${refreshToken}`, id, {
-    expirationTtl: REFRESH_TOKEN_TTL,
-  });
+  await safeKvPut(
+    c.env.KV_SESSIONS,
+    `refresh:${id}:${refreshToken}`,
+    id,
+    { expirationTtl: REFRESH_TOKEN_TTL },
+    'auth/register',
+  );
 
   setRefreshCookie(c, refreshToken);
 
@@ -263,9 +273,13 @@ app.post('/login', zValidator('json', loginSchema), async (c) => {
   );
   const refreshToken = generateRefreshToken();
 
-  await c.env.KV_SESSIONS.put(`refresh:${user.id}:${refreshToken}`, user.id, {
-    expirationTtl: REFRESH_TOKEN_TTL,
-  });
+  await safeKvPut(
+    c.env.KV_SESSIONS,
+    `refresh:${user.id}:${refreshToken}`,
+    user.id,
+    { expirationTtl: REFRESH_TOKEN_TTL },
+    'auth/login',
+  );
 
   setRefreshCookie(c, refreshToken);
 
@@ -360,12 +374,20 @@ app.post('/refresh', async (c) => {
   // Rotate: delete old, write new (+ lookup index)
   await c.env.KV_SESSIONS.delete(`refresh:${userId}:${refreshToken}`);
   await c.env.KV_SESSIONS.delete(`rt_lookup:${refreshToken}`);
-  await c.env.KV_SESSIONS.put(`refresh:${userId}:${newRefresh}`, userId, {
-    expirationTtl: REFRESH_TOKEN_TTL,
-  });
-  await c.env.KV_SESSIONS.put(`rt_lookup:${newRefresh}`, userId, {
-    expirationTtl: REFRESH_TOKEN_TTL,
-  });
+  await safeKvPut(
+    c.env.KV_SESSIONS,
+    `refresh:${userId}:${newRefresh}`,
+    userId,
+    { expirationTtl: REFRESH_TOKEN_TTL },
+    'auth/refresh',
+  );
+  await safeKvPut(
+    c.env.KV_SESSIONS,
+    `rt_lookup:${newRefresh}`,
+    userId,
+    { expirationTtl: REFRESH_TOKEN_TTL },
+    'auth/refresh',
+  );
 
   setRefreshCookie(c, newRefresh);
 
@@ -519,7 +541,13 @@ app.post('/forgot-password', zValidator('json', forgotPasswordSchema), async (c)
       data: { message: 'If that email exists, a reset link was sent.' },
     });
   }
-  await c.env.KV_SESSIONS.put(rateKey, String(count + 1), { expirationTtl: 60 * 60 });
+  await safeKvPut(
+    c.env.KV_SESSIONS,
+    rateKey,
+    String(count + 1),
+    { expirationTtl: 60 * 60 },
+    'auth/forgot-rate',
+  );
 
   const user = await c.env.DB.prepare(
     'SELECT id FROM users WHERE email = ?'
@@ -535,7 +563,21 @@ app.post('/forgot-password', zValidator('json', forgotPasswordSchema), async (c)
   }
 
   const token = generateRefreshToken();
-  await c.env.KV_SESSIONS.put(`reset:${token}`, user.id, { expirationTtl: RESET_TOKEN_TTL });
+  const resetWritten = await safeKvPut(
+    c.env.KV_SESSIONS,
+    `reset:${token}`,
+    user.id,
+    { expirationTtl: RESET_TOKEN_TTL },
+    'auth/forgot-reset',
+  );
+  // If we couldn't persist the token there's no point emailing an unusable
+  // link — return the enumeration-safe success shape so we don't leak state.
+  if (!resetWritten) {
+    return c.json({
+      success: true,
+      data: { message: 'If that email exists, a reset link was sent.' },
+    });
+  }
 
   const resetUrl = `${c.env.BASE_URL}/auth/reset-password/${token}`;
 
@@ -748,12 +790,20 @@ app.post(
     );
     const refreshToken = generateRefreshToken();
 
-    await c.env.KV_SESSIONS.put(`refresh:${user.id}:${refreshToken}`, user.id, {
-      expirationTtl: REFRESH_TOKEN_TTL,
-    });
-    await c.env.KV_SESSIONS.put(`rt_lookup:${refreshToken}`, user.id, {
-      expirationTtl: REFRESH_TOKEN_TTL,
-    });
+    await safeKvPut(
+      c.env.KV_SESSIONS,
+      `refresh:${user.id}:${refreshToken}`,
+      user.id,
+      { expirationTtl: REFRESH_TOKEN_TTL },
+      'auth/firebase-phone',
+    );
+    await safeKvPut(
+      c.env.KV_SESSIONS,
+      `rt_lookup:${refreshToken}`,
+      user.id,
+      { expirationTtl: REFRESH_TOKEN_TTL },
+      'auth/firebase-phone',
+    );
     setRefreshCookie(c, refreshToken);
 
     // Return default address (if any) alongside the session — used by the

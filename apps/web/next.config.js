@@ -11,6 +11,11 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'api.sumosta.com',
+        pathname: '/api/media/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'sumosta-api.sumosta-dev.workers.dev',
         pathname: '/api/media/**',
       },

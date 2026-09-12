@@ -10,6 +10,7 @@ import { couponsApi } from '@/lib/api';
 import type { Coupon } from 'shared';
 import { TIER_COLORS, comboPriceAt, comboMrpAt, type Combo } from '@/lib/gifting-combos';
 import { loadProduct, useProductBySlug } from '@/hooks/useProductBySlug';
+import { useProductImages, resolveProductStock } from '@/hooks/useProductImages';
 
 // Admin uploads store the 250g bottle at sort_order 0 (primary) and the 500g
 // bottle at sort_order 1 with "500g" in the filename or alt. Pick the right
@@ -45,12 +46,38 @@ export default function ComboCard({ combo }: Props) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded]   = useState(false);
   const [sizeIdx, setSizeIdx] = useState(combo.defaultSizeIdx);
+  const [limitMsg, setLimitMsg] = useState<string | null>(null);
 
   const size = combo.sizes[sizeIdx];
   const tc = TIER_COLORS[combo.tier];
   const price = comboPriceAt(combo, sizeIdx);
   const mrp   = comboMrpAt(combo, sizeIdx);
   const save  = mrp - price;
+
+  // Cap the bundle by the smallest available stock across every component,
+  // using live D1 stock keyed by product id (slug drift means slug-keyed
+  // lookups can silently 404 and fall back to inflated static stock).
+  const dbImages = useProductImages();
+  const comboStockCap: number | null = (() => {
+    const stocks: number[] = [];
+    for (const ci of combo.items) {
+      const variant = size.variantIdx >= 0 ? ci.product.variants?.[size.variantIdx] : null;
+      const variantStock = variant?.stock;
+      const staticStock  = ci.product.stock;
+      const liveProductStock = resolveProductStock(dbImages, ci.product.id,
+        typeof staticStock === 'number' ? staticStock : null);
+      if (liveProductStock === 0) return 0;
+      const perItem: number[] = [];
+      if (typeof liveProductStock === 'number') perItem.push(liveProductStock);
+      if (typeof variantStock === 'number')     perItem.push(variantStock);
+      if (perItem.length === 0 && typeof staticStock === 'number') perItem.push(staticStock);
+      if (perItem.length === 0) continue;
+      stocks.push(Math.min(...perItem));
+    }
+    return stocks.length > 0 ? Math.min(...stocks) : null;
+  })();
+  const comboOutOfStock = comboStockCap === 0;
+  const lowStock = comboStockCap !== null && comboStockCap > 0 && comboStockCap <= 5;
 
   // Single-item combos (e.g. "5 Elements Collection") only carry one static image.
   // Pull the full D1 image list for that item so the card can render a rich grid.
@@ -103,33 +130,59 @@ export default function ComboCard({ combo }: Props) {
       ? d1Images.length
       : combo.items.length;
 
-  const addBundleToCart = async () => {
+  const addBundleToCart = async (): Promise<boolean> => {
+    if (comboOutOfStock) {
+      setLimitMsg('Out of stock');
+      return false;
+    }
     setAdding(true);
+    setLimitMsg(null);
+    let anyBlocked = false;
+    let anyClamped = false;
     for (const ci of combo.items) {
       const { product } = ci;
       const variant = size.variantIdx >= 0 ? product.variants?.[size.variantIdx] : null;
-      addItem(
+      const res = addItem(
         product.id, variant?.id ?? null, 1,
         { id: product.id, name: product.name, slug: product.slug, price: product.price, images: product.images, stock: product.stock },
         variant as any ?? null,
       );
+      if (res && typeof res === 'object') {
+        if (res.blocked) anyBlocked = true;
+        if (res.clamped) anyClamped = true;
+      }
     }
-    const shouldApplyCOMBO10 = combo.items.length > 1 || combo.tier === '5 Pack';
+    if (anyBlocked) {
+      setLimitMsg('Out of stock');
+      setAdding(false);
+      return false;
+    }
+    if (anyClamped) {
+      setLimitMsg(comboStockCap !== null ? `Only ${comboStockCap} available` : 'Stock limit reached');
+    }
+    // COMBO10 does NOT apply to the 5 Elements Collection — single low-priced
+    // tasting-set SKU per client rule. Only multi-item combos (Duo/Trio/etc.) qualify.
+    const shouldApplyCOMBO10 = combo.items.length > 1;
     if (shouldApplyCOMBO10 && !coupons.some((c) => c.code === 'COMBO10')) {
       try {
         const allItems = [...cartItems, ...combo.items.map((ci) => ({ product: ci.product, quantity: 1 }))];
-        const res = await couponsApi.validate('COMBO10', price, allItems.map((i) => ({ name: i.product.name, quantity: 1 })));
+        const res = await couponsApi.validate(
+          'COMBO10',
+          price,
+          allItems.map((i) => ({ productId: i.product.id, name: i.product.name, quantity: 1 })),
+        );
         if (res.valid && res.coupon) addCoupon(res.coupon as Coupon);
       } catch { /* silent */ }
     }
     setAdding(false);
     setAdded(true);
     setTimeout(() => setAdded(false), 2500);
+    return true;
   };
 
   const handleBuyNow = async () => {
-    await addBundleToCart();
-    router.push('/checkout');
+    const ok = await addBundleToCart();
+    if (ok) router.push('/checkout');
   };
 
   return (
@@ -318,27 +371,35 @@ export default function ComboCard({ combo }: Props) {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={addBundleToCart}
-              disabled={adding || added}
+              disabled={adding || added || comboOutOfStock}
               style={{
                 padding: '10px 18px', borderRadius: '10px',
-                border: `1.5px solid ${combo.accent}`,
+                border: `1.5px solid ${comboOutOfStock ? '#C4B39A' : combo.accent}`,
                 background: added ? combo.accent : 'transparent',
-                color: added ? 'white' : combo.accent,
-                fontWeight: 700, fontSize: '13px', cursor: adding ? 'wait' : 'pointer',
+                color: added ? 'white' : (comboOutOfStock ? '#8B7355' : combo.accent),
+                fontWeight: 700, fontSize: '13px',
+                cursor: comboOutOfStock ? 'not-allowed' : (adding ? 'wait' : 'pointer'),
+                opacity: comboOutOfStock ? 0.6 : 1,
                 display: 'flex', alignItems: 'center', gap: '6px',
                 whiteSpace: 'nowrap', transition: 'all 0.2s',
               }}
             >
-              {added ? <><Check size={14}/> Added</> : adding ? '…' : <><ShoppingBag size={14}/> Add to Cart</>}
+              {comboOutOfStock
+                ? <>Out of Stock</>
+                : added ? <><Check size={14}/> Added</> : adding ? '…' : <><ShoppingBag size={14}/> Add to Cart</>}
             </button>
             <button
               onClick={handleBuyNow}
-              disabled={adding}
+              disabled={adding || comboOutOfStock}
               className="buy-btn"
               style={{
                 padding: '10px 18px', borderRadius: '10px',
-                border: 'none', background: combo.accent, color: 'white',
-                fontWeight: 700, fontSize: '13px', cursor: adding ? 'wait' : 'pointer',
+                border: 'none',
+                background: comboOutOfStock ? '#C4B39A' : combo.accent,
+                color: 'white',
+                fontWeight: 700, fontSize: '13px',
+                cursor: comboOutOfStock ? 'not-allowed' : (adding ? 'wait' : 'pointer'),
+                opacity: comboOutOfStock ? 0.7 : 1,
                 display: 'flex', alignItems: 'center', gap: '6px',
                 whiteSpace: 'nowrap', transition: 'background 0.2s',
               }}
@@ -348,11 +409,27 @@ export default function ComboCard({ combo }: Props) {
           </div>
         </div>
 
-        {/* COMBO10 note */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontSize: '10px', fontWeight: 600, color: '#4A8F4A', background: '#F0FAF0', border: '1px solid #BBE0BB', borderRadius: '4px', padding: '2px 7px' }}>COMBO10</span>
-          <span style={{ fontSize: '10.5px', color: '#8B7355' }}>10% off auto-applied at checkout</span>
-        </div>
+        {(comboOutOfStock || lowStock || limitMsg) && (
+          <div style={{
+            fontSize: '11.5px', fontWeight: 600,
+            color: comboOutOfStock || limitMsg ? '#B91C1C' : '#A66A10',
+            marginTop: '-6px',
+          }}>
+            {comboOutOfStock
+              ? 'Out of stock'
+              : limitMsg
+                ? limitMsg
+                : `Only ${comboStockCap} left`}
+          </div>
+        )}
+
+        {/* COMBO10 note — hidden for the 5 Elements Collection (single low-priced SKU). */}
+        {combo.items.length > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#4A8F4A', background: '#F0FAF0', border: '1px solid #BBE0BB', borderRadius: '4px', padding: '2px 7px' }}>COMBO10</span>
+            <span style={{ fontSize: '10.5px', color: '#8B7355' }}>10% off auto-applied at checkout</span>
+          </div>
+        )}
       </div>
     </div>
   );

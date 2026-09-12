@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:prod": "cross-env NEXT_PUBLIC_API_URL=https://sumosta-api.sumosta-dev.workers.dev NEXT_PUBLIC_SITE_URL=https://sumosta.com NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCqScihaxpBM3VR95dneS69NUsOh2CSCww NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=sumosta10.firebaseapp.com NEXT_PUBLIC_FIREBASE_PROJECT_ID=sumosta10 NEXT_PUBLIC_FIREBASE_APP_ID=1:906999423967:web:6d85ab9fb21fea40a5da6a next build",
-    "deploy": "pnpm build:prod && wrangler pages deploy out --project-name sumosta-web --commit-dirty=true",
+    "build:prod": "cross-env NEXT_PUBLIC_API_URL=https://api.sumosta.com NEXT_PUBLIC_SITE_URL=https://sumosta.com NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCqScihaxpBM3VR95dneS69NUsOh2CSCww NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=sumosta10.firebaseapp.com NEXT_PUBLIC_FIREBASE_PROJECT_ID=sumosta10 NEXT_PUBLIC_FIREBASE_APP_ID=1:906999423967:web:6d85ab9fb21fea40a5da6a NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAEx5Wy5Fo5zjl11I next build",
+    "deploy": "pnpm build:prod && wrangler pages deploy out --project-name sumosta-web --branch=main --commit-dirty=true",
     "build:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
     "deploy:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion && wrangler deploy",
     "start": "next start",

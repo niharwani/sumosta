@@ -13,9 +13,18 @@ interface D1Image {
 }
 
 export interface FetchedProduct {
-  id: string;
-  slug: string;
-  images: ProductImage[];
+  id:                 string;
+  slug:               string;
+  name:               string;
+  sku:                string | null;
+  price:              number;
+  compareAtPrice:     number | null;
+  stock:              number | null;
+  shortDescription:   string | null;
+  description:        string | null;
+  categoryName:       string | null;
+  images:             ProductImage[];
+  variants:           Array<{ id: string; name: string; sku?: string | null; priceAdjust: number; stock: number }>;
 }
 
 export interface ProductBySlugState {
@@ -56,9 +65,26 @@ export async function loadProduct(slug: string): Promise<ProductBySlugState> {
           state = {
             loaded: true,
             product: {
-              id: p.id,
-              slug: p.slug,
-              images: normalizeImages(p.images as D1Image[]),
+              id:               p.id,
+              slug:             p.slug,
+              name:             p.name ?? '',
+              sku:              p.sku ?? null,
+              price:            typeof p.price === 'number' ? p.price : 0,
+              compareAtPrice:   typeof p.compare_at_price === 'number' ? p.compare_at_price : null,
+              stock:            typeof p.stock === 'number' ? p.stock : null,
+              shortDescription: p.short_description ?? null,
+              description:      p.description ?? null,
+              categoryName:     p.category_name ?? null,
+              images:           normalizeImages(p.images as D1Image[]),
+              variants:         Array.isArray(p.variants)
+                ? p.variants.map((v: { id: string; name: string; sku?: string | null; price_adjust?: number; stock?: number }) => ({
+                    id:          v.id,
+                    name:        v.name,
+                    sku:         v.sku ?? null,
+                    priceAdjust: v.price_adjust ?? 0,
+                    stock:       v.stock ?? 0,
+                  }))
+                : [],
             },
           };
         }

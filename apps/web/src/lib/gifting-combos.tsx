@@ -107,7 +107,7 @@ export const COMBOS: Combo[] = [
     ],
     coverImages: [
       {
-        url: 'https://sumosta-api.sumosta-dev.workers.dev/api/media/products/1786381859416-2.png',
+        url: 'https://api.sumosta.com/api/media/products/1786381859416-2.png',
         alt: 'The 5 Elements Collection Gift Box',
         objectPosition: 'center 85%',
       },

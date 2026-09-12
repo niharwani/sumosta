@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronDown, Tag, LogIn, ShoppingBag, Info, Truck, Lock, CreditCard, Wallet, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, isValidIndianPincode } from '@/lib/utils';
+import { useProductImages, resolveProductStock } from '@/hooks/useProductImages';
 import CouponInput from '@/components/cart/CouponInput';
-import { couponsApi, type CheckoutAutofillAddress } from '@/lib/api';
+import { couponsApi, addressesApi, type CheckoutAutofillAddress } from '@/lib/api';
 import { tracker } from '@/lib/tracker';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { INDIAN_STATES } from '@/lib/constants';
@@ -75,6 +76,13 @@ export default function CheckoutPage() {
   const [chipError, setChipError] = useState<{ code: string; msg: string } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // "Save this address to my account" — only offered to signed-in shoppers.
+  // Guests won't have an account to save it to (accounts auto-created for
+  // guests via the checkout flow can still opt in from the order-confirmation
+  // side because they're logged in by the time the address save fires).
+  const [saveAddressForLater, setSaveAddressForLater] = useState(false);
+  // Explicit T&C consent — required before pay per TC-036.
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Gate state — the checkout page starts with just a mobile input.
   // 'gate'    → showing CheckoutPhoneGate (OTP)
@@ -158,9 +166,21 @@ export default function CheckoutPage() {
     setGateStage('form');
   };
 
-  // Pincode → city/state autofill (debounced 400ms) using postalpincode.in
+  // Pincode → city/state autofill (debounced 400ms) using postalpincode.in.
+  // Track which pincode last populated city/state so we can drop the autofill
+  // when the user changes to a structurally invalid pincode (e.g. 000000).
+  const lastAutofilledPincode = useRef<string | null>(null);
   useEffect(() => {
-    if (!/^\d{6}$/.test(form.pincode)) return;
+    // Clear any autofill left over from a previously-valid pincode when the
+    // input becomes structurally invalid (e.g. shopper backspaces 400001 into
+    // 000000). Prevents stale "Mumbai / Maharashtra" from lingering.
+    if (!isValidIndianPincode(form.pincode)) {
+      if (lastAutofilledPincode.current) {
+        setForm((f) => ({ ...f, city: '', state: '' }));
+        lastAutofilledPincode.current = null;
+      }
+      return;
+    }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
@@ -168,9 +188,18 @@ export default function CheckoutPage() {
           signal: controller.signal,
         });
         const json = await res.json();
+        const status = json?.[0]?.Status;
         const office = json?.[0]?.PostOffice?.[0];
-        if (office?.District && office?.State) {
-          setForm((f) => ({ ...f, city: f.city || office.District, state: f.state || office.State }));
+        // Only trust a Success response — Error/404 means the pincode is bogus.
+        if (status === 'Success' && office?.District && office?.State) {
+          setForm((f) => ({ ...f, city: office.District, state: office.State }));
+          lastAutofilledPincode.current = form.pincode;
+        } else {
+          // Valid-shaped but unknown pincode — clear any prior autofill.
+          if (lastAutofilledPincode.current) {
+            setForm((f) => ({ ...f, city: '', state: '' }));
+            lastAutofilledPincode.current = null;
+          }
         }
       } catch {
         /* silent — user can fill manually */
@@ -193,7 +222,10 @@ export default function CheckoutPage() {
   // 6-digit pincode changes. Debounced 600ms to avoid spamming the API when
   // the user is still typing.
   useEffect(() => {
-    if (!/^\d{6}$/.test(form.pincode)) {
+    // Reject structurally-invalid pincodes (e.g. 000000, 999999) up front so
+    // we don't burn a Shiprocket lookup and don't get a false "serviceable"
+    // from the backend's fail-open path.
+    if (!isValidIndianPincode(form.pincode)) {
       setServiceability((s) => ({ ...s, checked: false, checking: false, pincode: null }));
       return;
     }
@@ -258,7 +290,7 @@ export default function CheckoutPage() {
   // applies instantly (see `applyCode` below).
   useEffect(() => {
     if (items.length === 0) return;
-    const cartItems = items.map((i) => ({ name: i.product.name, quantity: i.quantity }));
+    const cartItems = items.map((i) => ({ productId: i.productId, name: i.product.name, quantity: i.quantity }));
     const sig = `${subtotal}:${items
       .map((i) => `${i.productId}x${i.quantity}`)
       .sort()
@@ -336,6 +368,12 @@ export default function CheckoutPage() {
     tryRender();
   }, [turnstileSiteKey]);
 
+  // Live D1 stock overlay — must be called BEFORE any early return so React's
+  // hook count stays stable across renders (moving this after the `mounted`
+  // gate flipped the hook order between first/second render and triggered
+  // React #310). Result is consumed further down in `stockIssues`.
+  const dbImages = useProductImages();
+
   if (!mounted) return <div className="min-h-screen bg-cream" />;
 
   if (items.length === 0) {
@@ -409,7 +447,7 @@ export default function CheckoutPage() {
     // Cache miss — network validate (spinner shown).
     setChipLoading(code);
     try {
-      const cartItems = items.map((i) => ({ name: i.product.name, quantity: i.quantity }));
+      const cartItems = items.map((i) => ({ productId: i.productId, name: i.product.name, quantity: i.quantity }));
       const res = await couponsApi.validate(code, subtotal, cartItems);
       if (!res.valid || !res.coupon) {
         setChipError({ code, msg: res.error ?? 'Cannot apply this coupon.' });
@@ -442,7 +480,7 @@ export default function CheckoutPage() {
   const emailOk = !emailRequired || !!(form.email.trim() || emailFromAccount);
   const isFormValid =
     !!form.name && form.phone.length >= 10 &&
-    !!form.address1 && !!form.city && !!form.state && form.pincode.length === 6 &&
+    !!form.address1 && !!form.city && !!form.state && isValidIndianPincode(form.pincode) &&
     emailOk;
 
   // If Turnstile is configured, require a verified token before enabling pay
@@ -457,6 +495,30 @@ export default function CheckoutPage() {
     state:   form.state,
     pincode: form.pincode,
   });
+
+  // Persist the shipping address to the signed-in user's Account → Addresses
+  // list. Fire-and-forget: this runs after the order is successfully created,
+  // so a save failure here should never block the buyer from reaching the
+  // confirmation page. Skipped when the checkbox is off or when there's no
+  // auth token (guests without an auto-created session).
+  const persistAddressIfRequested = async () => {
+    if (!saveAddressForLater) return;
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return;
+    try {
+      await addressesApi.create({
+        name:         form.name,
+        phone:        form.phone,
+        addressLine1: form.address1,
+        addressLine2: form.address2 || undefined,
+        city:         form.city,
+        state:        form.state,
+        pincode:      form.pincode,
+      });
+    } catch {
+      /* non-blocking */
+    }
+  };
 
   const handleCodPay = async () => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
@@ -473,6 +535,7 @@ export default function CheckoutPage() {
         couponCodes:     coupons.map((c) => c.code),
         ...(trimmedEmail ? { email: trimmedEmail } : {}),
         paymentMethod:   'cod',
+        turnstileToken,
         items: items.map((i) => ({
           productId:   i.productId,
           variantId:   i.variantId ?? null,
@@ -499,6 +562,11 @@ export default function CheckoutPage() {
           data.data.refreshToken,
         );
       }
+      // Persist address AFTER the token is set (whether from an existing
+      // login or from the freshly-created guest account) so the POST is
+      // authenticated. Awaited so the request leaves the browser before the
+      // full-page navigation below.
+      await persistAddressIfRequested();
       clearCart();
       const oid = data.data.orderId;
       const emailQs = trimmedEmail ? `&email=${encodeURIComponent(trimmedEmail)}` : '';
@@ -537,6 +605,7 @@ export default function CheckoutPage() {
         shippingAddress: shippingPayload(),
         couponCodes:     coupons.map((c) => c.code),
         ...(trimmedEmail ? { email: trimmedEmail } : {}),
+        turnstileToken,
         items: items.map((i) => ({
           productId:   i.productId,
           variantId:   i.variantId ?? null,
@@ -579,6 +648,35 @@ export default function CheckoutPage() {
           ...(trimmedEmail ? { email: trimmedEmail } : {}),
           contact: form.phone,
         },
+        // On mobile, Razorpay's default "smart" screen used to pre-select a
+        // UPI intent (GPay) based on the prefilled contact and auto-fill a
+        // guessed VPA (`<phone>@upi`) — which usually fails with "invalid
+        // UPI ID" per TC-068. Explicit `method` + `config` below force the
+        // full method selector on the first screen so all options (UPI /
+        // Card / Netbanking / Wallet) are visible at once and no VPA is
+        // pre-guessed.
+        method: {
+          upi:        1,
+          card:       1,
+          netbanking: 1,
+          wallet:     1,
+          paylater:   0,
+          emi:        0,
+        },
+        config: {
+          display: {
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
+        // Stop Razorpay from remembering the shopper across sessions — this
+        // is what drives the auto-VPA guess. Buyers can still save cards
+        // via Razorpay's own explicit consent UI.
+        remember_customer: false,
+        // Let the buyer retry within the same modal instead of getting
+        // bounced out on the first UPI failure.
+        retry: { enabled: true, max_count: 3 },
         notes: { orderId },
         theme: { color: '#F5A623' },
         modal: {
@@ -617,6 +715,7 @@ export default function CheckoutPage() {
                   verified.data.refreshToken,
                 );
               }
+              await persistAddressIfRequested();
               clearCart();
               const finalOid = verified.data.orderId ?? orderId;
               window.location.href = `/order-confirmation/${finalOid}/?orderId=${encodeURIComponent(finalOid)}${emailQs}`;
@@ -651,10 +750,17 @@ export default function CheckoutPage() {
       });
 
       rzp.on('payment.failed', (resp: unknown) => {
-        const r = resp as { error?: { description?: string } };
-        setPayError(r.error?.description ?? 'Payment failed. Please try again.');
+        const r = resp as { error?: { description?: string; code?: string } };
+        // Bounce to the dedicated failure page per TC-039. The pending order
+        // stays in D1 (no verify call fires) so the buyer can retry from a
+        // fresh checkout with the same cart still intact.
+        const reason = r.error?.description ?? 'Payment failed. Please try again.';
+        const params = new URLSearchParams({ reason });
+        if (r.error?.code) params.set('code', r.error.code);
+        params.set('orderId', orderId);
         setPaying(false);
         resolve();
+        window.location.href = `/payment-failed/?${params.toString()}`;
       });
 
       rzp.open();
@@ -686,6 +792,11 @@ export default function CheckoutPage() {
   const codHandlingFee = paymentMethod === 'cod' ? COD_FEE : 0;
   const grandTotal = total + codHandlingFee;
 
+  // Stock feedback now lives on the Add-to-Cart button (PDP + shop card).
+  // Checkout no longer preflight-blocks — a stale cart edge (admin dropped
+  // stock after item was added) still surfaces via the backend
+  // `INSUFFICIENT_STOCK` rejection routed through `setPayError`.
+
   // Block pay if we've confirmed the pincode is not serviceable. If we
   // haven't checked yet, or Shiprocket failed open, we still allow the pay
   // click (fallback: order gets created, admin retries shipment manually).
@@ -695,7 +806,7 @@ export default function CheckoutPage() {
     serviceability.serviceable;
   // The gate must be resolved before pay can be enabled — prevents someone
   // from bypassing OTP by directly clicking pay via devtools.
-  const canPay = gateStage === 'form' && isFormValid && turnstileOk && pincodeServiceable;
+  const canPay = gateStage === 'form' && isFormValid && turnstileOk && pincodeServiceable && agreedToTerms;
 
   return (
     <div className="bg-cream min-h-screen">
@@ -807,16 +918,25 @@ export default function CheckoutPage() {
                       inputMode="numeric"
                       aria-describedby="pincode-hint"
                     />
-                    <p id="pincode-hint" className="font-satoshi text-[11px] text-earth mt-1">
-                      {serviceability.checking
-                        ? 'Checking deliverability…'
-                        : serviceability.checked && serviceability.pincode === form.pincode
-                          ? serviceability.serviceable
-                            ? serviceability.etd_days
-                              ? `Deliverable · Est. ${serviceability.etd_days} day${serviceability.etd_days === 1 ? '' : 's'}${serviceability.cod ? '' : ' · COD unavailable'}`
-                              : `Deliverable${serviceability.cod ? '' : ' · COD unavailable'}`
-                            : 'Not deliverable to this pincode'
-                          : 'City & state auto-fill from pincode'}
+                    <p
+                      id="pincode-hint"
+                      className={`font-satoshi text-[11px] mt-1 ${
+                        form.pincode.length === 6 && !isValidIndianPincode(form.pincode)
+                          ? 'text-terracotta'
+                          : 'text-earth'
+                      }`}
+                    >
+                      {form.pincode.length === 6 && !isValidIndianPincode(form.pincode)
+                        ? 'Enter a valid 6-digit pincode'
+                        : serviceability.checking
+                          ? 'Checking deliverability…'
+                          : serviceability.checked && serviceability.pincode === form.pincode
+                            ? serviceability.serviceable
+                              ? serviceability.etd_days
+                                ? `Deliverable · Est. ${serviceability.etd_days} day${serviceability.etd_days === 1 ? '' : 's'}${serviceability.cod ? '' : ' · COD unavailable'}`
+                                : `Deliverable${serviceability.cod ? '' : ' · COD unavailable'}`
+                              : 'Not deliverable to this pincode'
+                            : 'City & state auto-fill from pincode'}
                     </p>
                   </div>
                   <div>
@@ -839,6 +959,17 @@ export default function CheckoutPage() {
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-earth pointer-events-none" aria-hidden />
                   </div>
                 </div>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none mt-1">
+                  <input
+                    type="checkbox"
+                    checked={saveAddressForLater}
+                    onChange={(e) => setSaveAddressForLater(e.target.checked)}
+                    className="w-4 h-4 rounded border-sand text-honey-500 focus:ring-2 focus:ring-honey-400 accent-honey-500"
+                  />
+                  <span className="font-satoshi text-sm text-bark">
+                    Save this address to my account for later
+                  </span>
+                </label>
               </div>
             </section>
 
@@ -1135,12 +1266,59 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {/* Stock-limit feedback now lives on the Add-to-Cart button
+                  (PDP, shop card) — a shopper can never seed a cart past
+                  the ceiling. Backend `INSUFFICIENT_STOCK` still catches
+                  stale carts (admin dropped stock after the item was
+                  added) and surfaces via `payError` below. */}
+
               {/* Error */}
               {payError && !accountExists && (
                 <p role="alert" className="font-satoshi text-sm text-terracotta bg-terracotta-light rounded-lg px-3.5 py-2.5 mb-3.5">
                   {payError}
                 </p>
               )}
+
+              {/* T&C consent — required per TC-036 */}
+              <label className="flex items-start gap-2.5 cursor-pointer select-none mb-3.5">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  aria-required="true"
+                  className="w-4 h-4 mt-0.5 rounded border-sand text-honey-500 focus:ring-2 focus:ring-honey-400 accent-honey-500 shrink-0"
+                />
+                <span className="font-satoshi text-xs text-bark leading-relaxed">
+                  I agree to the{' '}
+                  <Link
+                    href="/policies/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-honey-600 hover:text-honey-500 underline"
+                  >
+                    Terms of Service
+                  </Link>
+                  ,{' '}
+                  <Link
+                    href="/policies/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-honey-600 hover:text-honey-500 underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                  , and{' '}
+                  <Link
+                    href="/policies/refund"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-honey-600 hover:text-honey-500 underline"
+                  >
+                    Refund Policy
+                  </Link>
+                  .
+                </span>
+              </label>
 
               {/* Pay button — unified honey styling regardless of method */}
               <button

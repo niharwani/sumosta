@@ -25,6 +25,7 @@ import type { Coupon } from 'shared';
 import { COMBOS, TIER_COLORS, comboPriceAt, comboMrpAt } from '@/lib/gifting-combos';
 import ProductGallery from '@/components/product/ProductGallery';
 import { loadProduct } from '@/hooks/useProductBySlug';
+import { useProductImages, resolveProductStock } from '@/hooks/useProductImages';
 import { formatPrice } from '@/lib/utils';
 
 export default function ComboDetailContent({ id }: { id: string }) {
@@ -32,9 +33,11 @@ export default function ComboDetailContent({ id }: { id: string }) {
   const combo = COMBOS.find((c) => c.id === id);
 
   const { addItem, addCoupon, coupons, items: cartItems } = useCartStore();
+  const dbImages = useProductImages();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [limitMsg, setLimitMsg] = useState<string | null>(null);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<number | null>(0);
   const [sizeIdx, setSizeIdx] = useState(combo?.defaultSizeIdx ?? 0);
@@ -77,6 +80,35 @@ export default function ComboDetailContent({ id }: { id: string }) {
   const tc = TIER_COLORS[combo.tier];
   const size = combo.sizes[sizeIdx] ?? combo.sizes[combo.defaultSizeIdx];
   const price = comboPriceAt(combo, sizeIdx);
+
+  // Combo qty cap = tightest available stock across every component. Each
+  // combo unit consumes one of each component (variant when the size row
+  // picks one, else the plain product row), so the max combos the shopper
+  // can add is the smallest per-item stock. Product-level D1 stock (via
+  // useProductImages, id-keyed so slug drift doesn't hide it) is honored
+  // as a kill switch — zero on any component blocks the whole combo.
+  const comboStockCap: number | null = (() => {
+    const stocks: number[] = [];
+    for (const ci of combo.items) {
+      const variant = size.variantIdx >= 0 ? ci.product.variants?.[size.variantIdx] : null;
+      const variantStock = variant?.stock;
+      const staticStock  = ci.product.stock;
+      const liveProductStock = resolveProductStock(
+        dbImages,
+        ci.product.id,
+        typeof staticStock === 'number' ? staticStock : null,
+      );
+      if (liveProductStock === 0) return 0;   // any component OOS → whole combo OOS
+      const perItem: number[] = [];
+      if (typeof liveProductStock === 'number') perItem.push(liveProductStock);
+      if (typeof variantStock === 'number')     perItem.push(variantStock);
+      if (perItem.length === 0 && typeof staticStock === 'number') perItem.push(staticStock);
+      if (perItem.length === 0) continue;      // unknown → skip this component
+      stocks.push(Math.min(...perItem));
+    }
+    return stocks.length > 0 ? Math.min(...stocks) : null;
+  })();
+  const comboOutOfStock = comboStockCap === 0;
   const mrp   = comboMrpAt(combo, sizeIdx);
   const save  = mrp - price;
   const savePercent = mrp > price ? Math.round((save / mrp) * 100) : null;
@@ -123,7 +155,7 @@ export default function ComboDetailContent({ id }: { id: string }) {
       : combo.items.flatMap((ci) => imagesForItem(ci)).filter(Boolean)),
     {
       id: 'combo-six-ways',
-      url: 'https://sumosta-api.sumosta-dev.workers.dev/api/media/products/1786469410812-5.png',
+      url: 'https://api.sumosta.com/api/media/products/1786469410812-5.png',
       altText: 'Six natural ways to enjoy SUMOSTA honey',
       sortOrder: 999,
       isPrimary: false,
@@ -135,26 +167,49 @@ export default function ComboDetailContent({ id }: { id: string }) {
 
   const addBundleToCart = useCallback(async () => {
     if (adding || added) return;
+    if (comboOutOfStock) {
+      setLimitMsg('Out of stock');
+      clearTimeout(addTimeout.current);
+      addTimeout.current = setTimeout(() => setLimitMsg(null), 2500);
+      return;
+    }
+    if (typeof comboStockCap === 'number' && qty > comboStockCap) {
+      setLimitMsg(`Only ${comboStockCap} available`);
+      clearTimeout(addTimeout.current);
+      addTimeout.current = setTimeout(() => setLimitMsg(null), 2500);
+      return;
+    }
     setAdding(true);
+    let anyClamped = false;
     for (const ci of combo.items) {
       const { product } = ci;
       const variant = size.variantIdx >= 0 ? product.variants?.[size.variantIdx] : null;
-      addItem(
+      const result = addItem(
         product.id,
         variant?.id ?? null,
         qty,
         { id: product.id, name: product.name, slug: product.slug, price: product.price, images: product.images, stock: product.stock },
         variant as any ?? null,
       );
+      if (result.blocked || result.clamped) anyClamped = true;
     }
-    const shouldApplyCOMBO10 = combo.items.length > 1 || combo.tier === '5 Pack';
+    if (anyClamped && typeof comboStockCap === 'number') {
+      setAdding(false);
+      setLimitMsg(comboStockCap === 0 ? 'Out of stock' : `Only ${comboStockCap} available`);
+      clearTimeout(addTimeout.current);
+      addTimeout.current = setTimeout(() => setLimitMsg(null), 2500);
+      return;
+    }
+    // COMBO10 does NOT apply to the 5 Elements Collection — single low-priced
+    // tasting-set SKU per client rule. Only multi-item combos (Duo/Trio/etc.) qualify.
+    const shouldApplyCOMBO10 = combo.items.length > 1;
     if (shouldApplyCOMBO10 && !coupons.some((c) => c.code === 'COMBO10')) {
       try {
         const allItems = [...cartItems, ...combo.items.map((ci) => ({ product: ci.product, quantity: 1 }))];
         const res = await couponsApi.validate(
           'COMBO10',
           price,
-          allItems.map((i) => ({ name: i.product.name, quantity: 1 })),
+          allItems.map((i) => ({ productId: i.product.id, name: i.product.name, quantity: 1 })),
         );
         if (res.valid && res.coupon) addCoupon(res.coupon as Coupon);
       } catch { /* silent */ }
@@ -163,7 +218,7 @@ export default function ComboDetailContent({ id }: { id: string }) {
     setAdded(true);
     clearTimeout(addTimeout.current);
     addTimeout.current = setTimeout(() => setAdded(false), 1800);
-  }, [adding, added, combo, qty, size.variantIdx, price, addItem, addCoupon, coupons, cartItems]);
+  }, [adding, added, combo, qty, size.variantIdx, price, addItem, addCoupon, coupons, cartItems, comboOutOfStock, comboStockCap]);
 
   const handleBuyNow = useCallback(async () => {
     await addBundleToCart();
@@ -202,14 +257,23 @@ export default function ComboDetailContent({ id }: { id: string }) {
           </div>
           <button
             onClick={addBundleToCart}
-            disabled={added || adding}
+            disabled={added || adding || comboOutOfStock || !!limitMsg}
+            aria-live={limitMsg ? 'polite' : undefined}
             className={`inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-sm px-6 py-3 rounded-full transition-colors min-h-[44px] ${
-              added
+              comboOutOfStock
+                ? 'bg-sand text-earth-light cursor-not-allowed'
+                : limitMsg
+                ? 'bg-terracotta text-cream cursor-not-allowed'
+                : added
                 ? 'bg-sage text-cream cursor-default'
                 : 'bg-honey-500 hover:bg-honey-600 text-cream'
             }`}
           >
-            {added ? (
+            {comboOutOfStock ? (
+              'Out of stock'
+            ) : limitMsg ? (
+              limitMsg
+            ) : added ? (
               <><Check size={16} aria-hidden /> Added</>
             ) : (
               <><ShoppingBag size={16} aria-hidden /> Add Bundle</>
@@ -364,15 +428,17 @@ export default function ComboDetailContent({ id }: { id: string }) {
               <span className="font-satoshi text-earth text-sm">/ {size.label}</span>
             </div>
 
-            {/* COMBO10 callout */}
-            <div className="bg-sage-light border border-sage/30 rounded-xl px-4 py-3 mb-6 flex items-center gap-2.5">
-              <span className="font-satoshi text-[11px] font-bold text-sage bg-cream border border-sage/40 rounded px-2 py-0.5">
-                COMBO10
-              </span>
-              <span className="font-satoshi text-sage text-sm font-medium">
-                10% off auto-applied at checkout
-              </span>
-            </div>
+            {/* COMBO10 callout — hidden for the 5 Elements Collection (single low-priced SKU). */}
+            {combo.items.length > 1 && (
+              <div className="bg-sage-light border border-sage/30 rounded-xl px-4 py-3 mb-6 flex items-center gap-2.5">
+                <span className="font-satoshi text-[11px] font-bold text-sage bg-cream border border-sage/40 rounded px-2 py-0.5">
+                  COMBO10
+                </span>
+                <span className="font-satoshi text-sage text-sm font-medium">
+                  10% off auto-applied at checkout
+                </span>
+              </div>
+            )}
 
             {/* Trust badges */}
             <div className="flex flex-wrap gap-2 mb-6">
@@ -409,23 +475,37 @@ export default function ComboDetailContent({ id }: { id: string }) {
                   {qty}
                 </span>
                 <button
-                  onClick={() => setQty((q) => q + 1)}
+                  onClick={() =>
+                    setQty((q) =>
+                      typeof comboStockCap === 'number' ? Math.min(q + 1, comboStockCap) : q + 1,
+                    )
+                  }
+                  disabled={typeof comboStockCap === 'number' && qty >= comboStockCap}
                   aria-label="Increase quantity"
-                  className="w-11 h-11 flex items-center justify-center text-bark hover:text-charcoal transition-colors"
+                  className="w-11 h-11 flex items-center justify-center text-bark hover:text-charcoal transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus size={16} aria-hidden />
                 </button>
               </div>
               <button
                 onClick={addBundleToCart}
-                disabled={added || adding}
+                disabled={added || adding || comboOutOfStock || !!limitMsg}
+                aria-live={limitMsg ? 'polite' : undefined}
                 className={`flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-[15px] px-6 py-3.5 rounded-lg transition-all min-h-[44px] border-2 ${
-                  added
+                  comboOutOfStock
+                    ? 'bg-sand text-earth-light border-sand cursor-not-allowed'
+                    : limitMsg
+                    ? 'bg-terracotta text-cream border-terracotta cursor-not-allowed'
+                    : added
                     ? 'bg-sage text-cream border-sage cursor-default'
                     : 'bg-transparent text-honey-600 border-honey-500 hover:bg-honey-50'
                 }`}
               >
-                {added ? (
+                {comboOutOfStock ? (
+                  'Out of stock'
+                ) : limitMsg ? (
+                  limitMsg
+                ) : added ? (
                   <><Check size={16} aria-hidden /> Added</>
                 ) : adding ? (
                   '…'
@@ -435,12 +515,28 @@ export default function ComboDetailContent({ id }: { id: string }) {
               </button>
               <button
                 onClick={handleBuyNow}
-                disabled={adding}
-                className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-[15px] px-6 py-3.5 rounded-lg transition-all min-h-[44px] bg-honey-500 hover:bg-honey-600 text-cream shadow-honey"
+                disabled={adding || comboOutOfStock}
+                className={`flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 font-satoshi font-semibold text-[15px] px-6 py-3.5 rounded-lg transition-all min-h-[44px] shadow-honey ${
+                  comboOutOfStock
+                    ? 'bg-sand text-earth-light cursor-not-allowed shadow-none'
+                    : 'bg-honey-500 hover:bg-honey-600 text-cream'
+                }`}
               >
-                {adding ? '…' : <>Buy Now <ArrowRight size={15} aria-hidden /></>}
+                {comboOutOfStock ? 'Out of stock' : adding ? '…' : <>Buy Now <ArrowRight size={15} aria-hidden /></>}
               </button>
             </div>
+            {typeof comboStockCap === 'number' && !comboOutOfStock && comboStockCap <= 5 && (
+              <p
+                aria-live="polite"
+                className={`font-satoshi text-xs -mt-4 mb-6 ${
+                  qty >= comboStockCap ? 'text-terracotta' : 'text-earth'
+                }`}
+              >
+                {qty >= comboStockCap
+                  ? `Only ${comboStockCap} bundle${comboStockCap === 1 ? '' : 's'} available`
+                  : `${comboStockCap} bundles in stock`}
+              </p>
+            )}
 
             {/* Gift note */}
             <div className="bg-honey-50 border border-honey-200 rounded-xl px-5 py-4 mb-6 flex items-start gap-3">

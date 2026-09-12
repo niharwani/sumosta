@@ -1,26 +1,40 @@
 // ============================================================
-// Invoice PDF Generator — "The Honey Chit" (GST-compliant)
+// Invoice PDF Generator — GST-compliant tax invoice
 // ------------------------------------------------------------
-// A4 tax invoice for SUMOSTA. Rendered with pdf-lib + fontkit and
-// Inter (embedded, subsetted per document) so we get proper ₹
-// glyphs, tabular figures, and italics.
+// Renders the SUMOSTA tax invoice per SUMOSTA_Invoice_Template.pdf
+// (CA-approved layout). Structure:
 //
-// Design language: apothecary/ledger. One honey-amber accent (a
-// highlight band under the invoice number), hairline dividers in
-// warm sand, no borders or icons. Structural devices only where
-// they encode meaning.
+//   ┌───────────────────────────────────────────────────────┐
+//   │ SUMOSTA                                   TAX INVOICE │
+//   ├────────────────────────────┬──────────────────────────┤
+//   │ Seller Details             │ Invoice No / Date / …    │
+//   ├────────────────────────────┴──────────────────────────┤
+//   │ Bill To / Ship To                                     │
+//   ├───────────────────────────────────────────────────────┤
+//   │ Sl │ Description │ HSN │ Qty │ Gross │ Disc │ Taxable │
+//   │    │             │     │     │ Rate  │      │ Value   │
+//   │    │             │     │     │       │      │ + tax   │
+//   │    │             │     │     │       │      │ + total │
+//   ├───────────────────────────────────────────────────────┤
+//   │                                Total Taxable Value ₹… │
+//   │                                Total CGST 2.5% ₹…     │
+//   │                                Total SGST 2.5% ₹…     │
+//   │                                Grand Total ₹…         │
+//   ├───────────────────────────────────────────────────────┤
+//   │ Amount Chargeable (in words): INR …                   │
+//   ├───────────────────────────────────────────────────────┤
+//   │ Terms & Conditions               For SUMOSTA          │
+//   │ 1. …                             Authorized Signatory │
+//   └───────────────────────────────────────────────────────┘
 //
 // GST compliance layer:
-//   • HSN column per line (default '0409' for natural honey when
-//     the caller doesn't supply one).
-//   • Seller GSTIN + legal name + full address block.
-//   • Place of supply → CGST/SGST when it matches seller state,
-//     else IGST. Prices are inclusive of GST so we reverse-calc
-//     the taxable value.
-//   • Independent per-FY invoice serial (see invoice-numbering.ts).
-//   • Multi-page pagination — rows spill onto fresh pages with a
-//     compact header + "Page X of Y" footer. Totals block always
-//     starts on a page with enough room to render fully.
+//   • Invoice number `SUMOSTA-YYYY-NNNN` minted per calendar year.
+//   • Composite supply: shipping inherits the 5% principal rate
+//     (HSN 9965). See TechDevNote §2.
+//   • Intra-state (SELLER_STATE == shipping state): CGST 2.5% +
+//     SGST 2.5%. Inter-state: single IGST 5% column.
+//   • Prices are GST-inclusive; reverse-calc via divide-by-1.05
+//     AFTER coupon discount is applied per §4.
 // ============================================================
 
 import { PDFDocument, rgb, PDFFont, PDFPage } from 'pdf-lib';
@@ -30,13 +44,13 @@ import interRegularBytes from '../../assets/fonts/Inter-Regular.ttf';
 import interMediumBytes  from '../../assets/fonts/Inter-Medium.ttf';
 import interItalicBytes  from '../../assets/fonts/Inter-Italic.ttf';
 
-// HSN 0409 = "Natural honey" per the Indian Customs Tariff. Used as
-// the default when a product row hasn't been tagged with a specific
-// HSN code yet (e.g. gift boxes might need 2106 or similar).
+// HSN 0409 = "Natural honey" per the Indian Customs Tariff. Default when
+// a product row hasn't been tagged with a specific HSN.
 const DEFAULT_HSN_CODE = '0409';
+const SHIPPING_HSN_CODE = '9965';
 
-// 5% GST for honey (HSN 0409). Kept per-line so a future refactor
-// can vary the rate by product/HSN without touching the renderer.
+// 5% GST for honey (HSN 0409). Composite supply extends this rate to
+// shipping (HSN 9965) — see TechDevNote §2.
 const DEFAULT_GST_RATE = 0.05;
 
 export interface InvoiceItem {
@@ -60,19 +74,13 @@ export interface InvoiceAddress {
   pincode:      string;
 }
 
-export interface InvoiceSeller {
-  legalName:    string;         // e.g. "Sumosta Foods Pvt Ltd"
-  gstin:        string;         // 15-char GSTIN
-  addressBlock: string;         // multi-line, "\n" separated
-  state:        string;         // used against placeOfSupply for CGST/SGST vs IGST
-}
-
 export interface InvoiceData {
-  invoiceNumber:         string;   // GST-compliant serial (see invoice-numbering.ts)
+  invoiceNumber:         string;
   orderNumber:           string;
   createdAt:             string;
   paymentStatus:         string;
   paymentMethod:         string | null;
+  razorpayPaymentId?:    string | null;
   couponCode:            string | null;
   trackingNumber:        string | null;
 
@@ -85,8 +93,6 @@ export interface InvoiceData {
   shippingState:         string;
   shippingPincode:       string;
 
-  // Optional separate billing address; when omitted we treat billing
-  // and shipping as the same party (common for D2C).
   billingAddress?:       InvoiceAddress | null;
 
   subtotal:              number;
@@ -96,43 +102,41 @@ export interface InvoiceData {
 
   items:                 InvoiceItem[];
 
-  // Seller identity. All optional — if any of these are missing we
-  // fall back to the historic hardcoded provenance line and stamp
-  // the PDF with a "Draft — GSTIN pending" note.
   sellerLegalName?:      string | null;
   sellerGstin?:          string | null;
   sellerAddressBlock?:   string | null;
-  sellerState?:          string | null;    // seller's home state (for CGST/SGST vs IGST)
-  placeOfSupply?:        string | null;    // shipping state; drives CGST/SGST vs IGST
+  sellerState?:          string | null;
+  sellerEmail?:          string | null;
+  placeOfSupply?:        string | null;
 }
 
-// ── Palette ────────────────────────────────────────────────
+// ── Palette (template-aligned) ────────────────────────────
 const COLOR = {
-  paper:    rgb(0.988, 0.980, 0.953),  // #FCFAF3 — warm off-white
-  inkBold:  rgb(0.118, 0.094, 0.063),  // #1E1810 — ink primary
-  inkBody:  rgb(0.357, 0.290, 0.180),  // #5B4A2E — body ink
-  mute:     rgb(0.655, 0.604, 0.502),  // #A79A80 — micro-labels
-  honey:    rgb(0.882, 0.604, 0.231),  // #E19A3B — the single accent
-  hairline: rgb(0.851, 0.784, 0.639),  // #D9C8A3 — dividers
-  terracotta: rgb(0.710, 0.306, 0.200), // refund state only
+  paper:      rgb(1, 1, 1),                    // pure white body
+  ink:        rgb(0.118, 0.094, 0.063),        // #1E1810
+  body:       rgb(0.235, 0.208, 0.169),        // #3C352B
+  mute:       rgb(0.478, 0.435, 0.376),        // #7A6E60
+  accent:     rgb(0.514, 0.318, 0.129),        // #834F21 — template brown
+  accentBg:   rgb(0.541, 0.345, 0.157),        // #8A5828 — table header bg
+  boxBorder:  rgb(0.784, 0.741, 0.690),        // #C8BDB0
+  softFill:   rgb(0.973, 0.965, 0.945),        // #F8F6F1
 };
 
 // ── Layout constants (points; 72pt = 1in) ──────────────────
-const PAGE_W  = 595.28;
-const PAGE_H  = 841.89;
-const MARGIN  = 56;
+const PAGE_W = 595.28;
+const PAGE_H = 841.89;
+const MARGIN = 40;
 
-// Vertical space required for the totals block (varies with tax
-// split but always fits under this budget with a page compact header).
-const TOTALS_MIN_HEIGHT   = 220;
-// Reserve for the fixed footer band at every page bottom.
-const FOOTER_HEIGHT       = 56;
-// When a new item row can't fit above this y, break the page first.
-const MIN_ROW_Y           = MARGIN + FOOTER_HEIGHT + 40;
-
-// ── Money helpers ─────────────────────────────────────────
+// ── Money + text helpers ─────────────────────────────────
 function money(amount: number): string {
   return '₹' + amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function num2(amount: number): string {
+  return amount.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -144,606 +148,98 @@ function round2(n: number): number {
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = d.getUTCFullYear();
+  return `${dd}-${mm}-${yyyy}`;
 }
 
-// ── Text primitives ───────────────────────────────────────
+// ── Text primitives ──────────────────────────────────────
 interface TextOpts {
   font:  PDFFont;
   size:  number;
   color?: ReturnType<typeof rgb>;
-  tracking?: number;   // em-based letter-spacing
 }
 
-function drawText(
-  page: PDFPage, text: string, x: number, y: number, opts: TextOpts,
-): number {
-  const color = opts.color ?? COLOR.inkBody;
-  if (opts.tracking && opts.tracking !== 0) {
-    // Manual letter-spacing since pdf-lib has no native tracking prop.
-    const chars = [...text];
-    let cursor = x;
-    const emPx = opts.size * opts.tracking;
-    for (const ch of chars) {
-      page.drawText(ch, { x: cursor, y, size: opts.size, font: opts.font, color });
-      cursor += opts.font.widthOfTextAtSize(ch, opts.size) + emPx;
-    }
-    return cursor - x - emPx;
-  }
-  page.drawText(text, { x, y, size: opts.size, font: opts.font, color });
-  return opts.font.widthOfTextAtSize(text, opts.size);
+function drawText(page: PDFPage, text: string, x: number, y: number, opts: TextOpts): void {
+  page.drawText(text, {
+    x, y, size: opts.size, font: opts.font,
+    color: opts.color ?? COLOR.body,
+  });
 }
 
 function widthOf(text: string, opts: TextOpts): number {
-  const base = opts.font.widthOfTextAtSize(text, opts.size);
-  if (!opts.tracking) return base;
-  const spaces = Math.max(0, [...text].length - 1);
-  return base + spaces * opts.size * opts.tracking;
+  return opts.font.widthOfTextAtSize(text, opts.size);
 }
 
-function drawTextRight(
-  page: PDFPage, text: string, xRight: number, y: number, opts: TextOpts,
-): void {
-  const w = widthOf(text, opts);
-  drawText(page, text, xRight - w, y, opts);
+function drawTextRight(page: PDFPage, text: string, rightX: number, y: number, opts: TextOpts): void {
+  drawText(page, text, rightX - widthOf(text, opts), y, opts);
 }
 
-// Word-wrap into lines fitting maxWidth.
+function drawTextCenter(page: PDFPage, text: string, centerX: number, y: number, opts: TextOpts): void {
+  drawText(page, text, centerX - widthOf(text, opts) / 2, y, opts);
+}
+
+// Wrap text to a given width, breaking on spaces. Returns physical lines.
 function wrap(text: string, maxWidth: number, opts: TextOpts): string[] {
+  if (!text) return [''];
   const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = '';
+  const out: string[] = [];
+  let line = '';
   for (const w of words) {
-    const candidate = current ? current + ' ' + w : w;
+    const candidate = line ? `${line} ${w}` : w;
     if (widthOf(candidate, opts) <= maxWidth) {
-      current = candidate;
+      line = candidate;
     } else {
-      if (current) lines.push(current);
-      current = w;
+      if (line) out.push(line);
+      line = w;
     }
   }
-  if (current) lines.push(current);
-  return lines.length ? lines : [''];
+  if (line) out.push(line);
+  return out;
 }
 
-function hairline(
-  page: PDFPage, x1: number, x2: number, y: number,
-  color: ReturnType<typeof rgb> = COLOR.hairline,
-): void {
-  page.drawLine({ start: { x: x1, y }, end: { x: x2, y }, thickness: 0.4, color });
-}
-
-// Payment status display + color choice.
-function paymentLine(status: string, method: string | null): { label: string; muted: boolean } {
-  const m = method?.toLowerCase();
-  if (status === 'captured') {
-    const via = m === 'razorpay' ? 'Razorpay'
-      : m === 'cod' ? 'Cash on Delivery'
-      : m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Card';
-    return { label: `Paid via ${via}`, muted: false };
-  }
-  if (status === 'pending' && m === 'cod') return { label: 'Cash on Delivery — due on delivery', muted: false };
-  if (status === 'refunded')          return { label: 'Refunded', muted: false };
-  if (status === 'partially_refunded') return { label: 'Partially refunded', muted: false };
-  if (status === 'failed')            return { label: 'Payment failed', muted: false };
-  return { label: 'Pending', muted: true };
-}
-
-// ── Column geometry for the items table ──────────────────
-interface ColX {
-  item:   number;
-  hsn:    number;   // right edge (right-aligned column)
-  qty:    number;
-  unit:   number;
-  amount: number;
-  nameColMax: number;
-}
-
-function buildCols(rightEdge: number): ColX {
-  const cols = {
-    item:   MARGIN,
-    hsn:    rightEdge - 260,
-    qty:    rightEdge - 200,
-    unit:   rightEdge - 110,
-    amount: rightEdge,
-    nameColMax: 0,
-  };
-  cols.nameColMax = cols.hsn - MARGIN - 40;   // leave gutter so long names don't collide with HSN
-  return cols;
-}
-
-// ============================================================
-// Main entry
-// ============================================================
-export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  pdf.registerFontkit(fontkit);
-
-  // Subsetting keeps only the glyphs we actually rendered, shrinking the
-  // final PDF from ~1MB (three full Inter faces) to ~40–80KB. pdf-lib +
-  // fontkit build correct subset tables that Chrome/Preview/Acrobat all
-  // render cleanly, including the ₹ (U+20B9) and the italic apostrophe
-  // used in the signature line. If a specific renderer ever drops a
-  // glyph, the fallback is to embed the full font (drop `subset: true`)
-  // at the cost of bundle size.
-  const regular = await pdf.embedFont(new Uint8Array(interRegularBytes), { subset: true });
-  const medium  = await pdf.embedFont(new Uint8Array(interMediumBytes),  { subset: true });
-  const italic  = await pdf.embedFont(new Uint8Array(interItalicBytes),  { subset: true });
-
-  // Resolve seller identity + tax split up front so all pages share it.
-  const seller = resolveSeller(data);
-  const gstSplit = computeGstSplit(data, seller);
-
-  const rightEdge  = MARGIN + (PAGE_W - MARGIN * 2);
-  const cols       = buildCols(rightEdge);
-
-  // Page management ------------------------------------------------
-  // We render items into a growing array of pages, adding a new page
-  // whenever the current row won't fit. `pages` retains draw order so
-  // we can revisit each page in a second pass to stamp "Page X of Y".
-  const pages: PDFPage[] = [];
-
-  const pushPage = (compactHeader: boolean): { page: PDFPage; y: number } => {
-    const page = pdf.addPage([PAGE_W, PAGE_H]);
-    page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: COLOR.paper });
-    pages.push(page);
-    if (compactHeader) {
-      return { page, y: drawContinuationHeader(page, data, seller, medium, regular) };
-    }
-    return { page, y: PAGE_H - MARGIN };
-  };
-
-  // ── PAGE 1: full hero + sold-to/bill-to + item table start ────
-  const first = pushPage(false);
-  let page = first.page;
-  let y = drawHero(page, data, seller, gstSplit, { medium, regular });
-
-  y = drawParties(page, data, seller, y, { medium, regular });
-
-  // Table header
-  y = drawTableHeader(page, cols, y, { medium });
-
-  // ── Item rows (may span pages) ─────────────────────────────────
-  const nameOpts: TextOpts = { font: medium, size: 10, color: COLOR.inkBold };
-  const subOpts:  TextOpts = { font: regular, size: 8,  color: COLOR.mute };
-  const numOpts:  TextOpts = { font: regular, size: 10, color: COLOR.inkBody };
-  const amtOpts:  TextOpts = { font: medium, size: 10, color: COLOR.inkBold };
-  const hsnOpts:  TextOpts = { font: regular, size: 9,  color: COLOR.inkBody };
-
-  for (const item of data.items) {
-    const nameLines = wrap(item.productName, cols.nameColMax, nameOpts);
-    const subMeta = [item.variantName, item.sku].filter(Boolean).join(' · ');
-    const rowH = nameLines.length * 13 + (subMeta ? 12 : 0) + 6;
-
-    if (y - rowH < MIN_ROW_Y) {
-      // Break and continue on a fresh page
-      const next = pushPage(true);
-      page = next.page;
-      y = drawTableHeader(page, cols, next.y - 14, { medium });
-    }
-
-    y = drawItemRow(page, item, y, cols, { nameOpts, subOpts, numOpts, amtOpts, hsnOpts });
-  }
-
-  y -= 6;
-  hairline(page, MARGIN, rightEdge, y);
-  y -= 18;
-
-  // ── TOTALS ────────────────────────────────────────────────────
-  // Totals need ~TOTALS_MIN_HEIGHT of clean space. If we're too low,
-  // start a new page so the block renders as a single unit.
-  if (y - TOTALS_MIN_HEIGHT < MARGIN + FOOTER_HEIGHT) {
-    const next = pushPage(true);
-    page = next.page;
-    y = next.y - 24;
-  }
-
-  drawTotalsBlock(page, data, gstSplit, y, rightEdge, { regular, medium });
-
-  // ── FOOTER on every page (signature + Page X of Y) ────────────
-  const totalPages = pages.length;
-  for (let i = 0; i < totalPages; i++) {
-    drawFooter(pages[i], i + 1, totalPages, italic, regular);
-  }
-
-  return pdf.save();
-}
-
-// ============================================================
-// HERO — page 1 only
-// ============================================================
-function drawHero(
+// Draw a rectangular border, optionally with a fill.
+function drawBox(
   page: PDFPage,
-  data: InvoiceData,
-  seller: ResolvedSeller,
-  gstSplit: GstSplit,
-  fonts: { medium: PDFFont; regular: PDFFont },
-): number {
-  const { medium, regular } = fonts;
-  const rightEdge = PAGE_W - MARGIN;
-  const heroTop = PAGE_H - MARGIN;
-
-  // Wordmark — heavily tracked uppercase in ink primary.
-  const wordmarkY = heroTop - 14;
-  drawText(page, 'SUMOSTA', MARGIN, wordmarkY, {
-    font: medium, size: 14, color: COLOR.inkBold, tracking: 0.32,
-  });
-
-  // Seller identity block beneath wordmark. Full address + GSTIN when
-  // supplied, else the historic single-line provenance.
-  let sellerY = wordmarkY - 14;
-  if (seller.hasFullIdentity) {
-    drawText(page, seller.legalName, MARGIN, sellerY, {
-      font: medium, size: 9, color: COLOR.inkBody,
-    });
-    sellerY -= 11;
-    for (const line of seller.addressLines) {
-      drawText(page, line, MARGIN, sellerY, { font: regular, size: 8, color: COLOR.mute });
-      sellerY -= 10;
-    }
-    drawText(page, `GSTIN ${seller.gstin}`, MARGIN, sellerY, {
-      font: medium, size: 8, color: COLOR.inkBody,
-    });
-    sellerY -= 10;
-  } else {
-    drawText(page, 'raw honey · bengaluru, in', MARGIN, sellerY, {
-      font: regular, size: 8, color: COLOR.mute,
-    });
-    sellerY -= 10;
+  x: number, y: number, w: number, h: number,
+  opts?: { fill?: ReturnType<typeof rgb>; border?: ReturnType<typeof rgb>; borderWidth?: number },
+): void {
+  if (opts?.fill) {
+    page.drawRectangle({ x, y, width: w, height: h, color: opts.fill });
   }
-
-  // Right column meta
-  drawTextRight(page, 'TAX INVOICE', rightEdge, heroTop - 6, {
-    font: medium, size: 7, color: COLOR.mute, tracking: 0.18,
-  });
-  if (!seller.hasFullIdentity) {
-    drawTextRight(page, '(Draft — GSTIN pending)', rightEdge, heroTop - 16, {
-      font: regular, size: 7, color: COLOR.terracotta,
-    });
-  }
-
-  // Invoice number with honey highlight band behind it
-  const invNoOpts: TextOpts = { font: medium, size: 16, color: COLOR.inkBold };
-  const invNoW = widthOf(data.invoiceNumber, invNoOpts);
-  const invNoY = heroTop - 28;
   page.drawRectangle({
-    x: rightEdge - invNoW - 4,
-    y: invNoY - 3,
-    width: invNoW + 8,
-    height: 5,
-    color: COLOR.honey,
-    opacity: 0.55,
-  });
-  drawText(page, data.invoiceNumber, rightEdge - invNoW, invNoY, invNoOpts);
-
-  // Date + payment as one meta line under the invoice number
-  const pay = paymentLine(data.paymentStatus, data.paymentMethod);
-  const metaLine = `${formatDate(data.createdAt)} · ${pay.label}`;
-  drawTextRight(page, metaLine, rightEdge, invNoY - 14, {
-    font: regular, size: 9, color: pay.muted ? COLOR.mute : COLOR.inkBody,
-  });
-
-  // Place of supply + order # on a secondary meta row
-  const orderMeta = `Order ${data.orderNumber}` + (
-    gstSplit.placeOfSupply ? `  ·  Place of supply: ${gstSplit.placeOfSupply}` : ''
-  );
-  drawTextRight(page, orderMeta, rightEdge, invNoY - 26, {
-    font: regular, size: 8, color: COLOR.mute,
-  });
-
-  // Divider — sits below the taller of (seller block, right meta)
-  const y = Math.min(sellerY - 6, invNoY - 40);
-  hairline(page, MARGIN, rightEdge, y);
-  return y - 22;
-}
-
-// ============================================================
-// PARTIES — Sold To (billing) / Fulfilment (shipping)
-// ============================================================
-function drawParties(
-  page: PDFPage,
-  data: InvoiceData,
-  _seller: ResolvedSeller,
-  yStart: number,
-  fonts: { medium: PDFFont; regular: PDFFont },
-): number {
-  const { medium, regular } = fonts;
-  const contentW = PAGE_W - MARGIN * 2;
-  const rightEdge = MARGIN + contentW;
-  const colGap = 32;
-  const colW = (contentW - colGap) / 2;
-  const rightColX = MARGIN + colW + colGap;
-
-  let y = yStart;
-
-  drawText(page, 'BILL TO', MARGIN, y, {
-    font: medium, size: 7, color: COLOR.mute, tracking: 0.15,
-  });
-  drawText(page, 'SHIP TO', rightColX, y, {
-    font: medium, size: 7, color: COLOR.mute, tracking: 0.15,
-  });
-  y -= 14;
-
-  // Billing party — defaults to shipping when caller doesn't split them.
-  const billing: InvoiceAddress = data.billingAddress ?? {
-    name:         data.shippingName,
-    phone:        data.shippingPhone,
-    email:        data.shippingEmail,
-    addressLine1: data.shippingAddressLine1,
-    addressLine2: data.shippingAddressLine2,
-    city:         data.shippingCity,
-    state:        data.shippingState,
-    pincode:      data.shippingPincode,
-  };
-
-  const addrOpts: TextOpts = { font: regular, size: 9, color: COLOR.inkBody };
-  const muteOpts: TextOpts = { font: regular, size: 9, color: COLOR.mute };
-
-  const drawPartyBlock = (
-    x: number, w: number, party: InvoiceAddress, startY: number,
-  ): number => {
-    let cy = startY;
-    drawText(page, party.name, x, cy, { font: medium, size: 11, color: COLOR.inkBold });
-    cy -= 15;
-
-    const lines = [
-      ...wrap(party.addressLine1, w, addrOpts),
-      ...(party.addressLine2 ? wrap(party.addressLine2, w, addrOpts) : []),
-      `${party.city}, ${party.state} ${party.pincode}`,
-    ];
-    for (const line of lines) {
-      drawText(page, line, x, cy, addrOpts);
-      cy -= 12;
-    }
-    cy -= 2;
-    if (party.phone) { drawText(page, party.phone, x, cy, muteOpts); cy -= 12; }
-    if (party.email) { drawText(page, party.email, x, cy, muteOpts); cy -= 12; }
-    return cy;
-  };
-
-  const shipping: InvoiceAddress = {
-    name:         data.shippingName,
-    phone:        data.shippingPhone,
-    email:        data.shippingEmail,
-    addressLine1: data.shippingAddressLine1,
-    addressLine2: data.shippingAddressLine2,
-    city:         data.shippingCity,
-    state:        data.shippingState,
-    pincode:      data.shippingPincode,
-  };
-
-  const ly = drawPartyBlock(MARGIN, colW, billing, y);
-  const ry = drawPartyBlock(rightColX, colW, shipping, y);
-
-  const bottom = Math.min(ly, ry) - 14;
-  hairline(page, MARGIN, rightEdge, bottom);
-  return bottom - 20;
-}
-
-// ============================================================
-// TABLE HEADER — repeated on every page break
-// ============================================================
-function drawTableHeader(
-  page: PDFPage,
-  cols: ColX,
-  yStart: number,
-  fonts: { medium: PDFFont },
-): number {
-  const { medium } = fonts;
-  const rightEdge = PAGE_W - MARGIN;
-  const opts: TextOpts = { font: medium, size: 7, color: COLOR.mute, tracking: 0.15 };
-  let y = yStart;
-  drawText(page, 'ITEM', cols.item, y, opts);
-  drawTextRight(page, 'HSN',    cols.hsn,    y, opts);
-  drawTextRight(page, 'QTY',    cols.qty,    y, opts);
-  drawTextRight(page, 'UNIT',   cols.unit,   y, opts);
-  drawTextRight(page, 'AMOUNT', cols.amount, y, opts);
-  y -= 8;
-  hairline(page, MARGIN, rightEdge, y);
-  return y - 14;
-}
-
-// ============================================================
-// ITEM ROW — one line-item, may wrap over multiple text lines
-// Returns the new `y` cursor after drawing the row.
-// ============================================================
-interface RowFonts {
-  nameOpts: TextOpts;
-  subOpts:  TextOpts;
-  numOpts:  TextOpts;
-  amtOpts:  TextOpts;
-  hsnOpts:  TextOpts;
-}
-
-function drawItemRow(
-  page: PDFPage,
-  item: InvoiceItem,
-  yStart: number,
-  cols: ColX,
-  fonts: RowFonts,
-): number {
-  const nameLines = wrap(item.productName, cols.nameColMax, fonts.nameOpts);
-  const subMeta = [item.variantName, item.sku].filter(Boolean).join(' · ');
-  const rowH = nameLines.length * 13 + (subMeta ? 12 : 0) + 6;
-
-  let ny = yStart;
-  for (const line of nameLines) {
-    drawText(page, line, cols.item, ny, fonts.nameOpts);
-    ny -= 13;
-  }
-  if (subMeta) {
-    drawText(page, subMeta, cols.item, ny, fonts.subOpts);
-  }
-
-  const firstLineY = yStart;
-  const hsn = item.hsnCode ?? DEFAULT_HSN_CODE;
-  drawTextRight(page, hsn, cols.hsn, firstLineY, fonts.hsnOpts);
-  drawTextRight(page, String(item.quantity), cols.qty, firstLineY, fonts.numOpts);
-  drawTextRight(page, money(item.unitPrice), cols.unit, firstLineY, fonts.numOpts);
-  drawTextRight(page, money(item.lineTotal), cols.amount, firstLineY, fonts.amtOpts);
-
-  return yStart - rowH;
-}
-
-// ============================================================
-// TOTALS BLOCK — subtotal, discount, shipping, GST split, total
-// ============================================================
-function drawTotalsBlock(
-  page: PDFPage,
-  data: InvoiceData,
-  gstSplit: GstSplit,
-  yStart: number,
-  rightEdge: number,
-  fonts: { regular: PDFFont; medium: PDFFont },
-): void {
-  const { regular, medium } = fonts;
-  const totalsLabelX = rightEdge - 220;
-  let y = yStart;
-
-  const drawTotalRow = (label: string, value: string, opts?: {
-    labelColor?: ReturnType<typeof rgb>;
-    valueColor?: ReturnType<typeof rgb>;
-    size?:  number;
-    fontLabel?: PDFFont;
-    fontValue?: PDFFont;
-  }): void => {
-    const size = opts?.size ?? 10;
-    drawText(page, label, totalsLabelX, y, {
-      font:  opts?.fontLabel ?? regular,
-      size,
-      color: opts?.labelColor ?? COLOR.inkBody,
-    });
-    drawTextRight(page, value, rightEdge, y, {
-      font:  opts?.fontValue ?? regular,
-      size,
-      color: opts?.valueColor ?? COLOR.inkBold,
-    });
-    y -= size + 6;
-  };
-
-  drawTotalRow('Subtotal', money(data.subtotal));
-
-  if (data.discount > 0) {
-    const label = data.couponCode ? `Discount · ${data.couponCode}` : 'Discount';
-    drawTotalRow(label, `(${money(data.discount)})`);
-  }
-
-  drawTotalRow(
-    'Shipping',
-    data.shippingAmount === 0 ? 'Complimentary' : money(data.shippingAmount),
-  );
-
-  // Taxable value (net of GST) — always shown so buyers can see the
-  // pre-tax base the CGST/SGST/IGST is computed off.
-  drawTotalRow('Taxable value', money(gstSplit.taxableValue), {
-    labelColor: COLOR.mute, valueColor: COLOR.mute, size: 8,
-  });
-
-  // (Historically we rendered a single "Includes GST 5%" line; that
-  // undercounted intra-state buyers who need CGST + SGST called out
-  // separately for input-tax-credit claims. Kept as a comment so future
-  // readers know why the split exists.)
-  if (gstSplit.mode === 'intra') {
-    drawTotalRow(`CGST ${(gstSplit.rateHalf * 100).toFixed(2)}%`, money(gstSplit.cgst), {
-      labelColor: COLOR.mute, valueColor: COLOR.mute, size: 8,
-    });
-    drawTotalRow(`SGST ${(gstSplit.rateHalf * 100).toFixed(2)}%`, money(gstSplit.sgst), {
-      labelColor: COLOR.mute, valueColor: COLOR.mute, size: 8,
-    });
-  } else {
-    drawTotalRow(`IGST ${(gstSplit.rate * 100).toFixed(2)}%`, money(gstSplit.igst), {
-      labelColor: COLOR.mute, valueColor: COLOR.mute, size: 8,
-    });
-  }
-
-  // Total rule — a thin honey line, not a border box
-  y += 2;
-  page.drawLine({
-    start: { x: totalsLabelX, y: y + 6 },
-    end:   { x: rightEdge,     y: y + 6 },
-    thickness: 0.8,
-    color: COLOR.honey,
-  });
-  drawText(page, 'TOTAL', totalsLabelX, y - 4, {
-    font: medium, size: 11, color: COLOR.inkBold, tracking: 0.06,
-  });
-  drawTextRight(page, money(data.total), rightEdge, y - 4, {
-    font: medium, size: 13, color: COLOR.inkBold,
+    x, y, width: w, height: h,
+    borderColor: opts?.border ?? COLOR.boxBorder,
+    borderWidth: opts?.borderWidth ?? 0.6,
   });
 }
 
 // ============================================================
-// CONTINUATION HEADER — compact bar on pages 2+
-// Returns the y cursor just below the header.
+// GST state-code lookup + place-of-supply formatting
 // ============================================================
-function drawContinuationHeader(
-  page: PDFPage,
-  data: InvoiceData,
-  seller: ResolvedSeller,
-  medium: PDFFont,
-  regular: PDFFont,
-): number {
-  const rightEdge = PAGE_W - MARGIN;
-  const y = PAGE_H - MARGIN;
+const STATE_GST_CODES: Record<string, string> = {
+  'andaman and nicobar islands': '35', 'andhra pradesh': '37', 'arunachal pradesh': '12',
+  'assam': '18', 'bihar': '10', 'chandigarh': '04', 'chhattisgarh': '22',
+  'dadra and nagar haveli and daman and diu': '26', 'delhi': '07', 'goa': '30',
+  'gujarat': '24', 'haryana': '06', 'himachal pradesh': '02', 'jammu and kashmir': '01',
+  'jharkhand': '20', 'karnataka': '29', 'kerala': '32', 'ladakh': '38',
+  'lakshadweep': '31', 'madhya pradesh': '23', 'maharashtra': '27', 'manipur': '14',
+  'meghalaya': '17', 'mizoram': '15', 'nagaland': '13', 'odisha': '21',
+  'puducherry': '34', 'punjab': '03', 'rajasthan': '08', 'sikkim': '11',
+  'tamil nadu': '33', 'telangana': '36', 'tripura': '16', 'uttar pradesh': '09',
+  'uttarakhand': '05', 'west bengal': '19',
+};
 
-  drawText(page, 'SUMOSTA', MARGIN, y - 4, {
-    font: medium, size: 10, color: COLOR.inkBold, tracking: 0.24,
-  });
-
-  const rightLabel = `${data.invoiceNumber}  ·  ${formatDate(data.createdAt)}`;
-  drawTextRight(page, rightLabel, rightEdge, y - 4, {
-    font: regular, size: 9, color: COLOR.inkBody,
-  });
-
-  // Only add the "continued" caption when the header actually IS a
-  // continuation; caller uses this for every non-first page so it's safe.
-  drawTextRight(page, 'continued', rightEdge, y - 18, {
-    font: regular, size: 7, color: COLOR.mute, tracking: 0.15,
-  });
-
-  if (!seller.hasFullIdentity) {
-    drawText(page, '(Draft — GSTIN pending)', MARGIN + 80, y - 4, {
-      font: regular, size: 7, color: COLOR.terracotta,
-    });
-  }
-
-  hairline(page, MARGIN, rightEdge, y - 24);
-  return y - 24;
+function stateGstCode(name: string): string | null {
+  return STATE_GST_CODES[name.trim().toLowerCase()] ?? null;
 }
 
-// ============================================================
-// FOOTER — signature line + support + legal + Page X of Y
-// ============================================================
-function drawFooter(
-  page: PDFPage,
-  pageNo: number,
-  totalPages: number,
-  italic: PDFFont,
-  regular: PDFFont,
-): void {
-  const rightEdge = PAGE_W - MARGIN;
-  const footerY = MARGIN + 8;
-  hairline(page, MARGIN, rightEdge, footerY + 44);
-
-  const sig = "Nature's Golden Promise — pressed and packed by hand.";
-  const sigOpts: TextOpts = { font: italic, size: 9, color: COLOR.inkBody };
-  const sigW = widthOf(sig, sigOpts);
-  drawText(page, sig, (PAGE_W - sigW) / 2, footerY + 30, sigOpts);
-
-  const support = 'support@sumosta.com   ·   sumosta.com';
-  const supportOpts: TextOpts = { font: regular, size: 8, color: COLOR.mute };
-  const supportW = widthOf(support, supportOpts);
-  drawText(page, support, (PAGE_W - supportW) / 2, footerY + 16, supportOpts);
-
-  const legal = 'This is a computer-generated invoice and does not require a signature.';
-  const legalOpts: TextOpts = { font: regular, size: 7, color: COLOR.mute };
-  const legalW = widthOf(legal, legalOpts);
-  drawText(page, legal, (PAGE_W - legalW) / 2, footerY + 4, legalOpts);
-
-  // Page X of Y — right-aligned, sits at the top of the footer band.
-  drawTextRight(page, `Page ${pageNo} of ${totalPages}`, rightEdge, footerY + 30, {
-    font: regular, size: 7, color: COLOR.mute, tracking: 0.15,
-  });
+function formatStateWithCode(name: string): string {
+  const clean = name.trim();
+  if (!clean) return '';
+  const code = stateGstCode(clean);
+  return code ? `${clean} (Code: ${code})` : clean;
 }
 
 // ============================================================
@@ -755,92 +251,817 @@ interface ResolvedSeller {
   gstin:           string;
   addressLines:    string[];
   state:           string;
+  email:           string;
 }
 
 function resolveSeller(data: InvoiceData): ResolvedSeller {
   const legalName = (data.sellerLegalName ?? '').trim();
-  const gstin     = (data.sellerGstin     ?? '').trim();
+  const gstin     = (data.sellerGstin ?? '').trim();
   const block     = (data.sellerAddressBlock ?? '').trim();
+  const state     = (data.sellerState ?? '').trim();
+  const email     = (data.sellerEmail ?? '').trim();
   const hasFull = Boolean(legalName && gstin && block);
   return {
     hasFullIdentity: hasFull,
     legalName,
     gstin,
     addressLines: block ? block.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) : [],
-    // seller.state used only for tax split; consumed via `placeOfSupply` comparison
-    // done in the caller (see computeGstSplit).
-    state: '',
+    state,
+    email,
   };
 }
 
 interface GstSplit {
-  mode:          'intra' | 'inter';
-  rate:          number;   // total GST rate (e.g. 0.05)
-  rateHalf:      number;   // half rate for CGST/SGST display (0.025)
-  taxableValue:  number;
-  totalGst:      number;
-  cgst:          number;
-  sgst:          number;
-  igst:          number;
-  placeOfSupply: string | null;
+  mode:            'intra' | 'inter';
+  rate:            number;
+  rateHalf:        number;
+  itemsTaxable:    number;
+  shippingTaxable: number;
+  taxableValue:    number;
+  itemsGst:        number;
+  shippingGst:     number;
+  totalGst:        number;
+  cgst:            number;
+  sgst:            number;
+  igst:            number;
+  placeOfSupply:   string;   // "Maharashtra (Code: 27)" for header + totals
+  placeOfSupplyRaw: string;  // "Maharashtra" — used for state-of-supply comparison
 }
 
 function computeGstSplit(data: InvoiceData, seller: ResolvedSeller): GstSplit {
-  // Prices are inclusive of GST. Reverse-calc taxable value:
-  //   grossOfLine = lineTotal, taxable = round2(gross / (1 + rate))
-  // We aggregate per-line so proportional discounting (a future change)
-  // can be slotted in without touching this math.
+  // Composite supply: shipping shares the 5% rate. Reverse-calc after
+  // applying discount to items (TechDevNote §4).
   const rate = DEFAULT_GST_RATE;
 
-  // Sum(line_total) equals subtotal; if the caller pre-applied the
-  // discount at the line level (currently they don't), this still works
-  // because we operate on the aggregate `total - shippingAmount`.
-  // Note: shipping isn't taxed in the current pricing model, so it's
-  // excluded from the taxable base.
-  const grossOfTax    = round2(data.total - data.shippingAmount);
-  const taxableValue  = round2(grossOfTax / (1 + rate));
-  const totalGst      = round2(grossOfTax - taxableValue);
+  const itemsNetInclusive = round2(data.subtotal - data.discount);
+  const itemsTaxable      = round2(itemsNetInclusive / (1 + rate));
+  const itemsGst          = round2(itemsNetInclusive - itemsTaxable);
 
-  const placeOfSupply = (data.placeOfSupply ?? data.shippingState ?? '').trim();
-  // Compare against seller state supplied via a separate binding channel:
-  // caller passes it in via placeOfSupply's paired seller-state. Since
-  // InvoiceData doesn't carry seller state directly, we compare against
-  // `seller.state` if it's set, else fall back to treating everything as
-  // intra-state when the seller isn't fully configured (safest default —
-  // the resulting draft invoice already stamps "GSTIN pending").
-  const sellerState = seller.state;
-  const isIntra = sellerState
-    ? placeOfSupply.toLowerCase() === sellerState.toLowerCase()
+  const shippingTaxable = data.shippingAmount > 0
+    ? round2(data.shippingAmount / (1 + rate))
+    : 0;
+  const shippingGst = data.shippingAmount > 0
+    ? round2(data.shippingAmount - shippingTaxable)
+    : 0;
+
+  const taxableValue = round2(itemsTaxable + shippingTaxable);
+  const totalGst     = round2(itemsGst + shippingGst);
+
+  const rawPos = (data.placeOfSupply ?? data.shippingState ?? '').trim();
+  const isIntra = seller.state
+    ? rawPos.toLowerCase() === seller.state.toLowerCase()
     : true;
 
   if (isIntra) {
     const half = round2(totalGst / 2);
     return {
       mode: 'intra',
-      rate,
-      rateHalf: rate / 2,
-      taxableValue,
-      totalGst,
+      rate, rateHalf: rate / 2,
+      itemsTaxable, shippingTaxable, taxableValue,
+      itemsGst, shippingGst, totalGst,
       cgst: half,
-      sgst: round2(totalGst - half),   // absorb rounding penny into SGST
+      sgst: round2(totalGst - half),
       igst: 0,
-      placeOfSupply: placeOfSupply || null,
+      placeOfSupply: formatStateWithCode(rawPos),
+      placeOfSupplyRaw: rawPos,
     };
   }
   return {
     mode: 'inter',
-    rate,
-    rateHalf: rate / 2,
-    taxableValue,
-    totalGst,
-    cgst: 0,
-    sgst: 0,
+    rate, rateHalf: rate / 2,
+    itemsTaxable, shippingTaxable, taxableValue,
+    itemsGst, shippingGst, totalGst,
+    cgst: 0, sgst: 0,
     igst: totalGst,
-    placeOfSupply: placeOfSupply || null,
+    placeOfSupply: formatStateWithCode(rawPos),
+    placeOfSupplyRaw: rawPos,
   };
 }
 
-// Uint8Array → base64 (Workers-safe; no Buffer)
+// ============================================================
+// Per-line breakdown — distribute order-level discount by line
+// weight and reverse-calc each row's taxable value + tax split.
+// ============================================================
+interface LineBreakdown {
+  serialNumber: number;
+  description:  string;
+  hsn:          string;
+  qty:          number;
+  grossRate:    number;   // unit_price × qty (GST-inclusive)
+  discount:     number;   // proportional share of order-level discount
+  taxable:      number;   // (gross - discount) / 1.05
+  cgst:         number;
+  sgst:         number;
+  igst:         number;
+  total:        number;   // gross - discount (net inclusive)
+  isShipping:   boolean;
+}
+
+function computeLineBreakdowns(data: InvoiceData, split: GstSplit): LineBreakdown[] {
+  const rate = split.rate;
+  const halfRate = split.rateHalf;
+  const rows: LineBreakdown[] = [];
+  const subtotal = data.subtotal;
+  const totalDiscount = data.discount;
+  const running = { discountUsed: 0 };
+
+  data.items.forEach((item, idx) => {
+    const gross = round2(item.lineTotal);
+    // Proportional discount by line weight, absorbing rounding penny into
+    // the last item so the sum matches the order-level discount exactly.
+    let disc = 0;
+    if (totalDiscount > 0 && subtotal > 0) {
+      const isLast = idx === data.items.length - 1;
+      disc = isLast
+        ? round2(totalDiscount - running.discountUsed)
+        : round2((gross / subtotal) * totalDiscount);
+      running.discountUsed = round2(running.discountUsed + disc);
+    }
+    const netInclusive = round2(gross - disc);
+    const taxable = round2(netInclusive / (1 + rate));
+    const taxAmount = round2(netInclusive - taxable);
+    const description = item.variantName
+      ? `${item.productName} ${item.variantName}`.trim()
+      : item.productName;
+    rows.push({
+      serialNumber: idx + 1,
+      description,
+      hsn:          item.hsnCode ?? DEFAULT_HSN_CODE,
+      qty:          item.quantity,
+      grossRate:    gross,
+      discount:     disc,
+      taxable,
+      cgst:         split.mode === 'intra' ? round2(taxable * halfRate) : 0,
+      sgst:         split.mode === 'intra' ? round2(taxable * halfRate) : 0,
+      igst:         split.mode === 'inter' ? taxAmount : 0,
+      total:        netInclusive,
+      isShipping:   false,
+    });
+  });
+
+  if (data.shippingAmount > 0) {
+    const gross = round2(data.shippingAmount);
+    const taxable = split.shippingTaxable;
+    const taxAmount = split.shippingGst;
+    rows.push({
+      serialNumber: rows.length + 1,
+      description:  'Shipping & Delivery Charges (Composite)',
+      hsn:          SHIPPING_HSN_CODE,
+      qty:          1,
+      grossRate:    gross,
+      discount:     0,
+      taxable,
+      cgst:         split.mode === 'intra' ? round2(taxable * halfRate) : 0,
+      sgst:         split.mode === 'intra' ? round2(taxable * halfRate) : 0,
+      igst:         split.mode === 'inter' ? taxAmount : 0,
+      total:        gross,
+      isShipping:   true,
+    });
+  }
+
+  return rows;
+}
+
+// ============================================================
+// Amount → words (Indian numbering, whole rupees + paise)
+// ============================================================
+const AIW_ONES = [
+  'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+  'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+  'Seventeen', 'Eighteen', 'Nineteen',
+];
+const AIW_TENS = [
+  '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety',
+];
+
+function twoDigitsToWords(n: number): string {
+  if (n < 20) return AIW_ONES[n];
+  const t = Math.floor(n / 10), o = n % 10;
+  return o === 0 ? AIW_TENS[t] : `${AIW_TENS[t]}-${AIW_ONES[o]}`;
+}
+
+function threeDigitsToWords(n: number): string {
+  const h = Math.floor(n / 100), rest = n % 100;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${AIW_ONES[h]} Hundred`);
+  if (rest > 0) parts.push(twoDigitsToWords(rest));
+  return parts.join(' ');
+}
+
+function integerToIndianWords(n: number): string {
+  if (n === 0) return 'Zero';
+  const parts: string[] = [];
+  const crore = Math.floor(n / 10_000_000);
+  n %= 10_000_000;
+  const lakh = Math.floor(n / 100_000);
+  n %= 100_000;
+  const thousand = Math.floor(n / 1_000);
+  n %= 1_000;
+  if (crore > 0)    parts.push(`${twoDigitsToWords(crore)} Crore`);
+  if (lakh > 0)     parts.push(`${twoDigitsToWords(lakh)} Lakh`);
+  if (thousand > 0) parts.push(`${twoDigitsToWords(thousand)} Thousand`);
+  if (n > 0)        parts.push(threeDigitsToWords(n));
+  return parts.join(' ');
+}
+
+function amountToWords(amount: number): string {
+  const rupees = Math.floor(amount);
+  const paise  = Math.round((amount - rupees) * 100);
+  const rupeeWords = integerToIndianWords(rupees);
+  const paiseWords = paise > 0 ? twoDigitsToWords(paise) : '';
+  if (paiseWords) {
+    return `INR ${rupeeWords} and ${paiseWords} Paise Only`;
+  }
+  return `INR ${rupeeWords} Rupees Only`;
+}
+
+// ============================================================
+// Main entry
+// ============================================================
+export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  pdf.registerFontkit(fontkit);
+
+  // Subsetting off — the previous "tracking" (per-character draw) mode
+  // masked pdf-lib's subset bug where multi-glyph text runs occasionally
+  // drop the glyph tables PDF viewers need. Full-embed adds ~200KB per
+  // invoice but renders cleanly across every PDF viewer we've tested.
+  const regular = await pdf.embedFont(new Uint8Array(interRegularBytes));
+  const medium  = await pdf.embedFont(new Uint8Array(interMediumBytes));
+  const italic  = await pdf.embedFont(new Uint8Array(interItalicBytes));
+
+  const seller = resolveSeller(data);
+  const gstSplit = computeGstSplit(data, seller);
+  const lines = computeLineBreakdowns(data, gstSplit);
+
+  const page = pdf.addPage([PAGE_W, PAGE_H]);
+  const contentLeft = MARGIN;
+  const contentRight = PAGE_W - MARGIN;
+  const contentWidth = contentRight - contentLeft;
+
+  let y = PAGE_H - MARGIN;
+
+  // ── Wordmark + TAX INVOICE ────────────────────────────────
+  drawText(page, 'SUMOSTA', contentLeft, y - 22, {
+    font: medium, size: 26, color: COLOR.ink,
+  });
+  drawTextRight(page, 'TAX INVOICE', contentRight, y - 20, {
+    font: medium, size: 20, color: COLOR.accent,
+  });
+  y -= 42;
+
+  // ── Info boxes: Seller | Meta ─────────────────────────────
+  const boxGap = 10;
+  const boxWidth = (contentWidth - boxGap) / 2;
+  const sellerBoxY = y;
+  const sellerBoxHeight = drawSellerBox(
+    page, contentLeft, sellerBoxY, boxWidth, seller,
+    { medium, regular },
+  );
+  const metaBoxHeight = drawMetaBox(
+    page, contentLeft + boxWidth + boxGap, sellerBoxY, boxWidth, data, gstSplit,
+    { medium, regular },
+  );
+  const infoRowHeight = Math.max(sellerBoxHeight, metaBoxHeight);
+  y -= infoRowHeight + 8;
+
+  // ── Bill-To / Ship-To box (full width) ────────────────────
+  const billToHeight = drawBillToBox(
+    page, contentLeft, y, contentWidth, data,
+    { medium, regular },
+  );
+  y -= billToHeight + 8;
+
+  // ── Item table ────────────────────────────────────────────
+  const cols = buildTableColumns(contentLeft, contentRight, gstSplit.mode);
+  const headerHeight = 22;
+  drawTableHeader(page, cols, y, headerHeight, gstSplit.mode, { medium });
+  y -= headerHeight;
+
+  const numOpts: TextOpts = { font: regular, size: 8, color: COLOR.body };
+  const descOpts: TextOpts = { font: regular, size: 8.5, color: COLOR.body };
+  for (const row of lines) {
+    y = drawTableRow(page, row, cols, y, gstSplit.mode, { descOpts, numOpts });
+  }
+
+  y -= 12;
+
+  // Recompute the summary CGST/SGST/IGST from the actual per-row values.
+  // Ensures the totals tie out exactly with what the buyer sees added up
+  // in the table (avoids the 1-paise drift that comes from rounding
+  // `totalGst / 2` independently from the row rounding).
+  const rolledUp = lines.reduce(
+    (acc, r) => ({
+      taxable: round2(acc.taxable + r.taxable),
+      cgst:    round2(acc.cgst    + r.cgst),
+      sgst:    round2(acc.sgst    + r.sgst),
+      igst:    round2(acc.igst    + r.igst),
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0 },
+  );
+  const totalsForDisplay: GstSplit = {
+    ...gstSplit,
+    taxableValue: rolledUp.taxable,
+    cgst:         rolledUp.cgst,
+    sgst:         rolledUp.sgst,
+    igst:         rolledUp.igst,
+    totalGst:     round2(rolledUp.cgst + rolledUp.sgst + rolledUp.igst),
+  };
+
+  // ── Totals block (right-aligned) ──────────────────────────
+  y = drawTotalsBlock(page, totalsForDisplay, data.total, y, contentRight, { medium, regular });
+
+  y -= 12;
+
+  // ── Amount in words ───────────────────────────────────────
+  const wordsHeight = drawAmountInWords(page, contentLeft, y, contentWidth, data.total, { medium, regular });
+  y -= wordsHeight + 8;
+
+  // ── Seller bank details ───────────────────────────────────
+  const bankHeight = drawBankDetails(page, contentLeft, y, contentWidth, { medium, regular });
+  y -= bankHeight + 10;
+
+  // ── Terms & Conditions + Signatory ────────────────────────
+  drawTermsAndSignatory(page, contentLeft, y, contentWidth, seller, { medium, regular });
+
+  // ── Draft badge if identity incomplete ────────────────────
+  if (!seller.hasFullIdentity) {
+    drawTextRight(page, '(Draft — GSTIN pending)', contentRight, PAGE_H - MARGIN - 2, {
+      font: italic, size: 8, color: rgb(0.710, 0.306, 0.200),
+    });
+  }
+
+  return pdf.save();
+}
+
+// ============================================================
+// Info boxes — Seller (left) + Invoice meta (right)
+// ============================================================
+function drawSellerBox(
+  page: PDFPage, x: number, y: number, w: number,
+  seller: ResolvedSeller,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): number {
+  const { medium, regular } = fonts;
+  const padX = 10;
+  const lineH = 12;
+
+  // Estimate height first
+  const addressLines = seller.addressLines.length ||
+    (seller.hasFullIdentity ? 0 : 1);
+  const contentLines = 1 /* label */ + 1 /* legal name */ + addressLines +
+    (seller.gstin ? 1 : 0) + (seller.email ? 1 : 0);
+  const height = 10 + contentLines * lineH + 6;
+
+  drawBox(page, x, y - height, w, height);
+
+  let cy = y - 14;
+  drawText(page, 'Seller Details:', x + padX, cy, {
+    font: medium, size: 9, color: COLOR.mute,
+  });
+  cy -= lineH + 2;
+
+  drawText(page, seller.legalName || 'SUMOSTA', x + padX, cy, {
+    font: medium, size: 10, color: COLOR.ink,
+  });
+  cy -= lineH;
+
+  const bodyOpts: TextOpts = { font: regular, size: 9, color: COLOR.body };
+  if (seller.hasFullIdentity) {
+    for (const line of seller.addressLines) {
+      drawText(page, line, x + padX, cy, bodyOpts);
+      cy -= lineH;
+    }
+    drawText(page, `GSTIN: ${seller.gstin}`, x + padX, cy, {
+      font: medium, size: 9, color: COLOR.body,
+    });
+    cy -= lineH;
+  } else {
+    drawText(page, 'GSTIN pending', x + padX, cy, {
+      font: regular, size: 9, color: COLOR.mute,
+    });
+    cy -= lineH;
+  }
+  if (seller.email) {
+    drawText(page, `Email: ${seller.email}`, x + padX, cy, bodyOpts);
+  }
+
+  return height;
+}
+
+function drawMetaBox(
+  page: PDFPage, x: number, y: number, w: number,
+  data: InvoiceData, gstSplit: GstSplit,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): number {
+  const { medium, regular } = fonts;
+  const padX = 10;
+  const lineH = 12;
+
+  const rows: [string, string][] = [
+    ['Invoice No:', data.invoiceNumber],
+    ['Invoice Date:', formatDate(data.createdAt)],
+    ['Order ID:', data.orderNumber],
+    ['State of Supply:', gstSplit.placeOfSupply || '—'],
+    ['Reverse Charge:', 'No'],
+  ];
+  if (data.razorpayPaymentId) {
+    rows.push(['Payment ID:', data.razorpayPaymentId]);
+  }
+
+  const height = 10 + rows.length * lineH + 6;
+  drawBox(page, x, y - height, w, height);
+
+  let cy = y - 14;
+  for (const [label, value] of rows) {
+    drawText(page, label, x + padX, cy, { font: medium, size: 9, color: COLOR.ink });
+    const labelW = widthOf(label, { font: medium, size: 9 });
+    drawText(page, value, x + padX + labelW + 4, cy, {
+      font: regular, size: 9, color: COLOR.body,
+    });
+    cy -= lineH;
+  }
+
+  return height;
+}
+
+// ============================================================
+// Bill To / Ship To (single block — they're identical for D2C)
+// ============================================================
+function drawBillToBox(
+  page: PDFPage, x: number, y: number, w: number,
+  data: InvoiceData,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): number {
+  const { medium, regular } = fonts;
+  const padX = 10;
+  const lineH = 12;
+
+  const billing = data.billingAddress ?? {
+    name:         data.shippingName,
+    addressLine1: data.shippingAddressLine1,
+    addressLine2: data.shippingAddressLine2,
+    city:         data.shippingCity,
+    state:        data.shippingState,
+    pincode:      data.shippingPincode,
+    phone:        data.shippingPhone,
+    email:        data.shippingEmail,
+  };
+
+  const cityLine = `${billing.city}, ${billing.state ?? ''} - ${billing.pincode}`.replace(/\s+,/g, ',').trim();
+  const stateLine = billing.state ? `State: ${formatStateWithCode(billing.state)}` : null;
+  // Buyer contact — phone and/or email, joined on one line so GST auditors
+  // can trace the recipient without cluttering the block.
+  const contactBits: string[] = [];
+  if (billing.phone) contactBits.push(billing.phone);
+  if (billing.email) contactBits.push(billing.email);
+  const contactLine = contactBits.length > 0 ? contactBits.join(' · ') : null;
+
+  const contentLines = 1 /* label */ + 1 /* name */ + 1 /* addr1 */ +
+    (billing.addressLine2 ? 1 : 0) + 1 /* city */ + (stateLine ? 1 : 0) +
+    (contactLine ? 1 : 0);
+  const height = 10 + contentLines * lineH + 6;
+  drawBox(page, x, y - height, w, height);
+
+  let cy = y - 14;
+  drawText(page, 'Bill To / Ship To:', x + padX, cy, {
+    font: medium, size: 9, color: COLOR.mute,
+  });
+  cy -= lineH + 2;
+
+  drawText(page, billing.name, x + padX, cy, {
+    font: medium, size: 10, color: COLOR.ink,
+  });
+  cy -= lineH;
+
+  const bodyOpts: TextOpts = { font: regular, size: 9, color: COLOR.body };
+  drawText(page, billing.addressLine1, x + padX, cy, bodyOpts);
+  cy -= lineH;
+  if (billing.addressLine2) {
+    drawText(page, billing.addressLine2, x + padX, cy, bodyOpts);
+    cy -= lineH;
+  }
+  drawText(page, cityLine, x + padX, cy, bodyOpts);
+  cy -= lineH;
+  if (stateLine) {
+    drawText(page, stateLine, x + padX, cy, {
+      font: medium, size: 9, color: COLOR.body,
+    });
+    cy -= lineH;
+  }
+  if (contactLine) {
+    drawText(page, contactLine, x + padX, cy, {
+      font: regular, size: 9, color: COLOR.mute,
+    });
+  }
+
+  return height;
+}
+
+// ============================================================
+// Item table
+// ============================================================
+interface TableColumns {
+  slX:         number;
+  slW:         number;
+  descX:       number;
+  descW:       number;
+  hsnX:        number;   // centre-aligned
+  hsnW:        number;
+  qtyX:        number;
+  qtyW:        number;
+  grossRateX:  number;   // right-aligned
+  discX:       number;
+  taxableX:    number;
+  cgstX:       number;
+  sgstX:       number;
+  igstX:       number;
+  totalX:      number;
+  right:       number;
+}
+
+function buildTableColumns(left: number, right: number, mode: 'intra' | 'inter'): TableColumns {
+  const width = right - left;
+  // 10 columns for intra (Sl, Desc, HSN, Qty, Gross, Disc, Taxable, CGST, SGST, Total)
+  // 9 columns for inter (Sl, Desc, HSN, Qty, Gross, Disc, Taxable, IGST, Total)
+  const slW   = 22;
+  const hsnW  = 34;
+  const qtyW  = 26;
+  const numW  = mode === 'intra' ? 52 : 58;   // gross/disc/taxable/tax/total widths
+  const fixedWidth = slW + hsnW + qtyW + numW * (mode === 'intra' ? 6 : 5);
+  const descW = width - fixedWidth;
+
+  const slX = left;
+  const descX = slX + slW;
+  const hsnX = descX + descW;
+  const qtyX = hsnX + hsnW;
+  const grossRateX = qtyX + qtyW + numW;
+  const discX = grossRateX + numW;
+  const taxableX = discX + numW;
+
+  if (mode === 'intra') {
+    const cgstX = taxableX + numW;
+    const sgstX = cgstX + numW;
+    const totalX = sgstX + numW;
+    return {
+      slX, slW, descX, descW, hsnX, hsnW, qtyX, qtyW,
+      grossRateX, discX, taxableX, cgstX, sgstX, igstX: -1, totalX,
+      right,
+    };
+  }
+  const igstX = taxableX + numW;
+  const totalX = igstX + numW;
+  return {
+    slX, slW, descX, descW, hsnX, hsnW, qtyX, qtyW,
+    grossRateX, discX, taxableX, cgstX: -1, sgstX: -1, igstX, totalX,
+    right,
+  };
+}
+
+function drawTableHeader(
+  page: PDFPage, cols: TableColumns, y: number, h: number,
+  mode: 'intra' | 'inter',
+  fonts: { medium: PDFFont },
+): void {
+  const { medium } = fonts;
+  const left = cols.slX;
+  const width = cols.right - left;
+
+  // Filled header row
+  page.drawRectangle({
+    x: left, y: y - h, width, height: h,
+    color: COLOR.accentBg,
+  });
+
+  const centerY = y - h / 2 - 3;
+  const cell: TextOpts = { font: medium, size: 8.5, color: rgb(1, 1, 1) };
+
+  drawTextCenter(page, 'Sl', cols.slX + cols.slW / 2, centerY, cell);
+  drawText(page, 'Description', cols.descX + 6, centerY, cell);
+  drawTextCenter(page, 'HSN', cols.hsnX + cols.hsnW / 2, centerY, cell);
+  drawTextCenter(page, 'Qty', cols.qtyX + cols.qtyW / 2, centerY, cell);
+  drawTextRight(page, 'Gross Rate', cols.grossRateX - 4, centerY, cell);
+  drawTextRight(page, 'Discount', cols.discX - 4, centerY, cell);
+  drawTextRight(page, 'Taxable', cols.taxableX - 4, centerY, cell);
+  if (mode === 'intra') {
+    drawTextRight(page, 'CGST 2.5%', cols.cgstX - 4, centerY, cell);
+    drawTextRight(page, 'SGST 2.5%', cols.sgstX - 4, centerY, cell);
+  } else {
+    drawTextRight(page, 'IGST 5%', cols.igstX - 4, centerY, cell);
+  }
+  drawTextRight(page, 'Total (₹)', cols.totalX - 4, centerY, cell);
+
+  // Bottom border
+  page.drawLine({
+    start: { x: left, y: y - h }, end: { x: cols.right, y: y - h },
+    thickness: 0.6, color: COLOR.boxBorder,
+  });
+}
+
+function drawTableRow(
+  page: PDFPage,
+  row: LineBreakdown,
+  cols: TableColumns,
+  y: number,
+  mode: 'intra' | 'inter',
+  fonts: { descOpts: TextOpts; numOpts: TextOpts },
+): number {
+  const { descOpts, numOpts } = fonts;
+
+  // Description can wrap over multiple lines; compute row height accordingly.
+  const descLines = wrap(row.description, cols.descW - 10, descOpts);
+  const rowH = Math.max(descLines.length * 12 + 8, 22);
+  const rowBottom = y - rowH;
+  const centerY = y - rowH / 2 - 3;
+
+  // Faint horizontal separator under each row
+  page.drawLine({
+    start: { x: cols.slX, y: rowBottom },
+    end:   { x: cols.right, y: rowBottom },
+    thickness: 0.4,
+    color: COLOR.boxBorder,
+  });
+
+  // Sl · Description · HSN · Qty (centered / left)
+  drawTextCenter(page, String(row.serialNumber), cols.slX + cols.slW / 2, centerY, numOpts);
+  {
+    let ty = y - 14;
+    for (const line of descLines) {
+      drawText(page, line, cols.descX + 6, ty, descOpts);
+      ty -= 12;
+    }
+  }
+  drawTextCenter(page, row.hsn, cols.hsnX + cols.hsnW / 2, centerY, numOpts);
+  drawTextCenter(page, String(row.qty), cols.qtyX + cols.qtyW / 2, centerY, numOpts);
+
+  // Numeric columns — right-aligned
+  drawTextRight(page, num2(row.grossRate), cols.grossRateX - 4, centerY, numOpts);
+  drawTextRight(page, num2(row.discount),  cols.discX - 4,      centerY, numOpts);
+  drawTextRight(page, num2(row.taxable),   cols.taxableX - 4,   centerY, numOpts);
+  if (mode === 'intra') {
+    drawTextRight(page, num2(row.cgst), cols.cgstX - 4, centerY, numOpts);
+    drawTextRight(page, num2(row.sgst), cols.sgstX - 4, centerY, numOpts);
+  } else {
+    drawTextRight(page, num2(row.igst), cols.igstX - 4, centerY, numOpts);
+  }
+  drawTextRight(page, num2(row.total), cols.totalX - 4, centerY, {
+    ...numOpts, font: (numOpts.font),
+  });
+
+  return rowBottom;
+}
+
+// ============================================================
+// Totals block (right-aligned)
+// ============================================================
+function drawTotalsBlock(
+  page: PDFPage, split: GstSplit, grandTotal: number,
+  yStart: number, rightEdge: number,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): number {
+  const { medium, regular } = fonts;
+  const labelOpts: TextOpts = { font: medium, size: 9.5, color: COLOR.body };
+  const valueOpts: TextOpts = { font: medium, size: 9.5, color: COLOR.ink };
+
+  const rows: [string, string][] = [
+    ['Total Taxable Value:', money(split.taxableValue)],
+  ];
+  if (split.mode === 'intra') {
+    rows.push([`Total CGST (${(split.rateHalf * 100).toFixed(2)}%):`, money(split.cgst)]);
+    rows.push([`Total SGST (${(split.rateHalf * 100).toFixed(2)}%):`, money(split.sgst)]);
+  } else {
+    rows.push([`Total IGST (${(split.rate * 100).toFixed(2)}%):`, money(split.igst)]);
+  }
+
+  let y = yStart;
+  for (const [label, value] of rows) {
+    drawTextRight(page, label, rightEdge - 90, y, labelOpts);
+    drawTextRight(page, value, rightEdge, y, valueOpts);
+    y -= 14;
+  }
+
+  // Underline the grand total
+  y -= 2;
+  page.drawLine({
+    start: { x: rightEdge - 220, y: y + 12 },
+    end:   { x: rightEdge, y: y + 12 },
+    thickness: 0.6, color: COLOR.boxBorder,
+  });
+  drawTextRight(page, 'Grand Total (Inclusive of Taxes):', rightEdge - 90, y, {
+    font: medium, size: 10, color: COLOR.ink,
+  });
+  drawTextRight(page, money(grandTotal), rightEdge, y, {
+    font: medium, size: 11, color: COLOR.ink,
+  });
+  y -= 8;
+  return y;
+}
+
+// ============================================================
+// Amount-in-words box
+// ============================================================
+function drawAmountInWords(
+  page: PDFPage, x: number, y: number, w: number, total: number,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): number {
+  const { medium, regular } = fonts;
+  const height = 28;
+  drawBox(page, x, y - height, w, height, { fill: COLOR.softFill });
+
+  const labelOpts: TextOpts = { font: medium, size: 9, color: COLOR.ink };
+  const valueOpts: TextOpts = { font: regular, size: 9, color: COLOR.body };
+  const label = 'Amount Chargeable (in words):';
+  const cy = y - height / 2 - 3;
+  drawText(page, label, x + 10, cy, labelOpts);
+  const labelW = widthOf(label, labelOpts);
+  drawText(page, amountToWords(total), x + 10 + labelW + 6, cy, valueOpts);
+
+  return height;
+}
+
+// ============================================================
+// Seller bank details — printed on every invoice so a customer
+// can wire funds directly. Values are the CA-supplied SUMOSTA
+// operating account.
+// ============================================================
+function drawBankDetails(
+  page: PDFPage, x: number, y: number, w: number,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): number {
+  const { medium, regular } = fonts;
+  const padX = 10;
+  const lineH = 12;
+  const rows: [string, string][] = [
+    ['A/C No.', '50612202558'],
+    ['IFSC',    'IDFB0040178'],
+    ['Bank',    'IDFC First Bank'],
+    ['Branch',  'Mumbai — Andheri Teli Gali'],
+  ];
+  const height = 10 + lineH + rows.length * lineH + 6;
+  drawBox(page, x, y - height, w, height);
+
+  let cy = y - 14;
+  drawText(page, 'Seller Bank Details:', x + padX, cy, {
+    font: medium, size: 9, color: COLOR.mute,
+  });
+  cy -= lineH + 2;
+
+  const labelOpts: TextOpts = { font: medium, size: 9, color: COLOR.body };
+  const valueOpts: TextOpts = { font: regular, size: 9, color: COLOR.ink };
+  // Align values in a second column so the block reads as a mini
+  // key-value table (matches the seller-details box up top).
+  const valueColX = x + padX + 90;
+  for (const [label, value] of rows) {
+    drawText(page, label, x + padX, cy, labelOpts);
+    drawText(page, value, valueColX, cy, valueOpts);
+    cy -= lineH;
+  }
+
+  return height;
+}
+
+// ============================================================
+// Terms & Conditions (left) + Signatory (right)
+// ============================================================
+function drawTermsAndSignatory(
+  page: PDFPage, x: number, y: number, w: number,
+  seller: ResolvedSeller,
+  fonts: { medium: PDFFont; regular: PDFFont },
+): void {
+  const { medium, regular } = fonts;
+  const lineH = 12;
+
+  drawText(page, 'Terms & Conditions:', x, y, {
+    font: medium, size: 9, color: COLOR.ink,
+  });
+
+  const terms = [
+    '1. Goods once sold will not be taken back or exchanged.',
+    '2. All disputes are subject to Mumbai jurisdiction.',
+    '3. This is a computer-generated invoice and requires no physical signature.',
+  ];
+  let ty = y - lineH - 4;
+  for (const t of terms) {
+    drawText(page, t, x, ty, { font: regular, size: 8.5, color: COLOR.body });
+    ty -= lineH;
+  }
+
+  // Signatory block — right-aligned
+  const rightEdge = x + w;
+  drawTextRight(page, 'For SUMOSTA', rightEdge, y, {
+    font: medium, size: 10, color: COLOR.ink,
+  });
+  drawTextRight(page, seller.legalName || 'SUMOSTA', rightEdge, y - lineH - 2, {
+    font: regular, size: 8, color: COLOR.mute,
+  });
+  drawTextRight(page, 'Authorized Signatory', rightEdge, y - lineH * 3 - 4, {
+    font: regular, size: 9, color: COLOR.body,
+  });
+}
+
+// ============================================================
+// Public helpers
+// ============================================================
 export function toBase64(bytes: Uint8Array): string {
   let bin = '';
   const chunk = 0x8000;

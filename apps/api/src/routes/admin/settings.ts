@@ -49,10 +49,10 @@ export interface SiteSettings {
 }
 
 const DEFAULT_PACKAGE: DefaultPackage = {
-  length: 15,
-  breadth: 12,
-  height: 30,   // 30 cm box height cap — jars stack to this then overflow
-  weight: 100,  // 100 g packaging overhead
+  length: 15,     // outer box L — comfortably fits a 9.5cm-wide honey jar
+  breadth: 12,    // outer box B
+  height: 22,     // 22 cm — one 500g jar (21.5 cm tall) + lid clearance; two stack to a new box
+  weight: 100,    // 100 g packaging overhead (bubble wrap + tape + poly bag)
 };
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -74,8 +74,12 @@ const DEFAULT_SETTINGS: SiteSettings = {
     metaDescription: "Single-origin wild forest honeys from India's most pristine ecosystems. NPOP & APEDA certified, cold-extracted, and completely unprocessed.",
     ogImage:         '/og-image.jpg',
   },
+  // ₹499 free-shipping threshold + flat ₹69 rate below — matches the
+  // hard-coded rule in apps/api/src/lib/utils.ts::calcShipping and the
+  // frontend cart-store::computeDerived. If you change either number
+  // here, update those two spots too.
   freeShippingThreshold: 499,
-  defaultShippingRate:   49,
+  defaultShippingRate:   69,
   taxRate:               5,
   pickupLocation:        'Primary',
   defaultPackage:        DEFAULT_PACKAGE,

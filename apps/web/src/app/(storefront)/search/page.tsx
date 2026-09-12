@@ -1,16 +1,43 @@
 'use client';
-import { Suspense, useEffect, useId, useState } from 'react';
+import { Suspense, useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from '@/components/product/ProductCard';
+import ComboCard from '@/components/product/ComboCard';
 import HoneycombLoader from '@/components/shared/HoneycombLoader';
 import { staggerContainer } from '@/lib/animations';
 import { useDebounce } from '@/hooks/useDebounce';
+import { STATIC_PRODUCTS } from '@/lib/content';
+import { COMBOS } from '@/lib/gifting-combos';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+const ACTIVE_PRODUCTS = STATIC_PRODUCTS.filter(
+  (p) => p.isActive && !p.comingSoon && p.slug !== '5-elements-collection',
+);
+
+function matchesProduct(p: (typeof ACTIVE_PRODUCTS)[number], q: string): boolean {
+  const haystack = [
+    p.name,
+    p.sku,
+    p.shortDescription,
+    p.description,
+    p.category?.name,
+    ...(p.tags ?? []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
+function matchesCombo(c: (typeof COMBOS)[number], q: string): boolean {
+  const haystack = [c.name, c.tagline, c.tier, c.giftNote, ...c.items.map((i) => i.product.name)]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
+}
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -19,20 +46,17 @@ function SearchContent() {
   const debouncedQuery = useDebounce(query, 300);
   const searchId = useId();
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['search', debouncedQuery],
-    queryFn: async () => {
-      if (!debouncedQuery.trim()) return { data: { products: [], total: 0 } };
-      const res = await fetch(
-        `${API}/api/products?search=${encodeURIComponent(debouncedQuery)}&limit=24`,
-      );
-      return res.json();
-    },
-    enabled: debouncedQuery.length > 0,
-  });
+  const { products, combos, hasQuery } = useMemo(() => {
+    const q = debouncedQuery.trim().toLowerCase();
+    if (!q) return { products: [], combos: [], hasQuery: false };
+    return {
+      products: ACTIVE_PRODUCTS.filter((p) => matchesProduct(p, q)),
+      combos: COMBOS.filter((c) => matchesCombo(c, q)),
+      hasQuery: true,
+    };
+  }, [debouncedQuery]);
 
-  const products = data?.data?.products ?? [];
-  const hasQuery = debouncedQuery.trim().length > 0;
+  const total = products.length + combos.length;
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -87,17 +111,7 @@ function SearchContent() {
               Start typing to search our collection
             </p>
           </motion.div>
-        ) : isLoading || isFetching ? (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex justify-center py-20"
-          >
-            <HoneycombLoader size="lg" />
-          </motion.div>
-        ) : products.length === 0 ? (
+        ) : total === 0 ? (
           <motion.div
             key="no-results"
             initial={{ opacity: 0, y: 20 }}
@@ -126,15 +140,39 @@ function SearchContent() {
             variants={staggerContainer}
             role="region"
             aria-live="polite"
+            className="flex flex-col gap-14"
           >
-            <p className="font-satoshi text-bark text-sm mb-6">
-              {data?.data?.total ?? products.length} results for &ldquo;{debouncedQuery}&rdquo;
+            <p className="font-satoshi text-bark text-sm">
+              {total} {total === 1 ? 'result' : 'results'} for &ldquo;{debouncedQuery}&rdquo;
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-6">
-              {products.map((product: any, i: number) => (
-                <ProductCard key={product.id} product={product} index={i} />
-              ))}
-            </div>
+
+            {products.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-6">
+                {products.map((product, i) => (
+                  <ProductCard key={product.id} product={product} index={i} />
+                ))}
+              </div>
+            )}
+
+            {combos.length > 0 && (
+              <div>
+                {products.length > 0 && (
+                  <div className="mb-8">
+                    <h2 className="font-clash font-extrabold text-charcoal text-2xl md:text-3xl m-0 mb-1">
+                      Curated Bundles & Combos
+                    </h2>
+                    <p className="font-bespoke italic text-earth text-sm md:text-base m-0">
+                      Duo, Trio, Quartet & 5-Pack — save more when you bundle
+                    </p>
+                  </div>
+                )}
+                <div className="flex flex-col gap-6">
+                  {combos.map((combo) => (
+                    <ComboCard key={combo.id} combo={combo} />
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

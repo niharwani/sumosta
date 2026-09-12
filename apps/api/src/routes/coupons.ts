@@ -3,22 +3,19 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../index';
 import { verifyJwt } from '../lib/jwt';
-import { hasQualifyingPriorOrder } from '../lib/utils';
+import { hasQualifyingPriorOrder, isCombo10Eligible } from '../lib/utils';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
 const validateSchema = z.object({
   code:      z.string().min(1),
   cartTotal: z.number().positive(),
-  cartItems: z.array(z.object({ name: z.string(), quantity: z.number().int().positive() })).optional(),
+  cartItems: z.array(z.object({
+    productId: z.string().optional(),
+    name:      z.string(),
+    quantity:  z.number().int().positive(),
+  })).optional(),
 });
-
-const COMBO_KEYWORDS = ['duo', 'trio', 'pack', 'combo', 'gift', 'bundle', 'collection', 'set'];
-
-function isComboEligible(items: { name: string; quantity: number }[]): boolean {
-  if (items.length >= 2) return true;
-  return items.some((i) => COMBO_KEYWORDS.some((kw) => i.name.toLowerCase().includes(kw)));
-}
 
 // ─── POST /api/coupons/validate ──────────────────────────────
 app.post('/validate', zValidator('json', validateSchema), async (c) => {
@@ -62,15 +59,17 @@ app.post('/validate', zValidator('json', validateSchema), async (c) => {
     });
   }
 
-  // Combo-only check
+  // Combo-only check. The 5 Elements Collection is deliberately excluded —
+  // it's a single low-priced tasting-set SKU and client instructed COMBO10
+  // must not stack on top of it.
   if (coupon.code === 'COMBO10') {
     const items = cartItems ?? [];
-    if (!isComboEligible(items)) {
+    if (!isCombo10Eligible(items)) {
       return c.json({
         success: true,
         data: {
           valid: false,
-          error: 'COMBO10 applies to 2+ products or combo/gift products (Duo, Trio, Pack, etc.)',
+          error: 'COMBO10 applies to combo/gift products (Duo, Trio, Pack) or 2+ eligible items.',
         },
       });
     }

@@ -7,6 +7,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, Lock, Package } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
+import { useProductImages, resolveProductStock } from '@/hooks/useProductImages';
 import { formatPrice } from '@/lib/utils';
 import { HONEY_EASE_OUT } from '@/lib/animations';
 import CouponInput from '@/components/cart/CouponInput';
@@ -30,6 +31,11 @@ function CartPageInner() {
     updateQuantity,
     removeItem,
   } = useCartStore();
+
+  // Live D1 stock overlay — the persisted cart item carries the stock the
+  // catalog had at add-time, but D1 is authoritative (admin may have flipped
+  // it OOS since). Prefer it when available.
+  const dbImages = useProductImages();
 
   // Prevent SSR/hydration mismatch — cart is pure client state
   const [mounted, setMounted] = useState(false);
@@ -109,7 +115,18 @@ function CartPageInner() {
           {/* Items column */}
           <div className="flex flex-col gap-3">
             <AnimatePresence initial={false} mode="popLayout">
-              {items.map((item) => (
+              {items.map((item) => {
+                // Prefer variant stock, then live D1 product stock, then the
+                // stock persisted with the cart item at add-time. Product-level
+                // stock=0 acts as a kill-switch across every variant (matches
+                // the server-side TC-040 rule).
+                const persistedStock = item.variant?.stock ?? item.product.stock ?? null;
+                const liveProductStock = resolveProductStock(dbImages, item.productId, item.product.stock ?? null);
+                const productKillSwitch = liveProductStock === 0;
+                const itemStock = productKillSwitch ? 0 : persistedStock;
+                const atMax = typeof itemStock === 'number' && item.quantity >= itemStock;
+                const overStock = typeof itemStock === 'number' && item.quantity > itemStock;
+                return (
                 <motion.div
                   key={`${item.productId}-${item.variantId ?? 'default'}`}
                   layout
@@ -199,8 +216,9 @@ function CartPageInner() {
                           onClick={() =>
                             updateQuantity(item.productId, item.variantId, item.quantity + 1)
                           }
+                          disabled={atMax}
                           aria-label="Increase quantity"
-                          className="w-9 h-9 flex items-center justify-center text-bark hover:bg-sand/40 transition-colors"
+                          className="w-9 h-9 flex items-center justify-center text-bark hover:bg-sand/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                         >
                           <Plus size={12} aria-hidden />
                         </button>
@@ -209,9 +227,22 @@ function CartPageInner() {
                         {formatPrice(item.lineTotal)}
                       </span>
                     </div>
+                    {typeof itemStock === 'number' && (overStock || atMax) && (
+                      <p
+                        aria-live="polite"
+                        className={`font-satoshi text-xs mt-2 ${
+                          overStock ? 'text-terracotta font-semibold' : 'text-earth'
+                        }`}
+                      >
+                        {itemStock === 0
+                          ? 'Out of stock'
+                          : `Only ${itemStock} available`}
+                      </p>
+                    )}
                   </div>
                 </motion.div>
-              ))}
+              );
+              })}
             </AnimatePresence>
 
             {/* Continue shopping */}

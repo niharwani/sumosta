@@ -4,8 +4,9 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Package, MapPin, Mail, ArrowRight, Truck } from 'lucide-react';
+import { Package, MapPin, Mail, ArrowRight, Truck, Download } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { ordersApi } from '@/lib/api';
 import { formatPrice } from '@/lib/utils';
 import { tracker } from '@/lib/tracker';
@@ -73,6 +74,12 @@ export default function OrderConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const trackedRef = useRef(false);
+  // Fall back to the signed-in user's email when the URL doesn't carry one
+  // (e.g. checkout completed via the auth-store session rather than a guest
+  // flow). The invoice endpoint accepts either the guest email or the
+  // authenticated user's email — whichever matches the order wins.
+  const authEmail = useAuthStore((s) => s.user?.email ?? null);
+  const invoiceEmail = email || (authEmail && !authEmail.endsWith('@sumosta.local') ? authEmail : '');
 
   // Clear cart once on mount (safe if already empty)
   useEffect(() => {
@@ -443,7 +450,7 @@ export default function OrderConfirmationPage() {
             <div className="flex items-start gap-3 bg-honey-50 border border-honey-200 rounded-2xl p-4">
               <Mail size={16} className="text-honey-500 shrink-0 mt-0.5" aria-hidden />
               <p className="font-satoshi text-xs text-bark leading-relaxed">
-                A receipt has been sent to your email. If you don’t see it, please check your spam folder.
+                Your invoice PDF has been attached to the confirmation email. If you don’t see it, please check your spam folder.
               </p>
             </div>
 
@@ -455,6 +462,16 @@ export default function OrderConfirmationPage() {
               >
                 View Order <ArrowRight size={15} aria-hidden />
               </Link>
+              {invoiceEmail && (
+                <a
+                  href={ordersApi.invoiceUrl(receipt.id, invoiceEmail)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-cream border border-sand hover:border-honey-400 text-charcoal font-satoshi font-semibold text-sm rounded-full px-6 py-3 transition-colors min-h-[44px]"
+                >
+                  <Download size={15} aria-hidden /> Download Invoice
+                </a>
+              )}
               <Link
                 href="/shop"
                 className="flex-1 inline-flex items-center justify-center bg-cream border border-sand hover:border-honey-400 text-charcoal font-satoshi font-semibold text-sm rounded-full px-6 py-3 transition-colors min-h-[44px]"

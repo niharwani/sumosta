@@ -179,7 +179,7 @@ const COMBO_PRODUCTS_MAPPED: (Product & {
   categoryId: 'gift-boxes',
   category: {
     id: 'gift-boxes',
-    name: 'Gift Boxes & Combos',
+    name: 'Combos',
     slug: 'gift-boxes',
     description: 'SUMOSTA curated forest honey combinations and gifting sets.',
     imageUrl: null,
@@ -501,6 +501,11 @@ export const ordersApi = {
     request<{ success: true }>(`/api/orders/${id}/cancel`, { method: 'POST' }),
   receipt: (id: string, email: string) =>
     request<any>(`/api/orders/${id}/receipt`, { params: { email } }),
+  // Same PDF the admin panel downloads — attached to the confirmation
+  // email and served here for the "Download Invoice" CTA on the order
+  // confirmation + account order pages. Email required for guest access.
+  invoiceUrl: (id: string, email: string) =>
+    `${API_URL}/api/orders/${id}/invoice.pdf?email=${encodeURIComponent(email)}`,
   tracking: (id: string) =>
     request<TrackingResponse>(`/api/orders/${id}/tracking`),
   trackingByNumber: (orderNumber: string, email: string) =>
@@ -564,7 +569,7 @@ export const couponsApi = {
   validate: async (
     code: string,
     cartTotal: number,
-    cartItems?: { name: string; quantity: number }[],
+    cartItems?: { productId?: string; name: string; quantity: number }[],
   ) => {
     try {
       return await request<{ valid: boolean; discount?: number; coupon?: any; error?: string }>(

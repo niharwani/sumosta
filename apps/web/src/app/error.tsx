@@ -37,10 +37,23 @@ export default function GlobalError({
           We encountered an unexpected error. Our team has been notified. Please try again, or contact us if the issue persists.
         </p>
 
-        {error.digest && (
-          <p className="font-satoshi text-earth-light text-xs mb-6">
-            Error ID: {error.digest}
-          </p>
+        {(error.digest || error.message) && (
+          <details className="text-left bg-cream-warm border border-sand rounded-lg px-4 py-3 mb-6 text-xs font-mono text-earth">
+            <summary className="cursor-pointer font-satoshi text-earth-light select-none">
+              Details for support
+            </summary>
+            {error.digest && (
+              <p className="mt-2 break-all">Error ID: {error.digest}</p>
+            )}
+            {error.message && (
+              <p className="mt-2 break-all whitespace-pre-wrap">{error.message}</p>
+            )}
+            {error.stack && (
+              <p className="mt-2 break-all whitespace-pre-wrap opacity-70">
+                {error.stack.split('\n').slice(0, 6).join('\n')}
+              </p>
+            )}
+          </details>
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">

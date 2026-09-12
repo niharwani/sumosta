@@ -8,7 +8,7 @@ import { Check, Package, ShoppingBag, X } from 'lucide-react';
 import { STATIC_PRODUCTS } from '@/lib/content';
 import { COMBOS, defaultComboPrice } from '@/lib/gifting-combos';
 import ComboCard from '@/components/product/ComboCard';
-import { useProductImages, resolveProductImage } from '@/hooks/useProductImages';
+import { useProductImages, resolveProductImage, resolveProductStock, type D1ProductSummary } from '@/hooks/useProductImages';
 import { useCartStore } from '@/stores/cart-store';
 import { formatPrice } from '@/lib/utils';
 import { HONEY_EASE_OUT } from '@/lib/animations';
@@ -24,7 +24,7 @@ const ACTIVE_PRODUCTS = STATIC_PRODUCTS.filter(
 const CATEGORIES = [
   { label: 'All',                   categoryId: null },
   { label: 'Raw Honey',             categoryId: 'cat_raw_honey' },
-  { label: 'Gift Boxes & Combos',   categoryId: 'cat_gift_boxes' },
+  { label: 'Combos',                categoryId: 'cat_gift_boxes' },
 ] as const;
 
 const SLUG_TO_CATEGORY_ID: Record<string, string> = {
@@ -42,6 +42,7 @@ export default function ShopContent() {
   const [filterStuck, setFilterStuck] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [limitById, setLimitById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const dbImages = useProductImages();
@@ -74,9 +75,51 @@ export default function ShopContent() {
   const showProducts = categoryId !== 'cat_gift_boxes';
   const showCombos   = categoryId === null || categoryId === 'cat_gift_boxes';
 
+  // Bring admin-created (D1-only) products into the shop grid. Anything in
+  // STATIC_PRODUCTS wins on the id — the static entry has richer content
+  // (benefits, sourcing, HowTo). Only D1 entries with no static twin get
+  // adapted to the shape the card render expects.
+  //
+  // Also exclude any id we intentionally hid from ACTIVE_PRODUCTS (currently
+  // the 5 Elements Collection, which is surfaced as a Combo card instead).
+  // Without this the D1 twin — which has a slightly different slug
+  // (`the-5-elements-collection` vs the static `5-elements-collection`) —
+  // would re-appear here as a plain product card and link to a PDP that
+  // was never statically generated, triggering the error boundary.
+  const HIDDEN_STATIC_IDS = new Set(
+    STATIC_PRODUCTS.filter((p) => !p.isActive || p.comingSoon || p.slug === '5-elements-collection').map((p) => p.id),
+  );
+  const d1OnlyProducts = (() => {
+    const staticIds = new Set(ACTIVE_PRODUCTS.map((p) => p.id));
+    return dbImages.d1Products
+      .filter((p) => !staticIds.has(p.id) && !HIDDEN_STATIC_IDS.has(p.id))
+      .map((p: D1ProductSummary) => ({
+        id:              p.id,
+        slug:            p.slug,
+        sku:             '',
+        name:            p.name,
+        price:           p.price,
+        compareAtPrice:  p.compare_at_price ?? null,
+        stock:           typeof p.stock === 'number' ? p.stock : 99,
+        categoryId:      p.category_id ?? '',
+        category:        p.category_name ? { id: p.category_id ?? '', name: p.category_name, slug: p.category_slug ?? '' } : undefined,
+        shortDescription: p.short_description ?? '',
+        description:      p.short_description ?? '',
+        isFeatured:      Boolean(p.is_featured),
+        isActive:        true,
+        images:          p.primary_image
+          ? [{ id: `${p.id}-primary`, url: p.primary_image, altText: p.primary_image_alt ?? p.name, sortOrder: 1, isPrimary: true }]
+          : [],
+        variants:        [],
+        tags:            [],
+        createdAt:       p.created_at ?? new Date().toISOString(),
+        updatedAt:       p.created_at ?? new Date().toISOString(),
+      })) as unknown as typeof ACTIVE_PRODUCTS;
+  })();
+
   const filtered = (() => {
     if (!showProducts) return [];
-    let list = [...ACTIVE_PRODUCTS];
+    let list = [...ACTIVE_PRODUCTS, ...d1OnlyProducts];
     if (categoryId) list = list.filter((p) => p.categoryId === categoryId);
     if (sort === 'price_asc') list.sort((a, b) => a.price - b.price);
     if (sort === 'price_desc') list.sort((a, b) => b.price - a.price);
@@ -97,17 +140,32 @@ export default function ShopContent() {
   const activeLabel = activeCat && activeCat.categoryId ? activeCat.label : '';
 
   const handleQuickAdd = useCallback(
-    (e: React.MouseEvent, p: (typeof ACTIVE_PRODUCTS)[number]) => {
+    (e: React.MouseEvent, p: (typeof ACTIVE_PRODUCTS)[number], effectiveStock: number | null) => {
       e.preventDefault();
       e.stopPropagation();
+      if (effectiveStock === 0) return;
       const variant = p.variants?.[0] ?? null;
-      addItem(
+      const result = addItem(
         p.id,
         variant?.id ?? null,
         1,
-        { id: p.id, name: p.name, slug: p.slug, price: p.price, images: p.images ?? [], stock: p.stock ?? 99 },
+        { id: p.id, name: p.name, slug: p.slug, price: p.price, images: p.images ?? [], stock: effectiveStock ?? p.stock ?? 99 },
         variant,
       );
+      if (result.blocked || result.clamped) {
+        const msg = result.stock === 0
+          ? 'Out of stock'
+          : `Only ${result.stock ?? '0'} available`;
+        setLimitById((prev) => ({ ...prev, [p.id]: msg }));
+        setTimeout(() => {
+          setLimitById((prev) => {
+            const next = { ...prev };
+            delete next[p.id];
+            return next;
+          });
+        }, 2200);
+        return;
+      }
       setAddedId(p.id);
       setTimeout(() => setAddedId((prev) => (prev === p.id ? null : prev)), 1600);
     },
@@ -220,6 +278,8 @@ export default function ShopContent() {
                   ? (p.compareAtPrice ?? 0) + (v0 as any).compareAtPriceAdjust
                   : p.compareAtPrice;
                 const src = resolveProductImage(dbImages, p.id, p.images?.[0]?.url);
+                const effectiveStock = resolveProductStock(dbImages, p.id, p.stock);
+                const isOOS = effectiveStock === 0;
                 return (
                   <motion.div
                     key={p.id}
@@ -242,7 +302,7 @@ export default function ShopContent() {
                           hovered ? 'shadow-honey scale-[1.02]' : ''
                         }`}
                       >
-                        {p.compareAtPrice && (
+                        {p.compareAtPrice && !isOOS && (
                           <span className="absolute top-2.5 right-2.5 z-10 bg-terracotta text-terracotta-light font-satoshi text-[10px] font-bold px-2 py-0.5 rounded">
                             SALE
                           </span>
@@ -260,27 +320,53 @@ export default function ShopContent() {
                             <Package size={40} strokeWidth={1.25} aria-hidden />
                           </div>
                         )}
-                        {/* Quick Add */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleQuickAdd(e, p)}
-                          aria-label={added ? `${p.name} added` : `Quick add ${p.name} to cart`}
-                          className={`absolute inset-x-0 bottom-0 bg-honey-500 hover:bg-honey-600 text-cream font-satoshi text-xs font-bold py-3 flex items-center justify-center gap-2 transition-transform duration-300 ease-out min-h-[44px] ${
-                            hovered ? 'translate-y-0' : 'translate-y-full'
-                          }`}
-                        >
-                          {added ? (
-                            <>
-                              <Check size={13} aria-hidden />
-                              <span>Added</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingBag size={13} aria-hidden />
-                              <span>Quick Add</span>
-                            </>
-                          )}
-                        </button>
+                        {isOOS && (
+                          <div className="absolute inset-0 z-10 bg-cream/75 backdrop-blur-[1px] flex items-center justify-center">
+                            <span className="font-satoshi text-earth text-xs font-semibold uppercase tracking-[0.14em]">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
+                        {/* Quick Add — hidden when out of stock */}
+                        {!isOOS && (() => {
+                          const limitMsg = limitById[p.id];
+                          const showBar = hovered || Boolean(limitMsg);
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => handleQuickAdd(e, p, effectiveStock)}
+                              aria-label={
+                                limitMsg
+                                  ? `${p.name}: ${limitMsg}`
+                                  : added
+                                    ? `${p.name} added`
+                                    : `Quick add ${p.name} to cart`
+                              }
+                              aria-live={limitMsg ? 'polite' : undefined}
+                              className={`absolute inset-x-0 bottom-0 font-satoshi text-xs font-bold py-3 flex items-center justify-center gap-2 transition-transform duration-300 ease-out min-h-[44px] ${
+                                showBar ? 'translate-y-0' : 'translate-y-full'
+                              } ${
+                                limitMsg
+                                  ? 'bg-terracotta text-cream cursor-not-allowed'
+                                  : 'bg-honey-500 hover:bg-honey-600 text-cream'
+                              }`}
+                            >
+                              {limitMsg ? (
+                                <span>{limitMsg}</span>
+                              ) : added ? (
+                                <>
+                                  <Check size={13} aria-hidden />
+                                  <span>Added</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShoppingBag size={13} aria-hidden />
+                                  <span>Quick Add</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </div>
                       <p className="font-satoshi text-[10px] uppercase tracking-[0.14em] text-earth-light mb-1">
                         {p.category?.name ?? ''}

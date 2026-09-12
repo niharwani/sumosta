@@ -356,7 +356,7 @@ export default function AdminShippingPage() {
               {fetchPickupsMutation.isPending
                 ? <RefreshCw size={14} className="animate-spin" />
                 : <RefreshCw size={14} />}
-              Fetch available
+              Refresh Pickup Addresses
             </button>
           </div>
           <p className={helpClass}>

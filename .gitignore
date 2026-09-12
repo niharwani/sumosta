@@ -42,3 +42,12 @@ yarn-error.log*
 
 # Claude Code
 .claude/scheduled_tasks.lock
+
+# Workspace artifacts (reference PDFs, spec docs, prompt files) — not source
+*.pdf
+*.xlsx
+COMBO_IMAGE_PROMPTS.md
+SUMOSTA_PRODUCT_IMAGE_DATA.md
+hero-mobile-prompts.md
+hero1-desktop-prompt.md
+Website Changes_*.pdf

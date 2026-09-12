@@ -1,11 +1,16 @@
 'use client';
+import { Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { XCircle } from 'lucide-react';
 import { HONEY_EASE_OUT } from '@/lib/animations';
 
-export default function PaymentFailedPage() {
+function PaymentFailedInner() {
   const reduce = useReducedMotion();
+  const searchParams = useSearchParams();
+  const reason = searchParams.get('reason') ?? null;
+  const orderId = searchParams.get('orderId') ?? null;
 
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-6 text-center py-20">
@@ -28,9 +33,19 @@ export default function PaymentFailedPage() {
         <h1 className="font-clash font-bold text-charcoal text-4xl mb-3">
           Payment Failed
         </h1>
+        {reason && (
+          <p role="alert" className="font-satoshi text-terracotta text-sm mb-4 max-w-md mx-auto bg-terracotta-light rounded-lg px-4 py-2.5">
+            {reason}
+          </p>
+        )}
         <p className="font-satoshi text-bark text-base mb-2 max-w-md mx-auto">
           Your payment could not be processed. Your cart has been saved so you can retry safely.
         </p>
+        {orderId && (
+          <p className="font-satoshi text-earth-light text-xs mb-4 max-w-md mx-auto">
+            Reference: <span className="font-mono">{orderId}</span>
+          </p>
+        )}
         <p className="font-satoshi text-earth text-sm mb-10 max-w-md mx-auto">
           Please try again or contact us at{' '}
           <a href="mailto:hello@sumosta.com" className="text-honey-500 hover:text-honey-600 underline">
@@ -55,5 +70,13 @@ export default function PaymentFailedPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function PaymentFailedPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-cream" />}>
+      <PaymentFailedInner />
+    </Suspense>
   );
 }

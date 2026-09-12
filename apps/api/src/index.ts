@@ -70,6 +70,12 @@ export type Bindings = {
   SELLER_GSTIN:         string;
   SELLER_ADDRESS_BLOCK: string;  // multi-line, \n separated
   SELLER_STATE:         string;  // matched against shipping state to choose CGST/SGST vs IGST
+  SELLER_EMAIL:         string;  // shown in the invoice seller-details block
+
+  // Cloudflare Turnstile secret — used by the checkout + razorpay routes to
+  // verify the widget token the browser attaches. When empty, verification
+  // is skipped (checkout stays usable while the widget is being configured).
+  TURNSTILE_SECRET_KEY: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -147,8 +153,17 @@ app.onError((err, c) => {
   );
 });
 
-app.notFound((c) =>
-  c.json({ success: false, error: 'Not found', code: 'NOT_FOUND' }, 404),
-);
+app.notFound((c) => {
+  // Log the miss so we can trace mystery 404s (e.g. TC-Razorpay 404 debug
+  // 2026-09-12). If the browser is somehow hitting a URL that doesn't match
+  // any registered route, this line surfaces the exact method + path in
+  // `wrangler tail`.
+  console.warn('[notFound]', c.req.method, new URL(c.req.url).pathname);
+  return c.json({
+    success: false,
+    error:   `Not found: ${c.req.method} ${new URL(c.req.url).pathname}`,
+    code:    'NOT_FOUND',
+  }, 404);
+});
 
 export default app;

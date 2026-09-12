@@ -36,6 +36,13 @@ export function pluralize(count: number, singular: string, plural?: string): str
   return count === 1 ? singular : (plural ?? `${singular}s`);
 }
 
+// Indian PIN codes: 6 digits, first digit is 1–8 (postal circle number).
+// Explicitly rejects 000000, 999999, and any placeholder-shaped input that
+// would otherwise sneak past `\d{6}`.
+export function isValidIndianPincode(value: string): boolean {
+  return /^[1-8]\d{5}$/.test(value);
+}
+
 export function generateOrderId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'SUMO-';

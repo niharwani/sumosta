@@ -12,7 +12,11 @@ app.get('/', async (c) => {
   ).all();
 
   const data = { success: true, data: result.results };
-  await c.env.KV_CACHE.put('categories:all', JSON.stringify(data), { expirationTtl: 3600 });
+  try {
+    await c.env.KV_CACHE.put('categories:all', JSON.stringify(data), { expirationTtl: 3600 });
+  } catch (err) {
+    console.warn('[categories] cache write failed', err);
+  }
   return c.json(data);
 });
 

@@ -31,6 +31,19 @@ interface CartDerived {
   couponDiscounts: CouponDiscount[];
 }
 
+export interface AddItemResult {
+  /** how many units were actually added to the cart */
+  added:     number;
+  /** how many units the caller requested */
+  requested: number;
+  /** true when 0 units were added (out of stock) */
+  blocked:   boolean;
+  /** true when fewer units were added than requested (stock ceiling hit) */
+  clamped:   boolean;
+  /** known stock ceiling used to decide the outcome — null when unknown */
+  stock:     number | null;
+}
+
 interface CartActions {
   addItem: (
     productId: string,
@@ -38,7 +51,7 @@ interface CartActions {
     quantity: number,
     product: Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'images' | 'stock'>,
     variant?: ProductVariant | null,
-  ) => void;
+  ) => AddItemResult;
   removeItem: (productId: string, variantId?: string | null) => void;
   updateQuantity: (productId: string, variantId: string | null, quantity: number) => void;
   clearCart: () => void;
@@ -115,26 +128,46 @@ export const useCartStore = create<CartStore>()(
   ...DERIVED_ZERO,
 
   addItem: (productId, variantId, quantity, product, variant) => {
+    const state = get();
+    const existing = state.items.find(
+      (i) => i.productId === productId && i.variantId === (variantId ?? null),
+    );
+
+    const unitPrice = computeUnitPrice(product, variant);
+    // Server-side is still authoritative on stock, but reject client-side
+    // pushes past known stock so the shopper doesn't reach checkout only
+    // to get bounced. `undefined` stock (static catalog) falls through.
+    const maxStock = variant?.stock ?? product.stock;
+    const knownStock: number | null = typeof maxStock === 'number' ? maxStock : null;
+
+    // Fully out of stock — refuse the add. Callers surface an "Out of stock"
+    // message on the add button.
+    if (knownStock !== null && knownStock <= 0) {
+      return {
+        added: 0, requested: quantity, blocked: true, clamped: false, stock: 0,
+      };
+    }
+
+    const currentQty = existing?.quantity ?? 0;
+    const targetQty = knownStock !== null
+      ? Math.min(currentQty + quantity, knownStock)
+      : currentQty + quantity;
+    const added = targetQty - currentQty;
+    const clamped = knownStock !== null && added < quantity;
+
+    // Nothing new to add (cart already at ceiling) — bail without mutating.
+    if (added <= 0) {
+      return {
+        added: 0, requested: quantity, blocked: true, clamped: true, stock: knownStock,
+      };
+    }
+
     set((state) => {
-      const existing = state.items.find(
-        (i) => i.productId === productId && i.variantId === (variantId ?? null),
-      );
-
-      const unitPrice = computeUnitPrice(product, variant);
-      // Server-side is still authoritative on stock, but reject client-side
-      // pushes past known stock so the shopper doesn't reach checkout only
-      // to get bounced. `undefined` stock (static catalog) falls through.
-      const maxStock = variant?.stock ?? product.stock;
-      if (typeof maxStock === 'number' && maxStock <= 0) return state;
       let newItems: CartItem[];
-
       if (existing) {
-        const newQty = typeof maxStock === 'number'
-          ? Math.min(existing.quantity + quantity, maxStock)
-          : existing.quantity + quantity;
         newItems = state.items.map((i) =>
           i.productId === productId && i.variantId === (variantId ?? null)
-            ? { ...i, quantity: newQty, lineTotal: unitPrice * newQty }
+            ? { ...i, quantity: targetQty, lineTotal: unitPrice * targetQty }
             : i,
         );
       } else {
@@ -143,9 +176,9 @@ export const useCartStore = create<CartStore>()(
           variantId: variantId ?? null,
           product,
           variant: variant ?? null,
-          quantity,
+          quantity: targetQty,
           unitPrice,
-          lineTotal: unitPrice * quantity,
+          lineTotal: unitPrice * targetQty,
         };
         newItems = [...state.items, newItem];
       }
@@ -158,13 +191,15 @@ export const useCartStore = create<CartStore>()(
             variantId: variantId ?? null,
             productName: product.name,
             price:       unitPrice,
-            quantity,
+            quantity:    added,
           });
         }).catch(() => { /* non-blocking */ });
       }
 
       return { items: newItems, ...computeDerived(newItems, state.coupons) };
     });
+
+    return { added, requested: quantity, blocked: false, clamped, stock: knownStock };
   },
 
   removeItem: (productId, variantId) => {
@@ -184,14 +219,15 @@ export const useCartStore = create<CartStore>()(
           });
         }).catch(() => { /* non-blocking */ });
       }
-      // Auto-remove COMBO10 if only 1 unique honey remains (bundles like 5-elements always qualify)
-      const BUNDLE_IDS = ['prod_trial_box_60g'];
-      const hasBundleItem = newItems.some((i) => BUNDLE_IDS.includes(i.productId));
-      const uniqueNonBundleIds = new Set(
-        newItems.filter((i) => !BUNDLE_IDS.includes(i.productId)).map((i) => i.productId),
-      );
+      // Auto-remove COMBO10 if the cart no longer qualifies. The 5 Elements
+      // Collection is EXCLUDED from combo eligibility (single low-priced SKU
+      // per client rule), so it doesn't count toward the 2-item threshold.
+      const COMBO10_EXCLUDED_IDS = ['prod_trial_box_60g'];
+      const eligibleQty = newItems
+        .filter((i) => !COMBO10_EXCLUDED_IDS.includes(i.productId))
+        .reduce((s, i) => s + i.quantity, 0);
       let newCoupons = state.coupons;
-      if (!hasBundleItem && uniqueNonBundleIds.size <= 1) {
+      if (eligibleQty < 2) {
         newCoupons = state.coupons.filter((c) => c.code !== 'COMBO10');
       }
       return { items: newItems, coupons: newCoupons, ...computeDerived(newItems, newCoupons) };
@@ -242,8 +278,17 @@ export const useCartStore = create<CartStore>()(
       // Only persist items + coupons; isOpen is UI state, derived values are recomputed.
       partialize: (state) => ({ items: state.items, coupons: state.coupons }),
       // Recompute derived totals after hydration so shipping/discount/total are consistent.
+      // Also strip COMBO10 if the persisted cart no longer qualifies — protects
+      // users whose cart was saved before the 5-Elements exclusion rule shipped.
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        const COMBO10_EXCLUDED_IDS = ['prod_trial_box_60g'];
+        const eligibleQty = state.items
+          .filter((i) => !COMBO10_EXCLUDED_IDS.includes(i.productId))
+          .reduce((s, i) => s + i.quantity, 0);
+        if (eligibleQty < 2 && state.coupons.some((c) => c.code === 'COMBO10')) {
+          state.coupons = state.coupons.filter((c) => c.code !== 'COMBO10');
+        }
         const derived = computeDerived(state.items, state.coupons);
         Object.assign(state, derived);
       },

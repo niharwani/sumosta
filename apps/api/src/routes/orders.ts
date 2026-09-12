@@ -83,7 +83,7 @@ app.get('/:id/invoice.pdf', async (c) => {
   const order = await c.env.DB.prepare(`
     SELECT
       o.id, o.order_number, o.user_id, o.guest_email,
-      o.payment_status, o.payment_method,
+      o.payment_status, o.payment_method, o.razorpay_payment_id,
       o.shipping_name, o.shipping_phone,
       o.shipping_address_line1, o.shipping_address_line2,
       o.shipping_city, o.shipping_state, o.shipping_pincode,
@@ -94,6 +94,7 @@ app.get('/:id/invoice.pdf', async (c) => {
   `).bind(orderId).first<{
     id: string; order_number: string; user_id: string | null; guest_email: string | null;
     payment_status: string; payment_method: string | null;
+    razorpay_payment_id: string | null;
     shipping_name: string; shipping_phone: string | null;
     shipping_address_line1: string; shipping_address_line2: string | null;
     shipping_city: string; shipping_state: string; shipping_pincode: string;
@@ -132,11 +133,13 @@ app.get('/:id/invoice.pdf', async (c) => {
     sellerGstin:        c.env.SELLER_GSTIN         || null,
     sellerAddressBlock: c.env.SELLER_ADDRESS_BLOCK || null,
     sellerState:        c.env.SELLER_STATE         || null,
+    sellerEmail:        c.env.SELLER_EMAIL         || null,
     placeOfSupply:      order.shipping_state,
     orderNumber:          order.order_number,
     createdAt:            order.created_at ?? new Date().toISOString(),
     paymentStatus:        order.payment_status,
     paymentMethod:        order.payment_method,
+    razorpayPaymentId:    order.razorpay_payment_id,
     couponCode:           order.coupon_code,
     trackingNumber:       order.tracking_number,
     shippingName:         order.shipping_name,
@@ -545,9 +548,13 @@ async function fetchTrackingForOrder(
     }
 
     const shaped = shapeTracking(data, order.tracking_url);
-    await env.KV_CACHE.put(cacheKey, JSON.stringify(shaped), {
-      expirationTtl: TRACKING_CACHE_TTL,
-    });
+    try {
+      await env.KV_CACHE.put(cacheKey, JSON.stringify(shaped), {
+        expirationTtl: TRACKING_CACHE_TTL,
+      });
+    } catch (err) {
+      console.warn('[orders/track] cache write failed', err);
+    }
 
     // Sync latest status back to the order row so admin UI and list views
     // reflect the current state without needing a Shiprocket call.

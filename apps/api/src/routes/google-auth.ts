@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import type { Bindings } from '../index';
 import { signJwt, generateRefreshToken } from '../lib/jwt';
-import { generateId } from '../lib/utils';
+import { generateId, safeKvPut } from '../lib/utils';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -214,12 +214,20 @@ app.get('/callback', async (c) => {
     );
     const refreshToken = generateRefreshToken();
 
-    await c.env.KV_SESSIONS.put(`refresh:${user.id}:${refreshToken}`, user.id, {
-      expirationTtl: REFRESH_TOKEN_TTL,
-    });
-    await c.env.KV_SESSIONS.put(`rt_lookup:${refreshToken}`, user.id, {
-      expirationTtl: REFRESH_TOKEN_TTL,
-    });
+    await safeKvPut(
+      c.env.KV_SESSIONS,
+      `refresh:${user.id}:${refreshToken}`,
+      user.id,
+      { expirationTtl: REFRESH_TOKEN_TTL },
+      'google-auth/refresh',
+    );
+    await safeKvPut(
+      c.env.KV_SESSIONS,
+      `rt_lookup:${refreshToken}`,
+      user.id,
+      { expirationTtl: REFRESH_TOKEN_TTL },
+      'google-auth/rt-lookup',
+    );
 
     // ── Mint one-time exchange code (60s) ──
     const exchangeCode = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, '');
@@ -236,9 +244,19 @@ app.get('/callback', async (c) => {
       },
     });
 
-    await c.env.KV_SESSIONS.put(`oauth_exchange:${exchangeCode}`, exchangePayload, {
-      expirationTtl: OAUTH_EXCHANGE_TTL,
-    });
+    // Exchange code is load-bearing — if the KV write fails the client
+    // callback can't fetch the session, so redirect to login with a
+    // legible error rather than an infinite spinner.
+    const exchangeWritten = await safeKvPut(
+      c.env.KV_SESSIONS,
+      `oauth_exchange:${exchangeCode}`,
+      exchangePayload,
+      { expirationTtl: OAUTH_EXCHANGE_TTL },
+      'google-auth/exchange',
+    );
+    if (!exchangeWritten) {
+      return c.redirect(`${c.env.BASE_URL}/auth/login?error=google_failed`);
+    }
 
     const params = new URLSearchParams({
       code: exchangeCode,

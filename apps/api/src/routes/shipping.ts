@@ -11,6 +11,7 @@ import type { Bindings } from '../index';
 import { ShiprocketService, isShiprocketConfigured } from '../services/shiprocket';
 import { sendOrderShipped, sendOrderDelivered } from '../services/email';
 import { recordOrderStatusHistory } from '../lib/order-history';
+import { isKnownNonServiceablePincode } from '../lib/utils';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -32,12 +33,34 @@ app.get('/serviceability', async (c) => {
   const weight  = Number(c.req.query('weight') ?? '0.5');
   const cod     = c.req.query('cod') === '1';
 
-  if (!/^\d{6}$/.test(pincode)) {
+  // Indian PIN codes are 6 digits with a first digit of 1–8 (postal circle).
+  // Rejects 000000 / 999999 and other placeholder-shaped inputs that would
+  // otherwise slip past a raw `\d{6}` match.
+  if (!/^[1-8]\d{5}$/.test(pincode)) {
     return c.json({
       success: false,
       error:   'Invalid pincode',
       code:    'INVALID_PINCODE',
     }, 400);
+  }
+
+  // Hard block for pincodes we know we can't fulfill from our current pickup
+  // network (Andaman & Nicobar, Lakshadweep). Runs before Shiprocket so the
+  // buyer is warned even when Shiprocket fails open due to missing pickup
+  // config or an outage.
+  if (isKnownNonServiceablePincode(pincode)) {
+    return c.json({
+      success: true,
+      data: {
+        serviceable:       false,
+        cod_available:     false,
+        prepaid_available: false,
+        etd_days:          null,
+        courier_name:      null,
+        freight_charge:    null,
+        source:            'non_serviceable',
+      },
+    });
   }
 
   // Missing credentials → fail open so checkout still works. Serviceable=true

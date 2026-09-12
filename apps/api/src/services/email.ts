@@ -376,6 +376,83 @@ export async function sendOrderDelivered(
   );
 }
 
+// ── Refund confirmation ─────────────────────────────────────
+interface RefundEmailData {
+  orderNumber:    string;
+  recipientEmail: string;
+  recipientName:  string;
+  amount:         number;   // rupees (already refunded)
+  isFullRefund:   boolean;
+  refundId:       string;   // Razorpay rfnd_XXX
+  reason:         string;
+}
+
+function buildRefundHtml(d: RefundEmailData): string {
+  const amountLine = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(d.amount);
+  const headline = d.isFullRefund ? 'Your refund is on the way' : 'A partial refund has been issued';
+  const banner   = d.isFullRefund ? '#FDE8E3' : '#FFF0D6';
+  const bannerBorder = d.isFullRefund ? '#C4573A' : '#FFCC66';
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Refund — SUMOSTA</title></head>
+<body style="margin:0;padding:0;background:#FFFDF8;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFDF8;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(44,36,23,0.08);">
+        <tr><td style="background:#1A150E;padding:32px 40px;text-align:center;">
+          <h1 style="margin:0;color:#F5A623;font-size:28px;letter-spacing:0.05em;">SUMOSTA</h1>
+        </td></tr>
+        <tr><td style="background:${banner};padding:24px 40px;text-align:center;border-bottom:2px solid ${bannerBorder};">
+          <h2 style="margin:0 0 4px;color:#2C2417;font-size:22px;">${headline}</h2>
+          <p style="margin:0;color:#8B7355;font-size:14px;">Order ${d.orderNumber}</p>
+        </td></tr>
+        <tr><td style="padding:32px 40px;">
+          <p style="margin:0 0 16px;color:#5C4A32;font-size:15px;line-height:1.6;">
+            Hi ${d.recipientName}, we've initiated a refund of <strong>${amountLine}</strong> to your original payment method.
+          </p>
+          <p style="margin:0 0 20px;color:#8B7355;font-size:14px;line-height:1.5;">
+            Bank refunds typically settle in 5–7 business days depending on your issuer.
+          </p>
+          <div style="background:#FFF9F0;border:1px solid #F0E6D3;border-radius:8px;padding:16px;margin-bottom:24px;">
+            <p style="margin:0 0 4px;color:#8B7355;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Refund reference</p>
+            <p style="margin:0 0 12px;color:#2C2417;font-size:14px;font-family:monospace;">${d.refundId}</p>
+            <p style="margin:0 0 4px;color:#8B7355;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Reason</p>
+            <p style="margin:0;color:#5C4A32;font-size:13px;">${escapeHtml(d.reason)}</p>
+          </div>
+          <p style="margin:0;color:#8B7355;font-size:13px;line-height:1.5;">
+            Questions? Reply to this email or reach us at
+            <a href="mailto:support@sumosta.com" style="color:#F5A623;">support@sumosta.com</a>.
+          </p>
+        </td></tr>
+        <tr><td style="background:#FFF9F0;padding:20px 40px;text-align:center;border-top:1px solid #F0E6D3;">
+          <p style="margin:0;color:#C4B39A;font-size:12px;">© ${new Date().getFullYear()} SUMOSTA. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+export async function sendRefundConfirmation(
+  data: RefundEmailData,
+  apiKey: string,
+  fromAddress: string = 'SUMOSTA <orders@sumosta.com>',
+  replyTo?: string | null,
+): Promise<boolean> {
+  const subject = data.isFullRefund
+    ? `Refund initiated for order ${data.orderNumber} — SUMOSTA`
+    : `Partial refund for order ${data.orderNumber} — SUMOSTA`;
+  return sendResendEmail(
+    data.recipientEmail,
+    subject,
+    buildRefundHtml(data),
+    apiKey,
+    fromAddress,
+    replyTo,
+  );
+}
+
 function buildPasswordResetText(resetUrl: string): string {
   return [
     'Reset Your SUMOSTA Password',

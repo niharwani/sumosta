@@ -61,17 +61,25 @@ export default function AdminOrderDetailPage() {
       if (!res.ok || json?.success === false) {
         throw new Error(json?.error ?? `Update failed (${res.status})`);
       }
-      return json;
+      return { json, submittedStatus: status };
     },
-    onSuccess: (json) => {
+    onSuccess: ({ json, submittedStatus }) => {
       qc.invalidateQueries({ queryKey: ['admin-order', id] });
       qc.invalidateQueries({ queryKey: ['admin-order-history', id] });
-      // Cancelled/refunded transitions can push stock back onto products; keep
-      // the products list + dashboard low-stock widget in sync without a reload.
-      if (json?.data?.stockRestored) {
-        qc.invalidateQueries({ queryKey: ['admin-products'] });
-        qc.invalidateQueries({ queryKey: ['admin-product'] });
-        qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      // Any transition into cancelled/refunded may have pushed stock back;
+      // force-refetch products + dashboard even when they're not currently
+      // mounted so the admin sees fresh numbers as soon as they navigate.
+      // Trust the client-visible status change over the server flag — if the
+      // server reports stockRestored we know for sure, but we also cover the
+      // case where the response shape changed or the flag is dropped in
+      // transit. Cost of an extra invalidate is one D1 query.
+      const restored = Boolean(json?.data?.stockRestored)
+        || submittedStatus === 'cancelled'
+        || submittedStatus === 'refunded';
+      if (restored) {
+        qc.invalidateQueries({ queryKey: ['admin-products'], refetchType: 'all' });
+        qc.invalidateQueries({ queryKey: ['admin-product'], refetchType: 'all' });
+        qc.invalidateQueries({ queryKey: ['admin-dashboard'], refetchType: 'all' });
       }
     },
   });
@@ -115,11 +123,11 @@ export default function AdminOrderDetailPage() {
       setRefundError(null);
       qc.invalidateQueries({ queryKey: ['admin-order', id] });
       qc.invalidateQueries({ queryKey: ['admin-order-history', id] });
-      if (json?.data?.stockRestored) {
-        qc.invalidateQueries({ queryKey: ['admin-products'] });
-        qc.invalidateQueries({ queryKey: ['admin-product'] });
-        qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
-      }
+      // Refunds nearly always restore stock (full refund) — invalidate
+      // proactively rather than gating on the server flag.
+      qc.invalidateQueries({ queryKey: ['admin-products'], refetchType: 'all' });
+      qc.invalidateQueries({ queryKey: ['admin-product'], refetchType: 'all' });
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'], refetchType: 'all' });
     },
     onError: (err: unknown) => {
       setRefundError(err instanceof Error ? err.message : 'Refund failed');

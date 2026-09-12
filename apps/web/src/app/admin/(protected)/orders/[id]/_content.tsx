@@ -63,9 +63,16 @@ export default function AdminOrderDetailPage() {
       }
       return json;
     },
-    onSuccess: () => {
+    onSuccess: (json) => {
       qc.invalidateQueries({ queryKey: ['admin-order', id] });
       qc.invalidateQueries({ queryKey: ['admin-order-history', id] });
+      // Cancelled/refunded transitions can push stock back onto products; keep
+      // the products list + dashboard low-stock widget in sync without a reload.
+      if (json?.data?.stockRestored) {
+        qc.invalidateQueries({ queryKey: ['admin-products'] });
+        qc.invalidateQueries({ queryKey: ['admin-product'] });
+        qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      }
     },
   });
 
@@ -101,13 +108,18 @@ export default function AdminOrderDetailPage() {
       }
       return json;
     },
-    onSuccess: () => {
+    onSuccess: (json) => {
       setRefundOpen(false);
       setRefundAmount('');
       setRefundReason('');
       setRefundError(null);
       qc.invalidateQueries({ queryKey: ['admin-order', id] });
       qc.invalidateQueries({ queryKey: ['admin-order-history', id] });
+      if (json?.data?.stockRestored) {
+        qc.invalidateQueries({ queryKey: ['admin-products'] });
+        qc.invalidateQueries({ queryKey: ['admin-product'] });
+        qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      }
     },
     onError: (err: unknown) => {
       setRefundError(err instanceof Error ? err.message : 'Refund failed');
@@ -300,11 +312,35 @@ export default function AdminOrderDetailPage() {
         )}
         {(order.payment_status === 'refunded' || order.payment_status === 'partially_refunded') && (
           <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-            <p className="font-satoshi text-red-700 text-sm font-medium">
+            <p className="font-satoshi text-red-700 text-sm font-medium mb-2">
               {order.payment_status === 'refunded'
                 ? 'This order has been fully refunded.'
                 : 'This order has been partially refunded.'}
             </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-satoshi">
+              {order.refunded_amount != null && (
+                <div>
+                  <p className="text-red-500 mb-0.5">Refunded amount</p>
+                  <p className="text-red-800 font-semibold">
+                    ₹{Number(order.refunded_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+              {order.razorpay_refund_id && (
+                <div>
+                  <p className="text-red-500 mb-0.5">Razorpay refund id</p>
+                  <p className="text-red-800 font-mono">{order.razorpay_refund_id}</p>
+                </div>
+              )}
+              {order.refunded_at && (
+                <div>
+                  <p className="text-red-500 mb-0.5">Refunded at</p>
+                  <p className="text-red-800">
+                    {new Date(order.refunded_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN')}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -323,7 +359,7 @@ export default function AdminOrderDetailPage() {
                 title={order.awb_code ? 'Force-reassign AWB' : 'Create Shiprocket shipment for this order'}
               >
                 <RotateCcw size={12} />
-                {retryShipmentMutation.isPending ? 'Retrying…' : order.awb_code ? 'Reassign AWB' : 'Create shipment'}
+                {retryShipmentMutation.isPending ? 'Assigning…' : order.awb_code ? 'Reassign AWB' : 'Assign AWB'}
               </button>
               {order.awb_code && (
                 <button

@@ -345,8 +345,6 @@ export default function CheckoutPage() {
     }
     if (typeof window === 'undefined') return;
 
-    window.onTurnstileVerify = (token: string) => setTurnstileToken(token);
-
     const tryRender = () => {
       if (turnstileMounted.current) return;
       const el = document.getElementById('cf-turnstile');
@@ -354,7 +352,9 @@ export default function CheckoutPage() {
         try {
           window.turnstile.render(el, {
             sitekey: turnstileSiteKey,
-            callback: 'onTurnstileVerify',
+            callback: (token: string) => setTurnstileToken(token),
+            'expired-callback': () => setTurnstileToken(null),
+            'error-callback': () => setTurnstileToken(null),
             theme: 'light',
           });
           turnstileMounted.current = true;
@@ -631,13 +631,14 @@ export default function CheckoutPage() {
       }
       return;
     }
-    const { orderId, razorpayOrderId, amount, currency } = created.data as {
-      orderId: string; razorpayOrderId: string; amount: number; currency: string;
+    const { orderId, razorpayOrderId, amount, currency, keyId: backendKeyId } = created.data as {
+      orderId: string; razorpayOrderId: string; amount: number; currency: string; keyId?: string;
     };
+    const effectiveKeyId = backendKeyId || keyId;
 
     await new Promise<void>((resolve) => {
       const rzp = new window.Razorpay({
-        key:       keyId,
+        key:       effectiveKeyId,
         amount,
         currency,
         name:      'SUMOSTA',
@@ -812,7 +813,7 @@ export default function CheckoutPage() {
     <div className="bg-cream min-h-screen">
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       {turnstileSiteKey && (
-        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" />
       )}
       <div className="max-w-[1100px] mx-auto px-6 md:px-8 pt-8 pb-24">
         {/* Back */}
@@ -1241,7 +1242,7 @@ export default function CheckoutPage() {
               {/* Turnstile widget */}
               {turnstileSiteKey && (
                 <div className="mb-3">
-                  <div id="cf-turnstile" className="cf-turnstile" />
+                  <div id="cf-turnstile" />
                 </div>
               )}
 

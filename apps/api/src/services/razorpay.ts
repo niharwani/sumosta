@@ -6,6 +6,17 @@
 
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v1';
 
+// btoa() throws on chars outside Latin1 (0–255). Secrets piped through
+// PowerShell or copied with stray whitespace/BOM can land outside that
+// range. TextEncoder gives us raw UTF-8 bytes we can map into Latin1
+// safely, and we trim leading/trailing whitespace first for good measure.
+function toBase64(input: string): string {
+  const bytes = new TextEncoder().encode(input.trim());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
 interface CreateOrderResponse {
   id:        string;
   entity:    'order';
@@ -80,7 +91,7 @@ export class RazorpayService {
       notes:    params.notes ?? {},
     };
 
-    const authHeader = 'Basic ' + btoa(`${this.keyId}:${this.keySecret}`);
+    const authHeader = 'Basic ' + toBase64(`${this.keyId}:${this.keySecret}`);
     const res = await fetch(`${RAZORPAY_API_BASE}/orders`, {
       method:  'POST',
       headers: {
@@ -145,7 +156,7 @@ export class RazorpayService {
 
     const headers: Record<string, string> = {
       'Content-Type':  'application/json',
-      'Authorization': 'Basic ' + btoa(`${this.keyId}:${this.keySecret}`),
+      'Authorization': 'Basic ' + toBase64(`${this.keyId}:${this.keySecret}`),
     };
     if (params.idempotencyKey) headers['X-Payment-Idempotency-Key'] = params.idempotencyKey;
 
